@@ -59,7 +59,8 @@ class StationListAdmin(admin.ModelAdmin):
     get_station_name_link.admin_order_field = 'station_profile__station_name'
     
     def card_count(self, obj):
-        count = StationCardMapping.objects.filter(station=obj, is_active=True).count()
+        # TID가 있는 카드 매핑 수를 반환
+        count = StationCardMapping.objects.filter(tid__isnull=False).count()
         return f'{count}장'
     card_count.short_description = '등록 카드 수'
     
@@ -76,8 +77,9 @@ class StationListAdmin(admin.ModelAdmin):
     
     def station_cards_view(self, request, station_id):
         station = get_object_or_404(CustomUser, id=station_id, user_type='STATION')
+        # TID가 있는 카드 매핑만 조회
         cards = StationCardMapping.objects.filter(
-            station=station
+            tid__isnull=False
         ).select_related('card').order_by('-registered_at')
         
         # 통계 정보 계산
@@ -137,40 +139,23 @@ class StationListAdmin(admin.ModelAdmin):
 
 @admin.register(PointCard)
 class PointCardAdmin(admin.ModelAdmin):
-    list_display = ('number', 'is_used', 'status_display', 'registered_stations_display', 'created_at')
-    list_filter = ('is_used', 'created_at', 'stationcardmapping__station', 'stationcardmapping__is_active')
-    search_fields = ('number', 'stationcardmapping__station__username', 'stationcardmapping__station__station_profile__station_name')
+    list_display = ('number', 'is_used', 'status_display', 'tid_display', 'created_at')
+    list_filter = ('is_used', 'created_at')
+    search_fields = ('number', 'tid')
     readonly_fields = ('created_at',)
     list_per_page = 50
     actions = ['mark_as_used', 'mark_as_unused', 'bulk_delete_unused']
-    inlines = [StationCardMappingInline]
     
     fieldsets = (
         ('카드 정보', {
-            'fields': ('number', 'is_used', 'created_at')
+            'fields': ('number', 'is_used', 'tid', 'created_at')
         }),
     )
     
-    def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related(
-            'stationcardmapping_set__station__station_profile'
-        )
-    
-    def registered_stations_display(self, obj):
-        """등록된 주유소 목록을 표시"""
-        stations = obj.stationcardmapping_set.filter(is_active=True).select_related('station__station_profile')
-        if not stations:
-            return "미등록"
-        
-        links = []
-        for mapping in stations:
-            station = mapping.station
-            station_name = station.station_profile.station_name if hasattr(station, 'station_profile') else station.username
-            url = reverse('admin:Cust_User_customuser_change', args=[station.id])
-            links.append(f'<a href="{url}">{station_name}</a>')
-        
-        return mark_safe(', '.join(links))
-    registered_stations_display.short_description = '등록된 주유소'
+    def tid_display(self, obj):
+        """TID 정보를 표시"""
+        return obj.tid or '미설정'
+    tid_display.short_description = 'TID'
     
     def status_display(self, obj):
         """사용 상태를 시각적으로 표시"""
@@ -206,20 +191,14 @@ class PointCardAdmin(admin.ModelAdmin):
 
 @admin.register(StationCardMapping)
 class StationCardMappingAdmin(admin.ModelAdmin):
-    list_display = ('card_number', 'station_name', 'is_active', 'registered_at')
-    list_filter = ('is_active', 'registered_at', 'station')
-    search_fields = ('card__number', 'station__username', 'station__stationprofile__station_name')
+    list_display = ('card', 'tid', 'is_active', 'registered_at')
+    list_filter = ('is_active', 'registered_at')
+    search_fields = ('card__number', 'tid')
     readonly_fields = ('registered_at',)
-    list_per_page = 50
-    date_hierarchy = 'registered_at'
+    raw_id_fields = ('card',)
     
-    def card_number(self, obj):
-        url = reverse('admin:Cust_StationApp_pointcard_change', args=[obj.card.id])
-        return mark_safe(f'<a href="{url}">{obj.card.number}</a>')
-    card_number.short_description = '카드번호'
-    
-    def station_name(self, obj):
-        station_name = obj.station.stationprofile.station_name if hasattr(obj.station, 'stationprofile') else obj.station.username
-        url = reverse('admin:Cust_User_customuser_change', args=[obj.station.id])
-        return mark_safe(f'<a href="{url}">{station_name}</a>')
-    station_name.short_description = '주유소'
+    fieldsets = (
+        ('매핑 정보', {
+            'fields': ('card', 'tid', 'is_active', 'registered_at')
+        }),
+    )

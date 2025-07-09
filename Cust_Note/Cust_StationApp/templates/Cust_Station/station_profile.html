@@ -30,6 +30,11 @@
                             <input type="text" class="form-control" id="business_number" name="business_number" value="{{ business_number }}" required>
                         </div>
                         <div class="mb-3">
+                            <label for="tid" class="form-label">단말기 번호(TID)</label>
+                            <input type="text" class="form-control" id="tid" name="tid" value="{{ tid }}" maxlength="20">
+                            <div class="form-text">카드 결제 단말기 번호를 입력하세요</div>
+                        </div>
+                        <div class="mb-3">
                             <label for="oil_company_code" class="form-label">정유사 코드</label>
                             <input type="text" class="form-control" id="oil_company_code" name="oil_company_code" value="{{ oil_company_code }}" maxlength="1" required>
                             <div class="form-text">1자리 숫자</div>
@@ -38,11 +43,6 @@
                             <label for="agency_code" class="form-label">대리점 코드</label>
                             <input type="text" class="form-control" id="agency_code" name="agency_code" value="{{ agency_code }}" maxlength="3" required>
                             <div class="form-text">3자리 숫자</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="station_code" class="form-label">주유소 코드</label>
-                            <input type="text" class="form-control" id="station_code" name="station_code" value="{{ station_code }}" maxlength="12" required>
-                            <div class="form-text">12자리 숫자</div>
                         </div>
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary">저장</button>

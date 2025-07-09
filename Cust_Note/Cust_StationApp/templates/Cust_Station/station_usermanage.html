@@ -412,17 +412,27 @@
                     <div class="card-body">
                         <form id="card-registration-form" onsubmit="registerCard(event)">
                             {% csrf_token %}
-                            <div class="input-group">
+                            <div class="mb-3">
+                                <label for="card-number" class="form-label">카드번호</label>
                                 <input type="text" 
                                        id="card-number" 
                                        class="form-control" 
                                        placeholder="멤버십 카드 번호 입력 (16자리)" 
                                        maxlength="16" 
                                        required>
-                                <button type="submit" 
-                                        class="btn btn-primary" 
-                                        style="margin-top: -5px;">
-                                    등록
+                            </div>
+                            <div class="mb-3">
+                                <label for="tid" class="form-label">주유소 TID</label>
+                                <input type="text" 
+                                       id="tid" 
+                                       class="form-control" 
+                                       placeholder="주유소 TID 입력" 
+                                       maxlength="50">
+                                <div class="form-text">주유소 TID가 있는 경우 입력해주세요.</div>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-plus-circle me-1"></i>카드 등록
                                 </button>
                             </div>
                         </form>
@@ -466,6 +476,81 @@ document.addEventListener('DOMContentLoaded', function() {
     if (window.isEventListenerRegistered) {
         console.log('Event listeners already registered, skipping...');
         return;
+    }
+    
+    // 고객 등록 모달 이벤트 설정
+    const registrationModal = document.getElementById('customerRegistrationModal');
+    if (registrationModal) {
+        // 모달이 열릴 때 초기화
+        registrationModal.addEventListener('show.bs.modal', function() {
+            console.log('Registration modal opening');
+            // 카드번호가 이미 선택되어 있다면 초기화하지 않음
+            if (!document.getElementById('card_number').value) {
+                const form = this.querySelector('#customerRegistrationForm');
+                const phoneCheckResult = this.querySelector('#phoneCheckResult');
+                if (form) form.reset();
+                if (phoneCheckResult) phoneCheckResult.style.display = 'none';
+            }
+        });
+
+        // 모달이 닫힐 때 정리
+        registrationModal.addEventListener('hidden.bs.modal', function() {
+            console.log('Registration modal closing');
+            // 완전히 새로운 등록을 시작할 때만 초기화
+            if (!document.getElementById('card_number').value) {
+                const form = this.querySelector('#customerRegistrationForm');
+                const phoneCheckResult = this.querySelector('#phoneCheckResult');
+                if (form) {
+                    form.reset();
+                    const submitButton = form.querySelector('button[type="submit"]');
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = '<i class="fas fa-user-plus me-1"></i>고객 등록';
+                    }
+                }
+                if (phoneCheckResult) phoneCheckResult.style.display = 'none';
+            }
+            
+            // backdrop 제거
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('padding-right');
+        });
+    }
+
+    // 카드 관리 모달 이벤트 설정
+    const cardManageModal = document.getElementById('cardManageModal');
+    if (cardManageModal) {
+        // 모달이 열릴 때 초기화
+        cardManageModal.addEventListener('show.bs.modal', function() {
+            console.log('Card manage modal opening');
+            const cardsList = this.querySelector('#unusedCardsList');
+            if (cardsList) {
+                cardsList.innerHTML = `
+                    <li class="list-group-item text-center">
+                        <i class="fas fa-spinner fa-spin me-2"></i>카드 목록을 불러오는 중...
+                    </li>
+                `;
+            }
+        });
+
+        // 모달이 닫힐 때 정리
+        cardManageModal.addEventListener('hidden.bs.modal', function() {
+            console.log('Card manage modal closing');
+            // 고객 등록 모달이 열려있는 경우에는 카드 목록을 초기화하지 않음
+            const registerModal = document.getElementById('customerRegistrationModal');
+            if (!registerModal.classList.contains('show')) {
+                const cardsList = this.querySelector('#unusedCardsList');
+                if (cardsList) {
+                    cardsList.innerHTML = `
+                        <li class="list-group-item text-center">
+                            <i class="fas fa-info-circle me-1"></i>새로고침을 눌러 카드 목록을 조회하세요.
+                        </li>
+                    `;
+                }
+            }
+        });
     }
     
     // 고객 등록 폼 제출 이벤트 리스너 설정
@@ -563,10 +648,13 @@ function openCardSelectionModal() {
                     li.className = 'list-group-item d-flex justify-content-between align-items-center';
                     li.innerHTML = `
                         <div>
-                            <span class="card-number font-monospace">${card.number}</span>
-                            <small class="text-muted ms-2">${card.created_at}</small>
+                            <div class="d-flex align-items-center">
+                                <span class="card-number font-monospace">${card.number}</span>
+                                ${card.tid ? `<span class="badge bg-info ms-2">TID: ${card.tid}</span>` : ''}
+                            </div>
+                            <small class="text-muted">${card.created_at}</small>
                         </div>
-                        <button class="btn btn-sm btn-outline-primary" onclick="selectCard('${card.number}')">
+                        <button class="btn btn-sm btn-outline-primary" onclick="selectCard('${card.number}', '${card.tid || ''}')">
                             <i class="fas fa-check me-1"></i>선택
                         </button>
                     `;
@@ -600,8 +688,19 @@ function openCardSelectionModal() {
 }
 
 // 멤버십 카드 선택 처리
-function selectCard(cardNumber) {
+function selectCard(cardNumber, tid) {
+    // 현재 전화번호 값 저장
+    const phoneNumber = document.getElementById('phone').value;
+    const phoneCheckResult = document.getElementById('phoneCheckResult').innerHTML;
+    
     document.getElementById('card_number').value = cardNumber;
+    if (tid) {
+        // TID 정보가 있는 경우 표시
+        const cardInfo = document.createElement('small');
+        cardInfo.className = 'text-muted d-block mt-1';
+        cardInfo.innerHTML = `TID: ${tid}`;
+        document.getElementById('card_number').parentNode.appendChild(cardInfo);
+    }
     
     // 카드 관리 모달 닫기
     const cardModal = bootstrap.Modal.getInstance(document.getElementById('cardManageModal'));
@@ -614,32 +713,19 @@ function selectCard(cardNumber) {
     if (!registerModal.classList.contains('show')) {
         const modal = new bootstrap.Modal(registerModal);
         modal.show();
+        
+        // 모달이 완전히 표시된 후 전화번호 값 복원
+        registerModal.addEventListener('shown.bs.modal', function onModalShown() {
+            document.getElementById('phone').value = phoneNumber;
+            document.getElementById('phoneCheckResult').innerHTML = phoneCheckResult;
+            // 이벤트 리스너 제거 (한 번만 실행되도록)
+            registerModal.removeEventListener('shown.bs.modal', onModalShown);
+        });
+    } else {
+        // 이미 열려있는 경우 전화번호 값 복원
+        document.getElementById('phone').value = phoneNumber;
+        document.getElementById('phoneCheckResult').innerHTML = phoneCheckResult;
     }
-}
-
-// 모달 닫힘 이벤트 리스너 설정
-const customerRegistrationModal = document.getElementById('customerRegistrationModal');
-if (customerRegistrationModal) {
-    customerRegistrationModal.addEventListener('hidden.bs.modal', function() {
-        console.log('Register modal closed, cleaning up');
-        
-        // 카드 관리 모달도 함께 닫기
-        const cardModal = bootstrap.Modal.getInstance(document.getElementById('cardManageModal'));
-        if (cardModal) {
-            cardModal.hide();
-        }
-        
-        // 입력 필드 초기화
-        document.getElementById('customerRegistrationForm').reset();
-        document.getElementById('phoneCheckResult').innerHTML = '';
-        document.getElementById('cardCheckResult').innerHTML = '';
-        
-        // backdrop 제거
-        const backdrops = document.querySelectorAll('.modal-backdrop');
-        backdrops.forEach(backdrop => backdrop.remove());
-        document.body.classList.remove('modal-open');
-        document.body.style.removeProperty('padding-right');
-    });
 }
 
 // 중복 체크 함수
@@ -738,10 +824,38 @@ function registerCustomer(e) {
     submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>처리중...';
     
     const formData = new FormData(document.getElementById('customerRegistrationForm'));
+    const phone = formData.get('phone');
+    const cardNumber = document.getElementById('card_number').value;
+    
+    // 로깅 추가
+    console.log('[DEBUG] 고객 등록 시도');
+    console.log('[DEBUG] 전화번호:', phone);
+    console.log('[DEBUG] 카드번호:', cardNumber);
+    
+    // 전화번호 유효성 검사
+    if (!phone || phone.trim() === '') {
+        console.log('[ERROR] 전화번호가 입력되지 않음');
+        showToast('error', '전화번호를 입력해주세요.');
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+        return;
+    }
+    
+    // 카드번호 유효성 검사
+    if (!cardNumber || cardNumber.trim() === '') {
+        console.log('[ERROR] 카드번호가 선택되지 않음');
+        showToast('error', '카드번호를 선택해주세요.');
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+        return;
+    }
+    
     const data = {
-        phone: formData.get('phone'),
-        card_number: document.getElementById('card_number').value
+        phone: phone,
+        card_number: cardNumber
     };
+    
+    console.log('[DEBUG] 서버로 전송할 데이터:', data);
     
     fetch('/station/register-customer/', {
         method: 'POST',
@@ -751,8 +865,12 @@ function registerCustomer(e) {
         },
         body: JSON.stringify(data)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('[DEBUG] 서버 응답 상태:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('[DEBUG] 서버 응답 데이터:', data);
         if (data.status === 'success') {
             // 성공 메시지 표시
             showToast('success', data.message);
@@ -766,6 +884,7 @@ function registerCustomer(e) {
             // 페이지 새로고침
             window.location.reload();
         } else {
+            console.log('[ERROR] 고객 등록 실패:', data.message);
             showToast('error', data.message || '고객 등록 중 오류가 발생했습니다.');
             // 버튼 상태 복구
             submitButton.disabled = false;
@@ -773,7 +892,7 @@ function registerCustomer(e) {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
+        console.error('[ERROR] 고객 등록 중 오류:', error);
         showToast('error', '등록 중 오류가 발생했습니다: ' + error.message);
         // 버튼 상태 복구
         submitButton.disabled = false;
@@ -1005,74 +1124,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const customerList = document.querySelector('.row.g-3');
     const customerCards = customerList.querySelectorAll('.customer-card');
     
-    // 고객 등록 모달 이벤트 설정
-    const registrationModal = document.getElementById('customerRegistrationModal');
-    if (registrationModal) {
-        // 모달이 열릴 때 초기화
-        registrationModal.addEventListener('show.bs.modal', function() {
-            const form = this.querySelector('#customerRegistrationForm');
-            const phoneCheckResult = this.querySelector('#phoneCheckResult');
-            if (form) form.reset();
-            if (phoneCheckResult) phoneCheckResult.style.display = 'none';
-        });
-
-        // 모달이 닫힐 때 정리
-        registrationModal.addEventListener('hidden.bs.modal', function() {
-            const form = this.querySelector('#customerRegistrationForm');
-            const phoneCheckResult = this.querySelector('#phoneCheckResult');
-            if (form) {
-                form.reset();
-                const submitButton = form.querySelector('button[type="submit"]');
-                if (submitButton) {
-                    submitButton.disabled = false;
-                    submitButton.innerHTML = '<i class="fas fa-user-plus me-1"></i>고객 등록';
-                }
-            }
-            if (phoneCheckResult) phoneCheckResult.style.display = 'none';
-        });
-    }
-
-    // 멤버십 카드 선택 버튼 클릭 이벤트
-    const cardSelectBtn = document.querySelector('[data-bs-target="#cardManageModal"]');
-    if (cardSelectBtn) {
-        cardSelectBtn.addEventListener('click', function() {
-            // 카드 관리 모달 열기
-            const modal = new bootstrap.Modal(document.getElementById('cardManageModal'));
-            modal.show();
-            
-            // 미사용 카드 목록 로드
-            loadUnusedCards();
-        });
-    }
-
-    // 카드 관리 모달 이벤트 설정
-    const cardManageModal = document.getElementById('cardManageModal');
-    if (cardManageModal) {
-        // 모달이 열릴 때 초기화
-        cardManageModal.addEventListener('show.bs.modal', function() {
-            const cardsList = this.querySelector('#unusedCardsList');
-            if (cardsList) {
-                cardsList.innerHTML = `
-                    <li class="list-group-item text-center">
-                        <i class="fas fa-spinner fa-spin me-2"></i>카드 목록을 불러오는 중...
-                    </li>
-                `;
-            }
-        });
-
-        // 모달이 닫힐 때 정리
-        cardManageModal.addEventListener('hidden.bs.modal', function() {
-            const cardsList = this.querySelector('#unusedCardsList');
-            if (cardsList) {
-                cardsList.innerHTML = `
-                    <li class="list-group-item text-center">
-                        <i class="fas fa-info-circle me-1"></i>새로고침을 눌러 카드 목록을 조회하세요.
-                    </li>
-                `;
-            }
-        });
-    }
-    
     // 기존 고객 카드들에 대한 이벤트 리스너 등록
     customerCards.forEach(card => {
         const deleteBtn = card.querySelector('.delete-customer');
@@ -1119,10 +1170,13 @@ function loadUnusedCards() {
                         li.className = 'list-group-item d-flex justify-content-between align-items-center';
                         li.innerHTML = `
                             <div>
-                                <span class="card-number font-monospace">${card.number}</span>
-                                <small class="text-muted ms-2">${card.created_at}</small>
+                                <div class="d-flex align-items-center">
+                                    <span class="card-number font-monospace">${card.number}</span>
+                                    ${card.tid ? `<span class="badge bg-info ms-2">TID: ${card.tid}</span>` : ''}
+                                </div>
+                                <small class="text-muted">${card.created_at}</small>
                             </div>
-                            <button class="btn btn-sm btn-outline-primary" onclick="selectCard('${card.number}')">
+                            <button class="btn btn-sm btn-outline-primary" onclick="selectCard('${card.number}', '${card.tid || ''}')">
                                 <i class="fas fa-check me-1"></i>선택
                             </button>
                         `;
@@ -1145,6 +1199,8 @@ function registerCard(event) {
     event.preventDefault();
     
     const cardNumber = document.getElementById('card-number').value.trim();
+    const tid = document.getElementById('tid').value.trim();
+    
     if (!cardNumber) {
         alert('카드번호를 입력해주세요.');
         return;
@@ -1161,7 +1217,8 @@ function registerCard(event) {
             'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({
-            card_number: cardNumber
+            card_number: cardNumber,
+            tid: tid
         })
     })
     .then(response => response.json())
@@ -1169,6 +1226,7 @@ function registerCard(event) {
         if (data.status === 'success') {
             alert('멤버십 카드가 성공적으로 등록되었습니다.');
             document.getElementById('card-number').value = ''; // 입력 필드 초기화
+            document.getElementById('tid').value = ''; // TID 필드 초기화
             refreshUnusedCards(); // 카드 목록 새로고침
         } else {
             alert(data.message || '카드 등록에 실패했습니다.');
@@ -1337,10 +1395,13 @@ function refreshUnusedCards() {
                         li.className = 'list-group-item d-flex justify-content-between align-items-center';
                         li.innerHTML = `
                             <div>
-                                <span class="card-number font-monospace">${card.number}</span>
-                                <small class="text-muted ms-2">${card.created_at}</small>
+                                <div class="d-flex align-items-center">
+                                    <span class="card-number font-monospace">${card.number}</span>
+                                    ${card.tid ? `<span class="badge bg-info ms-2">TID: ${card.tid}</span>` : ''}
+                                </div>
+                                <small class="text-muted">${card.created_at}</small>
                             </div>
-                            <button class="btn btn-sm btn-outline-primary" onclick="selectCard('${card.number}')">
+                            <button class="btn btn-sm btn-outline-primary" onclick="selectCard('${card.number}', '${card.tid || ''}')">
                                 <i class="fas fa-check me-1"></i>선택
                             </button>
                         `;

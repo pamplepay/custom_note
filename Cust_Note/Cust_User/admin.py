@@ -188,7 +188,7 @@ class CustomerProfileAdmin(admin.ModelAdmin):
 @admin.register(StationProfile)
 class StationProfileAdmin(admin.ModelAdmin):
     list_display = ['user', 'station_name', 'address', 'phone', 'business_number',
-                   'oil_company_code', 'agency_code', 'station_code']
+                   'oil_company_code', 'agency_code', 'tid']
     search_fields = ['station_name', 'business_number', 'address']
     list_filter = ['created_at']
     readonly_fields = ['created_at', 'updated_at']
@@ -197,20 +197,14 @@ class StationProfileAdmin(admin.ModelAdmin):
     fieldsets = (
         ('사용자 정보', {'fields': ('user',)}),
         ('주유소 기본 정보', {
-            'fields': ('station_name', 'station_address', 'business_number', 'owner_name')
+            'fields': ('station_name', 'address', 'phone', 'business_number', 'tid')
         }),
-        ('운영 정보', {
-            'fields': ('opening_hours', 'services')
-        }),
-        ('위치 정보', {
-            'fields': ('latitude', 'longitude')
-        }),
-        ('승인 상태', {
-            'fields': ('is_approved', 'approved_at')
+        ('주유소 코드 정보', {
+            'fields': ('oil_company_code', 'agency_code')
         }),
         ('날짜 정보', {
             'fields': ('created_at', 'updated_at')
-        }),
+        })
     )
     
     def approve_stations(self, request, queryset):

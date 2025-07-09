@@ -86,11 +86,11 @@ class StationProfile(models.Model):
     station_name = models.CharField(max_length=100, verbose_name='주유소명')
     address = models.CharField(max_length=200, verbose_name='주소', default='', blank=True)
     phone = models.CharField(max_length=20, verbose_name='전화번호', default='', blank=True)
+    tid = models.CharField(max_length=20, verbose_name='단말기 번호(TID)', help_text='카드 결제 단말기 번호를 입력하세요', blank=True, null=True)
     
     # 주유소 코드 체계
     oil_company_code = models.CharField(max_length=1, verbose_name='정유사코드', default='0')
     agency_code = models.CharField(max_length=3, verbose_name='대리점코드', default='000')
-    station_code = models.CharField(max_length=12, verbose_name='주유소코드', default='000000000000')
     
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='등록일')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
@@ -103,8 +103,8 @@ class StationProfile(models.Model):
         return f"{self.station_name} ({self.business_number})"
         
     def get_full_station_code(self):
-        """전체 주유소 코드 반환 (정유사+대리점+주유소)"""
-        return f"{self.oil_company_code}{self.agency_code}{self.station_code}"
+        """전체 주유소 코드 반환 (정유사+대리점)"""
+        return f"{self.oil_company_code}{self.agency_code}"
 
 
 class CustomerStationRelation(models.Model):

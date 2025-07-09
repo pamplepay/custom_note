@@ -147,6 +147,7 @@
                         <div class="form-text">1~1000 사이의 숫자를 입력하세요</div>
                     </div>
                 </div>
+                <input type="hidden" id="bulkTid" value="{{ station_tid }}">
                 <button type="submit" class="btn btn-primary">일괄 등록</button>
             </form>
         </div>
@@ -164,6 +165,7 @@
                     <input type="text" class="form-control" id="cardNumber" required maxlength="16" pattern="\d{16}">
                     <div class="form-text">16자리 숫자를 입력하세요</div>
                 </div>
+                <input type="hidden" id="singleTid" value="{{ station_tid }}">
                 <button type="submit" class="btn btn-primary">등록</button>
             </form>
         </div>
@@ -637,7 +639,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const startNumber = document.getElementById('startNumber').value;
             const cardCount = document.getElementById('cardCount').value;
-            console.log('시작번호:', startNumber, '카드수:', cardCount);
+            const tid = document.getElementById('bulkTid').value;
+            console.log('시작번호:', startNumber, '카드수:', cardCount, 'TID:', tid);
+
+            if (!tid) {
+                showAlert('주유소 TID가 설정되지 않았습니다. 관리자에게 문의하세요.');
+                return;
+            }
 
             // 버튼 비활성화 및 로딩 표시
             const originalText = submitButton.innerHTML;
@@ -646,7 +654,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const requestData = {
                 startNumber: startNumber,
-                cardCount: cardCount
+                cardCount: cardCount,
+                tid: tid
             };
             console.log('요청 데이터:', requestData);
 
@@ -707,10 +716,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const cardNumber = document.getElementById('cardNumber').value;
-            console.log('입력된 카드번호:', cardNumber);
+            const tid = document.getElementById('singleTid').value;
+            console.log('입력된 카드번호:', cardNumber, 'TID:', tid);
             
             if (!cardNumber || cardNumber.length !== 16) {
                 showAlert('16자리 카드번호를 입력해주세요.');
+                return;
+            }
+
+            if (!tid) {
+                showAlert('주유소 TID가 설정되지 않았습니다. 관리자에게 문의하세요.');
                 return;
             }
 
@@ -720,7 +735,8 @@ document.addEventListener('DOMContentLoaded', function() {
             submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>등록 중...';
 
             const requestData = {
-                cardNumber: cardNumber
+                cardNumber: cardNumber,
+                tid: tid
             };
             console.log('요청 데이터:', requestData);
             console.log('CSRF 토큰:', window.csrftoken);
@@ -782,7 +798,6 @@ function getCookie(name) {
     }
     return cookieValue;
 }
-
 
 </script>
 {% endblock %} 

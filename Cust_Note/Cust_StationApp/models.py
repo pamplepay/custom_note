@@ -4,47 +4,80 @@ from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
 from Cust_User.models import CustomUser, CustomerStationRelation
 from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create your models here.
 
 class PointCard(models.Model):
-    number = models.CharField(max_length=16, unique=True, verbose_name='카드번호')
-    is_used = models.BooleanField(default=False, verbose_name='사용 여부')
-    created_at = models.DateTimeField(default=timezone.now, verbose_name='등록일')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
-    
-    # 카드를 등록한 주유소들
-    stations = models.ManyToManyField(
-        'Cust_User.CustomUser',
-        through='StationCardMapping',
-        related_name='registered_cards',
-        limit_choices_to={'user_type': 'STATION'},
-        verbose_name='등록 주유소'
-    )
+    """멤버십 카드 모델"""
+    number = models.CharField(max_length=16, unique=True, help_text="16자리 카드번호")
+    tids = models.JSONField(default=list, help_text="카드가 등록된 TID 목록")
+    is_used = models.BooleanField(default=False, help_text="카드 사용 여부")
+    created_at = models.DateTimeField(auto_now_add=True, help_text="카드 생성일시")
+    updated_at = models.DateTimeField(auto_now=True, help_text="카드 수정일시")
 
     class Meta:
-        verbose_name = '포인트카드'
-        verbose_name_plural = '포인트카드'
+        verbose_name = "멤버십 카드"
+        verbose_name_plural = "멤버십 카드 목록"
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"카드 {self.number} ({'사용중' if self.is_used else '미사용'})"
-    
-    def save(self, *args, **kwargs):
-        if not self.pk:  # 새로운 카드 생성 시
-            # 카드 번호가 16자리 숫자인지 검증
-            if len(self.number) != 16:
-                raise ValueError("카드 번호는 16자리여야 합니다.")
-            
-            if not self.number.isdigit():
-                raise ValueError("카드 번호는 숫자로만 구성되어야 합니다.")
+        return f"카드번호: {self.number} (사용{'중' if self.is_used else '가능'})"
+
+    def add_tid(self, tid):
+        """TID를 카드에 추가"""
+        logger.info(f"카드 {self.number}에 TID {tid} 추가 시도")
+        logger.debug(f"현재 TID 목록: {self.tids}")
         
-        super().save(*args, **kwargs)
-    
+        if not isinstance(self.tids, list):
+            logger.warning(f"카드 {self.number}의 tids가 리스트가 아님: {type(self.tids)}")
+            self.tids = []
+        
+        if tid not in self.tids:
+            logger.info(f"새로운 TID {tid} 추가")
+            self.tids.append(tid)
+            try:
+                self.save()
+                logger.info(f"카드 {self.number}에 TID {tid} 추가 성공")
+                logger.debug(f"업데이트된 TID 목록: {self.tids}")
+                return True
+            except Exception as e:
+                logger.error(f"카드 {self.number}에 TID {tid} 추가 중 오류 발생: {str(e)}")
+                return False
+        else:
+            logger.info(f"TID {tid}가 이미 카드 {self.number}에 존재함")
+            return False
+
+    def remove_tid(self, tid):
+        """TID를 카드에서 제거"""
+        logger.info(f"카드 {self.number}에서 TID {tid} 제거 시도")
+        logger.debug(f"현재 TID 목록: {self.tids}")
+        
+        if not isinstance(self.tids, list):
+            logger.warning(f"카드 {self.number}의 tids가 리스트가 아님: {type(self.tids)}")
+            return False
+        
+        if tid in self.tids:
+            logger.info(f"TID {tid} 제거")
+            self.tids.remove(tid)
+            try:
+                self.save()
+                logger.info(f"카드 {self.number}에서 TID {tid} 제거 성공")
+                logger.debug(f"업데이트된 TID 목록: {self.tids}")
+                return True
+            except Exception as e:
+                logger.error(f"카드 {self.number}에서 TID {tid} 제거 중 오류 발생: {str(e)}")
+                return False
+        else:
+            logger.info(f"TID {tid}가 카드 {self.number}에 존재하지 않음")
+            return False
+
     @property
     def oil_company_code(self):
         """정유사 코드 반환"""
-        return self.number[0] if len(self.number) >= 1 else None
+        return self.number[0] if self.number else None
     
     @property
     def agency_code(self):
@@ -57,29 +90,71 @@ class PointCard(models.Model):
         return self.number[4:] if len(self.number) >= 16 else None
 
 class StationCardMapping(models.Model):
-    station = models.ForeignKey(
-        'Cust_User.CustomUser', 
-        on_delete=models.CASCADE, 
-        limit_choices_to={'user_type': 'STATION'},
-        verbose_name='주유소'
-    )
     card = models.ForeignKey(
         PointCard, 
         on_delete=models.CASCADE,
-        verbose_name='포인트카드'
+        verbose_name='포인트카드',
+        related_name='mappings'
     )
     registered_at = models.DateTimeField(default=timezone.now, verbose_name='등록일')
     is_active = models.BooleanField(default=True, verbose_name='활성화 여부')
+    tid = models.CharField(max_length=50, blank=True, null=True, verbose_name='주유소 TID')
 
     class Meta:
         verbose_name = '주유소-카드 매핑'
         verbose_name_plural = '주유소-카드 매핑'
-        unique_together = ('station', 'card')
         ordering = ['-registered_at']
 
     def __str__(self):
-        station_name = self.station.station_profile.station_name if hasattr(self.station, 'station_profile') else self.station.username
-        return f"{station_name}의 카드 {self.card.number}"
+        return f"카드 {self.card.number} (TID: {self.tid or '미설정'})"
+
+    def save(self, *args, **kwargs):
+        logger.info(f"StationCardMapping 저장 시도: 카드={self.card.number}, TID={self.tid}")
+        
+        if self.tid:
+            logger.debug(f"카드 {self.card.number}의 현재 TID 목록: {self.card.tids}")
+            try:
+                # TID를 카드의 tids 리스트에 추가
+                if not isinstance(self.card.tids, list):
+                    logger.warning(f"카드 {self.card.number}의 tids가 리스트가 아님: {type(self.card.tids)}")
+                    self.card.tids = []
+                
+                if self.tid not in self.card.tids:
+                    logger.info(f"카드 {self.card.number}에 새로운 TID {self.tid} 추가")
+                    self.card.tids.append(self.tid)
+                    self.card.save()
+                    logger.debug(f"카드 {self.card.number}의 업데이트된 TID 목록: {self.card.tids}")
+            except Exception as e:
+                logger.error(f"카드 {self.card.number}에 TID {self.tid} 추가 중 오류 발생: {str(e)}")
+        
+        try:
+            super().save(*args, **kwargs)
+            logger.info(f"StationCardMapping 저장 성공: 카드={self.card.number}, TID={self.tid}")
+        except Exception as e:
+            logger.error(f"StationCardMapping 저장 중 오류 발생: {str(e)}")
+            raise
+    
+    def delete(self, *args, **kwargs):
+        logger.info(f"StationCardMapping 삭제 시도: 카드={self.card.number}, TID={self.tid}")
+        
+        if self.tid:
+            logger.debug(f"카드 {self.card.number}의 현재 TID 목록: {self.card.tids}")
+            try:
+                # TID를 카드의 tids 리스트에서 제거
+                if self.tid in self.card.tids:
+                    logger.info(f"카드 {self.card.number}에서 TID {self.tid} 제거")
+                    self.card.tids.remove(self.tid)
+                    self.card.save()
+                    logger.debug(f"카드 {self.card.number}의 업데이트된 TID 목록: {self.card.tids}")
+            except Exception as e:
+                logger.error(f"카드 {self.card.number}에서 TID {self.tid} 제거 중 오류 발생: {str(e)}")
+        
+        try:
+            super().delete(*args, **kwargs)
+            logger.info(f"StationCardMapping 삭제 성공: 카드={self.card.number}, TID={self.tid}")
+        except Exception as e:
+            logger.error(f"StationCardMapping 삭제 중 오류 발생: {str(e)}")
+            raise
 
 class StationList(get_user_model()):
     class Meta:

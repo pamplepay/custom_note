@@ -28,9 +28,9 @@ def station_main(request):
         return redirect('home')
     
     # 카드 통계
-    total_cards = StationCardMapping.objects.filter(station=request.user).count()
-    active_cards = StationCardMapping.objects.filter(station=request.user, is_active=True).count()
-    inactive_cards = StationCardMapping.objects.filter(station=request.user, is_active=False).count()
+    total_cards = StationCardMapping.objects.filter(is_active=True).count()
+    active_cards = StationCardMapping.objects.filter(is_active=True, card__is_used=False).count()
+    inactive_cards = StationCardMapping.objects.filter(is_active=True, card__is_used=True).count()
     
     context = {
         'total_cards': total_cards,
@@ -47,10 +47,10 @@ def station_management(request):
         return redirect('home')
     
     # 현재 주유소의 카드 매핑 수 조회
-    mappings = StationCardMapping.objects.filter(station=request.user)
+    mappings = StationCardMapping.objects.filter(is_active=True)
     total_cards = mappings.count()
-    active_cards = mappings.filter(is_active=True, card__is_used=False).count()
-    inactive_cards = mappings.filter(is_active=True, card__is_used=True).count()
+    active_cards = mappings.filter(card__is_used=False).count()
+    inactive_cards = mappings.filter(card__is_used=True).count()
     
     # 비율 계산
     active_percentage = (active_cards / total_cards * 100) if total_cards > 0 else 0
@@ -89,7 +89,7 @@ def station_profile(request):
         station_profile.business_number = request.POST.get('business_number')
         station_profile.oil_company_code = request.POST.get('oil_company_code')
         station_profile.agency_code = request.POST.get('agency_code')
-        station_profile.station_code = request.POST.get('station_code')
+        station_profile.tid = request.POST.get('tid')
         
         try:
             station_profile.save()
@@ -106,7 +106,7 @@ def station_profile(request):
         'business_number': station_profile.business_number,
         'oil_company_code': station_profile.oil_company_code,
         'agency_code': station_profile.agency_code,
-        'station_code': station_profile.station_code,
+        'tid': station_profile.tid,
     }
     
     return render(request, 'Cust_Station/station_profile.html', context)
@@ -119,12 +119,12 @@ def station_cardmanage(request):
         return redirect('home')
     
     # 현재 주유소의 카드 매핑 수 조회
-    mappings = StationCardMapping.objects.filter(station=request.user)
-    total_cards = mappings.filter(is_active=True).count()
+    mappings = StationCardMapping.objects.filter(is_active=True)
+    total_cards = mappings.count()
     
     # 카드 상태별 통계
-    active_cards = mappings.filter(is_active=True, card__is_used=False).count()
-    used_cards = mappings.filter(is_active=True, card__is_used=True).count()
+    active_cards = mappings.filter(card__is_used=False).count()
+    used_cards = mappings.filter(card__is_used=True).count()
     
     # 비율 계산
     active_percentage = (active_cards / total_cards * 100) if total_cards > 0 else 0
@@ -132,7 +132,6 @@ def station_cardmanage(request):
     
     # 최근 등록된 카드 3장 가져오기
     recent_cards = StationCardMapping.objects.select_related('card').filter(
-        station=request.user,
         is_active=True
     ).order_by('-registered_at')[:3]
     
@@ -145,6 +144,13 @@ def station_cardmanage(request):
             'created_at': mapping.registered_at.strftime('%Y-%m-%d %H:%M:%S')
         })
     
+    # 주유소 TID 가져오기
+    station_tid = None
+    if hasattr(request.user, 'station_profile'):
+        station_tid = request.user.station_profile.tid
+        if not station_tid:
+            messages.warning(request, '주유소 단말기 번호(TID)가 설정되어 있지 않습니다. 관리자에게 문의하세요.')
+    
     context = {
         'total_cards': total_cards,
         'active_cards': active_cards,
@@ -152,7 +158,8 @@ def station_cardmanage(request):
         'active_percentage': active_percentage,
         'used_percentage': used_percentage,
         'station_name': request.user.username,
-        'recent_cards': cards_data
+        'recent_cards': cards_data,
+        'station_tid': station_tid
     }
     
     return render(request, 'Cust_Station/station_cardmanage.html', context)
@@ -288,7 +295,6 @@ def get_cards(request):
     try:
         # 현재 주유소에 등록된 카드 매핑 조회
         mappings = StationCardMapping.objects.select_related('card').filter(
-            station=request.user,
             is_active=True
         ).order_by('-registered_at')
         
@@ -342,7 +348,8 @@ def register_cards_single(request):
             logger.info(f"요청 본문: {request.body.decode('utf-8')}")
             data = json.loads(request.body)
             card_number = data.get('cardNumber', '').strip()
-            logger.info(f"추출된 카드번호: '{card_number}'")
+            tid = data.get('tid', '').strip()  # TID 값 추가
+            logger.info(f"추출된 카드번호: '{card_number}', TID: '{tid}'")
             
             # 입력 검증
             if not card_number or len(card_number) != 16 or not card_number.isdigit():
@@ -352,15 +359,30 @@ def register_cards_single(request):
                     'message': '카드번호는 16자리 숫자여야 합니다.'
                 })
             
+            if not tid:
+                logger.warning("TID가 제공되지 않음")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'TID는 필수 입력값입니다.'
+                })
+            
             logger.info(f"카드 생성 시도: {card_number}")
             # get_or_create를 사용하여 중복 생성 방지
-            card, created = PointCard.objects.get_or_create(number=card_number)
+            card, created = PointCard.objects.get_or_create(
+                number=card_number,
+                defaults={'tids': []}
+            )
             logger.info(f"카드 생성 결과: created={created}, card_id={card.id}")
+            
+            # TID 추가
+            if tid not in card.tids:
+                card.add_tid(tid)
+                logger.info(f"카드에 TID 추가: {tid}")
             
             # 카드와 주유소 매핑 생성
             logger.info(f"매핑 생성 시도: 주유소={request.user.username}, 카드={card_number}")
             mapping, mapping_created = StationCardMapping.objects.get_or_create(
-                station=request.user,
+                tid=tid,
                 card=card,
                 defaults={'is_active': True}
             )
@@ -404,6 +426,7 @@ def register_cards_single(request):
 def register_cards_bulk(request):
     """카드 일괄 등록"""
     if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 일괄 등록 시도: {request.user.username}")
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
     
     if request.method == 'POST':
@@ -411,15 +434,27 @@ def register_cards_bulk(request):
             data = json.loads(request.body)
             start_number = data.get('startNumber', '').strip()
             card_count = int(data.get('cardCount', 0))
+            tid = data.get('tid', '').strip()
+            
+            logger.info(f"일괄 등록 요청 - 시작번호: {start_number}, 카드수: {card_count}, TID: {tid}")
             
             # 입력 검증
             if not start_number or len(start_number) != 16 or not start_number.isdigit():
+                logger.warning(f"잘못된 시작 번호 형식: {start_number}")
                 return JsonResponse({
                     'status': 'error',
                     'message': '시작 번호는 16자리 숫자여야 합니다.'
                 })
             
+            if not tid:
+                logger.warning("TID가 제공되지 않음")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'TID는 필수 입력값입니다.'
+                })
+            
             if card_count < 1 or card_count > 1000:
+                logger.warning(f"잘못된 카드 수: {card_count}")
                 return JsonResponse({
                     'status': 'error',
                     'message': '카드 수는 1~1000 사이여야 합니다.'
@@ -431,39 +466,55 @@ def register_cards_bulk(request):
             
             for i in range(card_count):
                 card_number = str(start_num + i).zfill(16)
+                logger.debug(f"카드 생성 시도: {card_number}")
                 
                 try:
                     # get_or_create를 사용하여 중복 생성 방지
-                    card, created = PointCard.objects.get_or_create(number=card_number)
+                    card, created = PointCard.objects.get_or_create(
+                        number=card_number,
+                        defaults={'tids': []}
+                    )
+                    logger.debug(f"카드 생성 결과: created={created}, card_id={card.id}")
+                    
+                    # TID 추가
+                    if tid not in card.tids:
+                        logger.debug(f"카드 {card_number}에 TID {tid} 추가 시도")
+                        card.tids.append(tid)
+                        card.save()
+                        logger.debug(f"카드 {card_number}의 업데이트된 TID 목록: {card.tids}")
                     
                     # 카드와 주유소 매핑 생성
+                    logger.debug(f"매핑 생성 시도: 카드={card_number}, TID={tid}")
                     mapping, mapping_created = StationCardMapping.objects.get_or_create(
-                        station=request.user,
+                        tid=tid,
                         card=card,
                         defaults={'is_active': True}
                     )
+                    logger.debug(f"매핑 생성 결과: created={mapping_created}, mapping_id={mapping.id}")
                     
                     # 매핑이 이미 존재하지만 비활성화된 경우 활성화
                     if not mapping_created and not mapping.is_active:
                         mapping.is_active = True
                         mapping.save()
+                        logger.info(f"비활성화된 매핑을 활성화함: mapping_id={mapping.id}")
                     
                     if created:
                         created_cards.append(card_number)
-                        logger.info(f"새 카드 등록: {card_number} (주유소: {request.user.username})")
+                        logger.info(f"새 카드 등록: {card_number}")
                     else:
                         if mapping_created:
-                            logger.info(f"기존 카드 매핑: {card_number} (주유소: {request.user.username})")
+                            logger.info(f"기존 카드 매핑: {card_number}")
                         duplicate_cards.append(card_number)
                         
                 except Exception as e:
-                    logger.error(f"카드 등록 중 오류: {card_number}, {str(e)}")
+                    logger.error(f"카드 {card_number} 등록 중 오류 발생: {str(e)}", exc_info=True)
                     duplicate_cards.append(card_number)
             
             message = f'{len(created_cards)}개의 카드가 등록되었습니다.'
             if duplicate_cards:
                 message += f' (중복 {len(duplicate_cards)}개 제외)'
             
+            logger.info(message)
             return JsonResponse({
                 'status': 'success',
                 'message': message,
@@ -472,11 +523,13 @@ def register_cards_bulk(request):
             })
             
         except json.JSONDecodeError:
+            logger.error("JSON 디코딩 오류", exc_info=True)
             return JsonResponse({
                 'status': 'error',
                 'message': '잘못된 요청 형식입니다.'
             }, status=400)
         except ValueError as e:
+            logger.error(f"값 오류: {str(e)}", exc_info=True)
             return JsonResponse({
                 'status': 'error',
                 'message': str(e)
@@ -502,12 +555,19 @@ def update_card_status(request):
             data = json.loads(request.body)
             card_number = data.get('cardNumber', '').strip()
             is_used = data.get('isUsed', False)
+            tid = data.get('tid', '').strip()  # TID 값 추가
             
             # 입력 검증
             if not card_number or len(card_number) != 16 or not card_number.isdigit():
                 return JsonResponse({
                     'status': 'error',
                     'message': '카드번호가 올바르지 않습니다.'
+                })
+            
+            if not tid:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'TID는 필수 입력값입니다.'
                 })
             
             # 카드와 매핑 상태 업데이트
@@ -517,7 +577,7 @@ def update_card_status(request):
                 
                 # 현재 주유소의 카드 매핑 확인
                 mapping = StationCardMapping.objects.get(
-                    station=request.user,
+                    tid=tid,
                     card=card,
                     is_active=True
                 )
@@ -630,73 +690,130 @@ def station_couponmanage(request):
 @login_required
 def get_unused_cards(request):
     """미사용 카드 목록 조회"""
-    logger.info("\n=== 미사용 카드 목록 조회 시작 ===")
+    logger.info("=== 미사용 카드 목록 조회 시작 ===")
     logger.info(f"요청 사용자: {request.user.username}")
     
-    if not request.user.is_station:
-        logger.warning(f"권한 없는 사용자 접근: {request.user.username}")
-        return JsonResponse({
-            'status': 'error',
-            'message': '권한이 없습니다'
-        }, status=403)
-    
     try:
-        # 현재 주유소의 미사용 카드 조회
-        unused_mappings = StationCardMapping.objects.filter(
-            station=request.user,
-            is_active=True,
-            card__is_used=False  # 미사용 카드만 조회
-        ).select_related('card')
+        # 미사용 카드 조회
+        unused_cards = PointCard.objects.filter(is_used=False).order_by('-created_at')
+        logger.debug(f"미사용 카드 수: {unused_cards.count()}")
         
-        # 카드 정보 목록 생성
-        cards_data = []
-        for mapping in unused_mappings:
-            card_info = {
-                'number': mapping.card.number,
-                'created_at': mapping.registered_at.strftime('%Y-%m-%d %H:%M:%S')
-            }
-            cards_data.append(card_info)
-            logger.debug(f"카드 정보: {card_info}")
+        # 카드 정보 변환
+        cards_data = [{
+            'number': card.number,
+            'tids': card.tids,
+            'created_at': card.created_at.strftime('%Y-%m-%d %H:%M')
+        } for card in unused_cards]
         
-        logger.info(f"조회된 미사용 카드 수: {len(cards_data)}")
-        logger.info("=== 미사용 카드 목록 조회 완료 ===\n")
-        
+        logger.info("=== 미사용 카드 목록 조회 완료 ===")
         return JsonResponse({
             'status': 'success',
             'cards': cards_data
         })
         
     except Exception as e:
-        logger.error(f"카드 목록 조회 중 오류 발생: {str(e)}")
-        logger.error(f"오류 위치: {e.__traceback__.tb_frame.f_code.co_filename}:{e.__traceback__.tb_lineno}")
+        logger.error(f"미사용 카드 목록 조회 중 오류: {str(e)}", exc_info=True)
         return JsonResponse({
             'status': 'error',
-            'message': f'카드 목록 조회 중 오류가 발생했습니다: {str(e)}'
+            'message': '카드 목록을 불러오는데 실패했습니다.'
+        }, status=500)
+
+@require_http_methods(["POST"])
+def register_card(request):
+    """멤버십 카드 등록 뷰"""
+    logger.info("\n=== 멤버십 카드 등록 시작 ===")
+    logger.info(f"요청 사용자: {request.user.username}")
+    
+    try:
+        # 요청 데이터 파싱
+        data = json.loads(request.body)
+        card_number = data.get('card_number')
+        tid = data.get('tid')  # TID 값 추가
+        logger.debug(f"입력된 카드번호: {card_number}, TID: {tid}")
+        
+        # 입력값 검증
+        if not card_number or len(card_number) != 16 or not card_number.isdigit():
+            logger.warning(f"잘못된 카드번호 형식: {card_number}")
+            return JsonResponse({
+                'status': 'error',
+                'message': '올바른 카드번호를 입력해주세요 (16자리 숫자)'
+            })
+        
+        if not tid:
+            logger.warning("TID가 제공되지 않음")
+            return JsonResponse({
+                'status': 'error',
+                'message': 'TID는 필수 입력값입니다.'
+            })
+        
+        # 카드번호 중복 체크
+        if PointCard.objects.filter(number=card_number).exists():
+            logger.warning(f"중복된 카드번호: {card_number}")
+            return JsonResponse({
+                'status': 'error',
+                'message': '이미 등록된 카드번호입니다'
+            })
+        
+        # 새 카드 생성
+        new_card = PointCard.objects.create(
+            number=card_number,
+            tids=[tid],
+            created_at=timezone.now()
+        )
+        logger.info(f"새 카드 등록 완료: {new_card.number}, TID: {tid}")
+        
+        # 주유소-카드 매핑 생성
+        StationCardMapping.objects.create(
+            tid=tid,
+            card=new_card,
+            registered_at=timezone.now(),
+            is_active=True
+        )
+        logger.info(f"카드 매핑 생성 완료: {new_card.number}, TID: {tid}")
+        
+        logger.info("=== 멤버십 카드 등록 완료 ===\n")
+        return JsonResponse({
+            'status': 'success',
+            'message': '멤버십 카드가 성공적으로 등록되었습니다'
+        })
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON 파싱 오류: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'status': 'error',
+            'message': '잘못된 요청 형식입니다'
+        })
+    except Exception as e:
+        logger.error(f"카드 등록 중 오류 발생: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'status': 'error',
+            'message': f'카드 등록 중 오류가 발생했습니다: {str(e)}'
         })
 
 @login_required
 def register_customer(request):
     """신규 고객 등록"""
-    print("[DEBUG] register_customer 함수 시작")
+    logger.info("=== 고객 등록 프로세스 시작 ===")
+    logger.info(f"요청 사용자: {request.user.username}")
+    
     if not request.user.is_station:
-        print("[DEBUG] 권한 없음: is_station=False")
+        logger.warning(f"권한 없는 사용자의 접근 시도: {request.user.username}")
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
     
     if request.method == 'POST':
         try:
-            print("[DEBUG] POST 요청 데이터 확인")
+            logger.info("POST 요청 데이터 처리 시작")
             data = json.loads(request.body)
-            print(f"[DEBUG] 받은 데이터: {data}")
+            logger.debug(f"수신된 데이터: {json.dumps(data, ensure_ascii=False)}")
             
             phone = data.get('phone', '').strip()
             card_number = data.get('card_number', '').strip()
             
-            print(f"[DEBUG] 전화번호: {phone}")
-            print(f"[DEBUG] 카드번호: {card_number}")
+            logger.info(f"입력값 확인 - 전화번호: {phone}, 카드번호: {card_number}")
             
-            # 입력값 검증 로그 추가
+            # 입력값 검증
             if not phone or not card_number:
-                print(f"[DEBUG] 필수 필드 누락 - phone: {bool(phone)}, card_number: {bool(card_number)}")
+                logger.warning(f"필수 필드 누락 - 전화번호: {bool(phone)}, 카드번호: {bool(card_number)}")
                 return JsonResponse({
                     'status': 'error',
                     'message': '전화번호와 카드번호를 모두 입력해주세요.'
@@ -705,7 +822,7 @@ def register_customer(request):
             # 전화번호 형식 확인
             phone = re.sub(r'[^0-9]', '', phone)
             if not re.match(r'^\d{10,11}$', phone):
-                print(f"[DEBUG] 잘못된 전화번호 형식: {phone} (길이: {len(phone)})")
+                logger.warning(f"잘못된 전화번호 형식: {phone} (길이: {len(phone)})")
                 return JsonResponse({
                     'status': 'error',
                     'message': '올바른 전화번호 형식이 아닙니다.'
@@ -714,179 +831,120 @@ def register_customer(request):
             # 카드번호 형식 확인
             card_number = re.sub(r'[^0-9]', '', card_number)
             if not re.match(r'^\d{16}$', card_number):
-                print(f"[DEBUG] 잘못된 카드번호 형식: {card_number} (길이: {len(card_number)})")
+                logger.warning(f"잘못된 카드번호 형식: {card_number} (길이: {len(card_number)})")
                 return JsonResponse({
                     'status': 'error',
                     'message': '올바른 카드번호 형식이 아닙니다.'
                 }, status=400)
             
-            # 카드 사용 가능 여부 확인
-            print(f"[DEBUG] 카드 조회 시작 - 주유소: {request.user.username}, 카드번호: {card_number}")
-            card = StationCardMapping.objects.select_related('card', 'station').filter(
-                station=request.user,
-                card__number=card_number
-            ).first()
-            print(f"[DEBUG] 카드 조회 결과: {card}")
-            
-            if not card:
-                print(f"[DEBUG] 카드 없음 - 주유소에 등록되지 않은 카드")
-                return JsonResponse({
-                    'status': 'error',
-                    'message': '등록되지 않은 카드번호입니다.'
-                }, status=400)
-            
-            # 카드 소유 주유소 확인
-            if card.station != request.user:
-                print(f"[DEBUG] 카드 소유 주유소 불일치 - 카드 소유: {card.station.username}, 현재 주유소: {request.user.username}")
-                return JsonResponse({
-                    'status': 'error',
-                    'message': '해당 카드는 현재 주유소의 카드가 아닙니다.'
-                }, status=400)
-            
-            if not card.is_active:
-                print("[DEBUG] 비활성화된 카드")
-                return JsonResponse({
-                    'status': 'error',
-                    'message': '비활성화된 카드입니다.'
-                }, status=400)
-            
-            if card.card.is_used:
-                print("[DEBUG] 이미 사용 중인 카드")
-                return JsonResponse({
-                    'status': 'error',
-                    'message': '이미 사용 중인 카드입니다.'
-                }, status=400)
-            
             try:
-                print("[DEBUG] 트랜잭션 시작")
                 with transaction.atomic():
                     # 기존 사용자 확인 (락 설정)
                     existing_user = CustomUser.objects.select_for_update().filter(username=phone).first()
-                    print(f"[DEBUG] 기존 사용자 확인: {existing_user}")
-                    
-                    # 현재 주유소와의 관계 확인 (락 설정)
                     if existing_user:
-                        print("[DEBUG] 이미 등록된 고객")
+                        logger.warning(f"이미 등록된 고객: {phone}")
                         return JsonResponse({
                             'status': 'error',
                             'message': '이미 등록된 고객입니다.'
                         }, status=400)
                     
-                    # 카드 상태 한 번 더 확인 (락 설정)
-                    card = StationCardMapping.objects.select_for_update().select_related('card').get(id=card.id)
-                    if card.card.is_used:
-                        print("[DEBUG] 카드가 이미 사용 중으로 변경됨")
+                    # 카드 확인 (락 설정)
+                    try:
+                        card_mapping = StationCardMapping.objects.select_for_update().select_related('card').get(
+                            card__number=card_number,
+                            is_active=True
+                        )
+                        card = card_mapping.card
+                    except StationCardMapping.DoesNotExist:
+                        logger.warning(f"미등록 카드 - 카드번호: {card_number}")
                         return JsonResponse({
                             'status': 'error',
-                            'message': '카드가 이미 다른 고객에 의해 사용 중입니다.'
+                            'message': '등록되지 않은 카드번호입니다.'
                         }, status=400)
                     
-                    if existing_user:
-                        print("[DEBUG] 기존 사용자에 대한 처리")
-                        # 고객 프로필 업데이트 (락 설정)
-                        profile, created = CustomerProfile.objects.select_for_update().get_or_create(
-                            user=existing_user,
-                            defaults={
-                                'customer_phone': phone,
-                                'membership_card': card_number
-                            }
+                    if card.is_used:
+                        logger.warning(f"이미 사용 중인 카드 사용 시도: {card_number}")
+                        return JsonResponse({
+                            'status': 'error',
+                            'message': '이미 사용 중인 카드입니다.'
+                        }, status=400)
+                    
+                    # 신규 사용자 생성
+                    try:
+                        new_user = CustomUser.objects.create_user(
+                            username=phone,
+                            password=card_number,
+                            user_type='CUSTOMER'
                         )
+                        logger.info(f"신규 사용자 생성 완료 - ID: {new_user.id}, 전화번호: {phone}")
                         
-                        if not created:
-                            print("[DEBUG] 기존 프로필 업데이트")
-                            profile.customer_phone = phone
-                            profile.membership_card = card_number
-                            profile.save()
+                        # 고객 프로필 생성
+                        CustomerProfile.objects.create(
+                            user=new_user,
+                            customer_phone=phone,
+                            membership_card=card_number
+                        )
+                        logger.info(f"고객 프로필 생성 완료 - 사용자: {new_user.id}")
                         
                         # 주유소와 고객 관계 생성
-                        print("[DEBUG] 주유소-고객 관계 생성")
                         CustomerStationRelation.objects.create(
-                            customer=existing_user,
+                            customer=new_user,
                             station=request.user
                         )
+                        logger.info(f"주유소-고객 관계 생성 완료 - 고객: {new_user.id}, 주유소: {request.user.username}")
                         
-                        message = '기존 고객에 대해 멤버십 카드가 등록되었습니다.'
-                    else:
-                        print("[DEBUG] 신규 사용자 생성")
-                        try:
-                            # 신규 사용자 생성 (비밀번호를 카드번호로 설정)
-                            new_user = CustomUser.objects.create_user(
-                                username=phone,
-                                password=card_number,
-                                user_type='CUSTOMER'  # 사용자 타입을 명시적으로 지정
-                            )
-                            print(f"[DEBUG] 신규 사용자 생성 완료 - ID: {new_user.id}")
-                            
-                            # 고객 프로필 생성
-                            print("[DEBUG] 고객 프로필 생성")
-                            CustomerProfile.objects.create(
-                                user=new_user,
-                                customer_phone=phone,
-                                membership_card=card_number
-                            )
-                            print("[DEBUG] 고객 프로필 생성 완료")
-                            
-                            # 주유소와 고객 관계 생성
-                            print("[DEBUG] 주유소-고객 관계 생성")
-                            CustomerStationRelation.objects.create(
-                                customer=new_user,
-                                station=request.user
-                            )
-                            print("[DEBUG] 주유소-고객 관계 생성 완료")
-                            
-                            message = '신규 고객이 성공적으로 등록되었습니다.'
-                        except IntegrityError as e:
-                            print(f"[DEBUG] 사용자 생성 중 무결성 오류: {str(e)}")
-                            # 다시 한 번 기존 사용자 확인
-                            existing_user = CustomUser.objects.filter(username=phone).first()
-                            if existing_user:
-                                print("[DEBUG] 동시성 문제로 인한 기존 사용자 발견")
-                                return JsonResponse({
-                                    'status': 'error',
-                                    'message': '이미 등록된 전화번호입니다. 새로고침 후 다시 시도해주세요.'
-                                }, status=400)
-                            else:
-                                print("[DEBUG] 알 수 없는 무결성 오류")
-                                raise
-                    
-                    # 카드 상태 업데이트
-                    print("[DEBUG] 카드 상태 업데이트")
-                    card.card.is_used = True
-                    card.card.save()
-                    
-                    print("[DEBUG] 고객 등록 완료")
-                    return JsonResponse({
-                        'status': 'success',
-                        'message': message
-                    })
+                        # 카드 상태 업데이트
+                        card.is_used = True
+                        card.save()
+                        logger.info(f"카드 상태 업데이트 완료 - 카드번호: {card_number}")
+                        
+                        logger.info("=== 고객 등록 프로세스 완료 ===")
+                        return JsonResponse({
+                            'status': 'success',
+                            'message': '신규 고객이 성공적으로 등록되었습니다.'
+                        })
+                        
+                    except IntegrityError as e:
+                        logger.error(f"사용자 생성 중 무결성 오류: {str(e)}")
+                        # 다시 한 번 기존 사용자 확인
+                        existing_user = CustomUser.objects.filter(username=phone).first()
+                        if existing_user:
+                            logger.warning(f"동시성 문제로 인한 기존 사용자 발견: {phone}")
+                            return JsonResponse({
+                                'status': 'error',
+                                'message': '이미 등록된 전화번호입니다. 새로고침 후 다시 시도해주세요.'
+                            }, status=400)
+                        else:
+                            logger.error("알 수 없는 무결성 오류", exc_info=True)
+                            raise
                 
             except IntegrityError as e:
-                print(f"[DEBUG] 데이터베이스 무결성 오류: {str(e)}")
+                logger.error(f"데이터베이스 무결성 오류: {str(e)}", exc_info=True)
                 return JsonResponse({
                     'status': 'error',
                     'message': '고객 등록 중 무결성 오류가 발생했습니다. 이미 등록된 정보일 수 있습니다.'
                 }, status=400)
             except Exception as e:
-                print(f"[DEBUG] 데이터베이스 오류: {str(e)}")
+                logger.error(f"데이터베이스 처리 중 오류: {str(e)}", exc_info=True)
                 return JsonResponse({
                     'status': 'error',
                     'message': '고객 등록 중 오류가 발생했습니다.'
                 }, status=500)
                 
         except json.JSONDecodeError as e:
-            print(f"[DEBUG] JSON 파싱 오류: {str(e)}")
+            logger.error(f"JSON 파싱 오류: {str(e)}", exc_info=True)
             return JsonResponse({
                 'status': 'error',
                 'message': '잘못된 요청 형식입니다.'
             }, status=400)
         except Exception as e:
-            print(f"[DEBUG] 예상치 못한 오류: {str(e)}")
+            logger.error(f"예상치 못한 오류: {str(e)}", exc_info=True)
             return JsonResponse({
                 'status': 'error',
                 'message': '서버 오류가 발생했습니다.'
             }, status=500)
     
-    print("[DEBUG] 잘못된 요청 방식")
+    logger.warning(f"잘못된 요청 방식: {request.method}")
     return JsonResponse({
         'status': 'error',
         'message': '잘못된 요청 방식입니다.'
@@ -1019,70 +1077,6 @@ def check_customer_exists(request):
             'status': 'error',
             'message': '사용자 확인 중 오류가 발생했습니다.'
         }, status=500)
-
-@require_http_methods(["POST"])
-def register_card(request):
-    """멤버십 카드 등록 뷰"""
-    logger.info("\n=== 멤버십 카드 등록 시작 ===")
-    logger.info(f"요청 사용자: {request.user.username}")
-    
-    try:
-        # 요청 데이터 파싱
-        data = json.loads(request.body)
-        card_number = data.get('card_number')
-        logger.debug(f"입력된 카드번호: {card_number}")
-        
-        # 입력값 검증
-        if not card_number or len(card_number) != 16 or not card_number.isdigit():
-            logger.warning(f"잘못된 카드번호 형식: {card_number}")
-            return JsonResponse({
-                'status': 'error',
-                'message': '올바른 카드번호를 입력해주세요 (16자리 숫자)'
-            })
-        
-        # 카드번호 중복 체크
-        if PointCard.objects.filter(number=card_number).exists():
-            logger.warning(f"중복된 카드번호: {card_number}")
-            return JsonResponse({
-                'status': 'error',
-                'message': '이미 등록된 카드번호입니다'
-            })
-        
-        # 새 카드 생성
-        new_card = PointCard.objects.create(
-            number=card_number,
-            created_at=timezone.now()
-        )
-        logger.info(f"새 카드 등록 완료: {new_card.number}")
-        
-        # 주유소-카드 매핑 생성
-        StationCardMapping.objects.create(
-            station=request.user,
-            card=new_card,
-            registered_at=timezone.now(),
-            is_active=True
-        )
-        logger.info(f"주유소-카드 매핑 생성 완료: {request.user.username} - {new_card.number}")
-        
-        logger.info("=== 멤버십 카드 등록 완료 ===\n")
-        return JsonResponse({
-            'status': 'success',
-            'message': '멤버십 카드가 성공적으로 등록되었습니다'
-        })
-        
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON 파싱 오류: {str(e)}")
-        return JsonResponse({
-            'status': 'error',
-            'message': '잘못된 요청 형식입니다'
-        })
-    except Exception as e:
-        logger.error(f"카드 등록 중 오류 발생: {str(e)}")
-        logger.error(f"오류 위치: {e.__traceback__.tb_frame.f_code.co_filename}:{e.__traceback__.tb_lineno}")
-        return JsonResponse({
-            'status': 'error',
-            'message': f'카드 등록 중 오류가 발생했습니다: {str(e)}'
-        })
 
 @login_required
 def station_sales(request):

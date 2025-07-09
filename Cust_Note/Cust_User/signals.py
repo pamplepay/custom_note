@@ -12,10 +12,12 @@ def create_user_profile(sender, instance, created, **kwargs):
         elif instance.user_type == 'STATION':
             StationProfile.objects.create(
                 user=instance,
-                station_name='',
-                station_address='',
-                business_number='',
-                owner_name=''
+                station_name=instance.station_name or '',
+                address=instance.station_address or '',
+                business_number=instance.business_number or '',
+                oil_company_code='0',
+                agency_code='000',
+                station_code='000000000000'
             )
 
 
