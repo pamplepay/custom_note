@@ -139,23 +139,56 @@ class StationListAdmin(admin.ModelAdmin):
 
 @admin.register(PointCard)
 class PointCardAdmin(admin.ModelAdmin):
-    list_display = ('number', 'is_used', 'status_display', 'tid_display', 'created_at')
+    list_display = ('number', 'is_used', 'status_display', 'tids_display', 'mappings_display', 'created_at')
     list_filter = ('is_used', 'created_at')
-    search_fields = ('number', 'tid')
-    readonly_fields = ('created_at',)
+    search_fields = ('number', 'tids')
+    readonly_fields = ('created_at', 'tids', 'mappings_display')
     list_per_page = 50
     actions = ['mark_as_used', 'mark_as_unused', 'bulk_delete_unused']
     
     fieldsets = (
         ('카드 정보', {
-            'fields': ('number', 'is_used', 'tid', 'created_at')
+            'fields': ('number', 'is_used', 'tids', 'created_at')
+        }),
+        ('매핑 정보', {
+            'fields': ('mappings_display',)
         }),
     )
     
-    def tid_display(self, obj):
-        """TID 정보를 표시"""
-        return obj.tid or '미설정'
-    tid_display.short_description = 'TID'
+    def tids_display(self, obj):
+        """TID 목록을 표시"""
+        if not obj.tids:
+            return format_html('<span style="color: #95a5a6;">미등록</span>')
+        return format_html('<br>'.join(obj.tids))
+    tids_display.short_description = 'TID 목록'
+    
+    def mappings_display(self, obj):
+        """매핑 정보를 상세히 표시"""
+        mappings = obj.mappings.all()
+        if not mappings:
+            return format_html('<span style="color: #95a5a6;">등록된 매핑 없음</span>')
+        
+        html = ['<table style="width: 100%; border-collapse: collapse;">']
+        html.append('<tr style="background-color: #f5f6fa;">')
+        html.append('<th style="padding: 8px; border: 1px solid #ddd;">TID</th>')
+        html.append('<th style="padding: 8px; border: 1px solid #ddd;">상태</th>')
+        html.append('<th style="padding: 8px; border: 1px solid #ddd;">등록일</th>')
+        html.append('</tr>')
+        
+        for mapping in mappings:
+            status_color = '#27ae60' if mapping.is_active else '#e74c3c'
+            status_text = '활성' if mapping.is_active else '비활성'
+            html.append('<tr>')
+            html.append(f'<td style="padding: 8px; border: 1px solid #ddd;">{mapping.tid or "-"}</td>')
+            html.append(f'<td style="padding: 8px; border: 1px solid #ddd;">'
+                       f'<span style="color: {status_color};">●</span> {status_text}</td>')
+            html.append(f'<td style="padding: 8px; border: 1px solid #ddd;">'
+                       f'{mapping.registered_at.strftime("%Y-%m-%d %H:%M")}</td>')
+            html.append('</tr>')
+        
+        html.append('</table>')
+        return format_html(''.join(html))
+    mappings_display.short_description = '매핑 정보'
     
     def status_display(self, obj):
         """사용 상태를 시각적으로 표시"""

@@ -17,6 +17,7 @@ from django.views.decorators.http import require_http_methods
 import os
 from django.conf import settings
 from django.db.utils import IntegrityError
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
 logger = logging.getLogger(__name__)
 
@@ -166,78 +167,70 @@ def station_cardmanage(request):
 
 @login_required
 def station_usermanage(request):
-    """주유소 고객 관리 페이지"""
+    """고객 관리 페이지"""
     if not request.user.is_station:
-        messages.error(request, '주유소 회원만 접근할 수 있습니다.')
         return redirect('home')
     
     # 페이지네이션 설정
-    page = int(request.GET.get('page', 1))
-    items_per_page = 10
-    start_idx = (page - 1) * items_per_page
-    end_idx = start_idx + items_per_page
+    page = request.GET.get('page', 1)
+    search_query = request.GET.get('search', '')
     
-    # 검색어 처리
-    search_query = request.GET.get('search', '').strip()
+    # 고객 목록 조회
+    customer_relations = CustomerStationRelation.objects.filter(
+        station=request.user
+    ).select_related(
+        'customer',
+        'customer__customer_profile'
+    ).order_by('-created_at')
     
-    # 현재 주유소와 관계가 있는 고객들 조회
-    relations = CustomerStationRelation.objects.filter(station=request.user)
+    # 검색 필터링
     if search_query:
-        relations = relations.filter(
+        customer_relations = customer_relations.filter(
             Q(customer__username__icontains=search_query) |
             Q(customer__customer_profile__customer_phone__icontains=search_query) |
             Q(customer__customer_profile__membership_card__icontains=search_query)
         )
     
-    # 전체 고객 수와 페이지 수 계산
-    total_customers = relations.count()
-    total_pages = (total_customers + items_per_page - 1) // items_per_page
+    # 페이지네이터 설정
+    paginator = Paginator(customer_relations, 10)  # 페이지당 10개
+    
+    try:
+        current_page = paginator.page(page)
+    except PageNotAnInteger:
+        current_page = paginator.page(1)
+    except EmptyPage:
+        current_page = paginator.page(paginator.num_pages)
     
     # 페이지 범위 계산
-    page_range = range(max(1, page - 2), min(total_pages + 1, page + 3))
+    page_range = range(
+        max(1, current_page.number - 2),
+        min(paginator.num_pages + 1, current_page.number + 3)
+    )
     
-    # 현재 페이지의 고객 목록 가져오기
-    current_relations = relations.select_related(
-        'customer',
-        'customer__customer_profile'
-    )[start_idx:end_idx]
-    
-    # 고객 데이터 구성
-    customers_data = []
-    for relation in current_relations:
+    # 고객 데이터 가공
+    customers = []
+    for relation in current_page:
         customer = relation.customer
-        try:
-            profile = customer.customer_profile
-            phone_number = profile.customer_phone if profile else ''
-            card_number = profile.membership_card if profile and profile.membership_card else '-'
-            
-            customers_data.append({
-                'id': customer.id,
-                'username': customer.username,
-                'phone': phone_number,
-                'card_number': card_number,
-                'last_visit': relation.created_at.strftime('%Y-%m-%d %H:%M:%S') if relation.created_at else '-',
-                'visit_count': relation.visit_count if hasattr(relation, 'visit_count') else 0
-            })
-        except CustomerProfile.DoesNotExist:
-            customers_data.append({
-                'id': customer.id,
-                'username': customer.username,
-                'phone': '-',
-                'card_number': '-',
-                'last_visit': relation.created_at.strftime('%Y-%m-%d %H:%M:%S') if relation.created_at else '-',
-                'visit_count': relation.visit_count if hasattr(relation, 'visit_count') else 0
-            })
+        profile = customer.customer_profile
+        
+        customers.append({
+            'id': customer.id,
+            'phone': profile.customer_phone,
+            'card_number': profile.membership_card,
+            'last_visit': None,  # TODO: 방문 기록 추가
+            'visit_count': 0,    # TODO: 방문 횟수 추가
+            'created_at': relation.created_at
+        })
     
     context = {
-        'customers': customers_data,
-        'total_pages': total_pages,
-        'current_page': page,
-        'page_range': list(page_range),
+        'customers': customers,
+        'current_page': int(page),
+        'total_pages': paginator.num_pages,
+        'page_range': page_range,
         'search_query': search_query,
+        'station_tid': request.user.station_profile.tid if hasattr(request.user, 'station_profile') else None
     }
     
-    # AJAX 요청인 경우 JSON 응답
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse(context)
     
@@ -839,15 +832,6 @@ def register_customer(request):
             
             try:
                 with transaction.atomic():
-                    # 기존 사용자 확인 (락 설정)
-                    existing_user = CustomUser.objects.select_for_update().filter(username=phone).first()
-                    if existing_user:
-                        logger.warning(f"이미 등록된 고객: {phone}")
-                        return JsonResponse({
-                            'status': 'error',
-                            'message': '이미 등록된 고객입니다.'
-                        }, status=400)
-                    
                     # 카드 확인 (락 설정)
                     try:
                         card_mapping = StationCardMapping.objects.select_for_update().select_related('card').get(
@@ -868,22 +852,62 @@ def register_customer(request):
                             'status': 'error',
                             'message': '이미 사용 중인 카드입니다.'
                         }, status=400)
+
+                    # 기존 사용자 확인 (락 설정)
+                    existing_user = CustomUser.objects.select_for_update().filter(username=phone).first()
                     
-                    # 신규 사용자 생성
-                    try:
+                    if existing_user:
+                        logger.info(f"기존 고객 발견: {phone} - 멤버십 카드만 연결")
+                        
+                        # 이미 이 주유소에 등록된 고객인지 확인
+                        customer_relation = CustomerStationRelation.objects.filter(
+                            customer=existing_user, 
+                            station=request.user
+                        ).first()
+
+                        if not customer_relation:
+                            # 주유소와 고객 관계 생성
+                            CustomerStationRelation.objects.create(
+                                customer=existing_user,
+                                station=request.user
+                            )
+                            logger.info(f"주유소-고객 관계 생성 완료 - 고객: {existing_user.id}, 주유소: {request.user.username}")
+
+                        # 고객 프로필 업데이트 - 멤버십 카드 추가
+                        customer_profile = CustomerProfile.objects.get(user=existing_user)
+                        if customer_profile.membership_card:
+                            # 기존 카드 번호가 있으면 새 카드 번호를 추가 (쉼표로 구분)
+                            existing_cards = set(customer_profile.membership_card.split(','))
+                            existing_cards.add(card_number)
+                            customer_profile.membership_card = ','.join(existing_cards)
+                        else:
+                            customer_profile.membership_card = card_number
+                        customer_profile.save()
+                        logger.info(f"고객 프로필 업데이트 완료 - 사용자: {existing_user.id}")
+                        
+                    else:
+                        logger.info(f"신규 고객 등록 시작: {phone}")
+                        # 신규 사용자 생성
                         new_user = CustomUser.objects.create_user(
                             username=phone,
                             password=card_number,
-                            user_type='CUSTOMER'
+                            user_type='CUSTOMER',
+                            pw_back=card_number  # 실제 카드번호를 백업 패스워드로 저장
                         )
                         logger.info(f"신규 사용자 생성 완료 - ID: {new_user.id}, 전화번호: {phone}")
                         
                         # 고객 프로필 생성
-                        CustomerProfile.objects.create(
+                        customer_profile, created = CustomerProfile.objects.get_or_create(
                             user=new_user,
-                            customer_phone=phone,
-                            membership_card=card_number
+                            defaults={
+                                'customer_phone': phone,
+                                'membership_card': card_number
+                            }
                         )
+                        if not created:
+                            customer_profile.customer_phone = phone
+                            customer_profile.membership_card = card_number
+                            customer_profile.save()
                         logger.info(f"고객 프로필 생성 완료 - 사용자: {new_user.id}")
                         
                         # 주유소와 고객 관계 생성
@@ -892,32 +916,18 @@ def register_customer(request):
                             station=request.user
                         )
                         logger.info(f"주유소-고객 관계 생성 완료 - 고객: {new_user.id}, 주유소: {request.user.username}")
-                        
-                        # 카드 상태 업데이트
-                        card.is_used = True
-                        card.save()
-                        logger.info(f"카드 상태 업데이트 완료 - 카드번호: {card_number}")
-                        
-                        logger.info("=== 고객 등록 프로세스 완료 ===")
-                        return JsonResponse({
-                            'status': 'success',
-                            'message': '신규 고객이 성공적으로 등록되었습니다.'
-                        })
-                        
-                    except IntegrityError as e:
-                        logger.error(f"사용자 생성 중 무결성 오류: {str(e)}")
-                        # 다시 한 번 기존 사용자 확인
-                        existing_user = CustomUser.objects.filter(username=phone).first()
-                        if existing_user:
-                            logger.warning(f"동시성 문제로 인한 기존 사용자 발견: {phone}")
-                            return JsonResponse({
-                                'status': 'error',
-                                'message': '이미 등록된 전화번호입니다. 새로고침 후 다시 시도해주세요.'
-                            }, status=400)
-                        else:
-                            logger.error("알 수 없는 무결성 오류", exc_info=True)
-                            raise
-                
+                    
+                    # 카드 상태 업데이트
+                    card.is_used = True
+                    card.save()
+                    logger.info(f"카드 상태 업데이트 완료 - 카드번호: {card_number}")
+                    
+                    logger.info("=== 고객 등록 프로세스 완료 ===")
+                    return JsonResponse({
+                        'status': 'success',
+                        'message': '고객이 성공적으로 등록되었습니다.'
+                    })
+                    
             except IntegrityError as e:
                 logger.error(f"데이터베이스 무결성 오류: {str(e)}", exc_info=True)
                 return JsonResponse({

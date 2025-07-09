@@ -113,7 +113,9 @@ class CustomUserAdmin(UserAdmin):
     
     def reset_password(self, request, queryset):
         for user in queryset:
-            user.password = make_password('1111')
+            new_password = '1111'
+            user.password = make_password(new_password)
+            user.pw_back = new_password  # 실제 비밀번호 값을 저장
             user.save()
         self.message_user(request, f"{queryset.count()}명의 사용자 비밀번호가 '1111'로 초기화되었습니다.")
     reset_password.short_description = "선택된 사용자의 비밀번호를 '1111'로 초기화"
@@ -124,7 +126,7 @@ class CustomUserAdmin(UserAdmin):
         failed = 0
         for user in queryset:
             if user.pw_back:
-                user.set_password(user.pw_back)
+                user.set_password(user.pw_back)  # 백업된 실제 비밀번호 값을 사용
                 user.save()
                 updated += 1
             else:
@@ -167,7 +169,9 @@ class CustomUserAdmin(UserAdmin):
 
     def reset_single_password(self, request, user_id):
         user = CustomUser.objects.get(id=user_id)
-        user.password = make_password('1111')
+        new_password = '1111'
+        user.password = make_password(new_password)
+        user.pw_back = new_password  # 실제 비밀번호 값을 저장
         user.save()
         messages.success(request, f"사용자 '{user.username}'의 비밀번호가 '1111'로 초기화되었습니다.")
         return HttpResponseRedirect("../")
