@@ -247,9 +247,9 @@
 
     <!-- 메시지 표시 -->
     {% if messages %}
-    <div class="position-fixed top-0 start-50 translate-middle-x" style="z-index: 1040; margin-top: 5rem;">
+    <div class="position-fixed top-50 start-50 translate-middle" style="z-index: 1040;">
         {% for message in messages %}
-        <div class="alert {{ message.tags }} alert-dismissible fade show" role="alert">
+        <div class="alert {{ message.tags }} alert-dismissible fade show" role="alert" style="min-width: 300px; text-align: center;">
             {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
