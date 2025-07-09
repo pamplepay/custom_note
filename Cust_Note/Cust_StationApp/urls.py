@@ -22,8 +22,15 @@ urlpatterns = [
     path('delete-card/', views.delete_card, name='delete_card'),
     path('delete-customer/', views.delete_customer, name='delete_customer'),
     path('check-customer/', views.check_customer_exists, name='check_customer'),
+    path('search-customer/', views.search_customer, name='search_customer'),
     
     # 멤버십 카드 관리 관련 URL
     path('register-card/', views.register_card, name='register_card'),
     path('get-unused-cards/', views.get_unused_cards, name='get_unused_cards'),
+    
+    # 매출 관리 관련 URL
+    path('sales/', views.station_sales, name='sales'),
+    path('sales/upload/', views.upload_sales_data, name='upload_sales'),
+    path('sales/delete/<int:sales_id>/', views.delete_sales_data, name='delete_sales'),
+    path('sales/download/<int:sales_id>/', views.download_sales_file, name='download_sales'),
 ] 

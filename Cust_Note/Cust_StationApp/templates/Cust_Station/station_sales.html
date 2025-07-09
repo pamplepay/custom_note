@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}매출 관리{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">매출 관리</h2>
+
+    <!-- 매출 데이터 업로드 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">매출 데이터 업로드</h5>
+            <form id="uploadForm" class="row g-3" enctype="multipart/form-data">
+                <div class="col-md-8">
+                    <input type="file" class="form-control" id="sales_file" name="sales_file" accept=".xlsx" required>
+                    <div class="form-text">
+                        * 엑셀 파일(.xlsx)만 업로드 가능합니다.<br>
+                        * 필수 컬럼: 매출일, 총매출액
+                    </div>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-success">업로드</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 매출 데이터 목록 -->
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">매출 데이터 목록</h5>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>매출일</th>
+                            <th>총 매출액</th>
+                            <th>파일명</th>
+                            <th>등록일시</th>
+                            <th>작업</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for data in sales_data %}
+                        <tr>
+                            <td>{{ data.sales_date|date:"Y-m-d" }}</td>
+                            <td>{{ data.total_sales|floatformat:0 }}원</td>
+                            <td>{{ data.original_file_name }}</td>
+                            <td>{{ data.upload_date|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <a href="{% url 'station:download_sales' data.id %}" class="btn btn-sm btn-primary me-1">다운로드</a>
+                                <button class="btn btn-sm btn-danger delete-sales" data-sales-id="{{ data.id }}">삭제</button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">매출 데이터가 없습니다.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 매출 데이터 업로드
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch('{% url "station:upload_sales" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                alert(data.message);
+                location.reload();
+            }
+        })
+        .catch(error => {
+            alert('오류가 발생했습니다.');
+            console.error('Error:', error);
+        });
+    });
+
+    // 매출 데이터 삭제
+    document.querySelectorAll('.delete-sales').forEach(button => {
+        button.addEventListener('click', function() {
+            if (confirm('정말 삭제하시겠습니까?')) {
+                const salesId = this.dataset.salesId;
+                
+                fetch(`{% url "station:delete_sales" 0 %}`.replace('0', salesId), {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        alert(data.message);
+                        location.reload();
+                    }
+                })
+                .catch(error => {
+                    alert('오류가 발생했습니다.');
+                    console.error('Error:', error);
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+{% endblock %} 

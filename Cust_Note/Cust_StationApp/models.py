@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
 from Cust_User.models import CustomUser, CustomerStationRelation
+from django.conf import settings
 
 # Create your models here.
 
@@ -118,3 +119,19 @@ class PointHistory(models.Model):
 
     def __str__(self):
         return f"{self.customer_station_relation} - {self.type} {self.points}점 ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
+
+class SalesData(models.Model):
+    """매출 데이터 모델"""
+    station = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    upload_date = models.DateTimeField(auto_now_add=True)
+    file_name = models.CharField(max_length=255)  # 저장된 파일 경로
+    original_file_name = models.CharField(max_length=255)  # 원본 파일명
+    sales_date = models.DateField()  # 매출 날짜
+    total_sales = models.DecimalField(max_digits=15, decimal_places=2, default=0)  # 총 매출액
+
+    class Meta:
+        ordering = ['-sales_date']
+        unique_together = ['station', 'sales_date']  # 같은 날짜에 대한 중복 데이터 방지
+
+    def __str__(self):
+        return f"{self.station.username} - {self.sales_date} ({self.total_sales}원)"

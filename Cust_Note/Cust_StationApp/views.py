@@ -1,10 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, FileResponse
 from django.contrib import messages
 from django.db.models import Q
 from Cust_User.models import CustomUser, CustomerProfile, CustomerStationRelation
-from .models import PointCard, StationCardMapping, PointHistory
+from .models import PointCard, StationCardMapping, PointHistory, SalesData
 from datetime import datetime, timedelta
 import json
 import logging
@@ -14,6 +14,9 @@ from django.contrib.auth.hashers import make_password
 from django.db import transaction
 from django.db.transaction import TransactionManagementError
 from django.views.decorators.http import require_http_methods
+import os
+from django.conf import settings
+from django.db.utils import IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -719,7 +722,7 @@ def register_customer(request):
             
             # 카드 사용 가능 여부 확인
             print(f"[DEBUG] 카드 조회 시작 - 주유소: {request.user.username}, 카드번호: {card_number}")
-            card = StationCardMapping.objects.select_related('card').filter(
+            card = StationCardMapping.objects.select_related('card', 'station').filter(
                 station=request.user,
                 card__number=card_number
             ).first()
@@ -730,6 +733,14 @@ def register_customer(request):
                 return JsonResponse({
                     'status': 'error',
                     'message': '등록되지 않은 카드번호입니다.'
+                }, status=400)
+            
+            # 카드 소유 주유소 확인
+            if card.station != request.user:
+                print(f"[DEBUG] 카드 소유 주유소 불일치 - 카드 소유: {card.station.username}, 현재 주유소: {request.user.username}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '해당 카드는 현재 주유소의 카드가 아닙니다.'
                 }, status=400)
             
             if not card.is_active:
@@ -755,18 +766,11 @@ def register_customer(request):
                     
                     # 현재 주유소와의 관계 확인 (락 설정)
                     if existing_user:
-                        relation = CustomerStationRelation.objects.select_for_update().filter(
-                            customer=existing_user,
-                            station=request.user
-                        ).first()
-                        print(f"[DEBUG] 주유소와의 관계 확인: {relation}")
-                        
-                        if relation:
-                            print("[DEBUG] 이미 등록된 고객")
-                            return JsonResponse({
-                                'status': 'error',
-                                'message': '이미 등록된 고객입니다.'
-                            }, status=400)
+                        print("[DEBUG] 이미 등록된 고객")
+                        return JsonResponse({
+                            'status': 'error',
+                            'message': '이미 등록된 고객입니다.'
+                        }, status=400)
                     
                     # 카드 상태 한 번 더 확인 (락 설정)
                     card = StationCardMapping.objects.select_for_update().select_related('card').get(id=card.id)
@@ -804,28 +808,46 @@ def register_customer(request):
                         message = '기존 고객에 대해 멤버십 카드가 등록되었습니다.'
                     else:
                         print("[DEBUG] 신규 사용자 생성")
-                        # 신규 사용자 생성 (비밀번호를 카드번호로 설정)
-                        new_user = CustomUser.objects.create_user(
-                            username=phone,
-                            password=card_number
-                        )
-                        
-                        # 고객 프로필 생성
-                        print("[DEBUG] 고객 프로필 생성")
-                        CustomerProfile.objects.create(
-                            user=new_user,
-                            customer_phone=phone,
-                            membership_card=card_number
-                        )
-                        
-                        # 주유소와 고객 관계 생성
-                        print("[DEBUG] 주유소-고객 관계 생성")
-                        CustomerStationRelation.objects.create(
-                            customer=new_user,
-                            station=request.user
-                        )
-                        
-                        message = '신규 고객이 성공적으로 등록되었습니다.'
+                        try:
+                            # 신규 사용자 생성 (비밀번호를 카드번호로 설정)
+                            new_user = CustomUser.objects.create_user(
+                                username=phone,
+                                password=card_number,
+                                user_type='CUSTOMER'  # 사용자 타입을 명시적으로 지정
+                            )
+                            print(f"[DEBUG] 신규 사용자 생성 완료 - ID: {new_user.id}")
+                            
+                            # 고객 프로필 생성
+                            print("[DEBUG] 고객 프로필 생성")
+                            CustomerProfile.objects.create(
+                                user=new_user,
+                                customer_phone=phone,
+                                membership_card=card_number
+                            )
+                            print("[DEBUG] 고객 프로필 생성 완료")
+                            
+                            # 주유소와 고객 관계 생성
+                            print("[DEBUG] 주유소-고객 관계 생성")
+                            CustomerStationRelation.objects.create(
+                                customer=new_user,
+                                station=request.user
+                            )
+                            print("[DEBUG] 주유소-고객 관계 생성 완료")
+                            
+                            message = '신규 고객이 성공적으로 등록되었습니다.'
+                        except IntegrityError as e:
+                            print(f"[DEBUG] 사용자 생성 중 무결성 오류: {str(e)}")
+                            # 다시 한 번 기존 사용자 확인
+                            existing_user = CustomUser.objects.filter(username=phone).first()
+                            if existing_user:
+                                print("[DEBUG] 동시성 문제로 인한 기존 사용자 발견")
+                                return JsonResponse({
+                                    'status': 'error',
+                                    'message': '이미 등록된 전화번호입니다. 새로고침 후 다시 시도해주세요.'
+                                }, status=400)
+                            else:
+                                print("[DEBUG] 알 수 없는 무결성 오류")
+                                raise
                     
                     # 카드 상태 업데이트
                     print("[DEBUG] 카드 상태 업데이트")
@@ -838,6 +860,12 @@ def register_customer(request):
                         'message': message
                     })
                 
+            except IntegrityError as e:
+                print(f"[DEBUG] 데이터베이스 무결성 오류: {str(e)}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '고객 등록 중 무결성 오류가 발생했습니다. 이미 등록된 정보일 수 있습니다.'
+                }, status=400)
             except Exception as e:
                 print(f"[DEBUG] 데이터베이스 오류: {str(e)}")
                 return JsonResponse({
@@ -908,7 +936,7 @@ def delete_customer(request):
 
 @login_required
 def check_customer_exists(request):
-    """전화번호로 고객 존재 여부 확인"""
+    """전화번호로 사용자 존재 여부와 상태를 확인하는 뷰"""
     if not request.user.is_station:
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
     
@@ -916,85 +944,81 @@ def check_customer_exists(request):
         try:
             data = json.loads(request.body)
             phone = data.get('phone', '').strip()
-            
-            if not phone:
-                return JsonResponse({
-                    'status': 'error',
-                    'message': '전화번호를 입력해주세요.'
-                }, status=400)
-            
-            # 전화번호 형식 확인 (숫자만 허용)
-            phone = re.sub(r'[^0-9]', '', phone)
-            if not re.match(r'^\d{10,11}$', phone):
-                return JsonResponse({
-                    'status': 'error',
-                    'message': '올바른 전화번호 형식이 아닙니다.'
-                }, status=400)
-            
-            # 기존 사용자 확인 (username으로 검색)
-            existing_user = CustomUser.objects.filter(username=phone).first()
-            
-            if existing_user:
-                # 고객 프로필 정보 가져오기
-                try:
-                    profile = existing_user.customer_profile
-                    customer_phone = profile.customer_phone if profile else ''
-                except CustomerProfile.DoesNotExist:
-                    customer_phone = ''
-                
-                # 현재 주유소와의 관계 확인
-                relation = CustomerStationRelation.objects.filter(
-                    customer=existing_user,
-                    station=request.user
-                ).first()
-                
-                if relation:
-                    return JsonResponse({
-                        'status': 'error',
-                        'message': '이미 등록된 고객입니다.',
-                        'exists': True,
-                        'registered': True,
-                        'customer_info': {
-                            'id': existing_user.username,  # username이 전화번호이므로 ID로 사용
-                            'phone': customer_phone
-                        }
-                    })
-                else:
-                    # 다른 주유소에만 등록된 고객
-                    return JsonResponse({
-                        'status': 'success',
-                        'message': '다른 주유소에 등록된 고객입니다. 이 주유소에도 등록하시겠습니까?',
-                        'exists': True,
-                        'registered': False,
-                        'customer_info': {
-                            'id': existing_user.username,
-                            'phone': customer_phone
-                        }
-                    })
-            else:
-                return JsonResponse({
-                    'status': 'success',
-                    'message': '등록 가능한 전화번호입니다.',
-                    'exists': False,
-                    'registered': False
-                })
-                
         except json.JSONDecodeError:
             return JsonResponse({
                 'status': 'error',
                 'message': '잘못된 요청 형식입니다.'
             }, status=400)
-        except Exception as e:
-            logger.error(f"고객 조회 중 오류 발생: {str(e)}", exc_info=True)
+    elif request.method == 'GET':
+        phone = request.GET.get('phone', '').strip()
+    else:
+        return JsonResponse({
+            'status': 'error',
+            'message': '지원하지 않는 요청 방식입니다.'
+        }, status=405)
+
+    if not phone:
+        return JsonResponse({
+            'status': 'error',
+            'message': '전화번호를 입력해주세요.'
+        }, status=400)
+
+    # 전화번호 형식 확인 (숫자만 허용)
+    phone = re.sub(r'[^0-9]', '', phone)
+    if not re.match(r'^\d{10,11}$', phone):
+        return JsonResponse({
+            'status': 'error',
+            'message': '올바른 전화번호 형식이 아닙니다.'
+        }, status=400)
+
+    try:
+        # 사용자 검색
+        user = CustomUser.objects.filter(username=phone).first()
+        
+        if not user:
             return JsonResponse({
-                'status': 'error',
-                'message': '고객 조회 중 오류가 발생했습니다.'
-            }, status=500)
-    
-    return JsonResponse({
-        'status': 'error',
-        'message': '잘못된 요청 방식입니다.'
-    }, status=405)
+                'status': 'success',
+                'exists': False,
+                'message': '사용 가능한 전화번호입니다.',
+                'data': {
+                    'can_register': True
+                }
+            })
+
+        # 프로필 정보 가져오기
+        profile = CustomerProfile.objects.filter(user=user).first()
+        
+        # 현재 주유소와의 관계 확인
+        relation = CustomerStationRelation.objects.filter(
+            customer=user,
+            station=request.user
+        ).exists()
+
+        if relation:
+            message = '이미 이 주유소에 등록된 고객입니다.'
+            can_register = False
+        else:
+            message = '다른 주유소에 등록된 전화번호입니다. 새로운 카드로 등록 가능합니다.'
+            can_register = True
+
+        return JsonResponse({
+            'status': 'success',
+            'exists': True,
+            'message': message,
+            'data': {
+                'phone': profile.customer_phone if profile else None,
+                'membership_card': profile.membership_card if profile else None,
+                'is_registered_here': relation,
+                'can_register': can_register
+            }
+        })
+
+    except Exception as e:
+        print(f"[DEBUG] 사용자 확인 중 오류 발생: {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'message': '사용자 확인 중 오류가 발생했습니다.'
+        }, status=500)
 
 @require_http_methods(["POST"])
 def register_card(request):
@@ -1059,3 +1083,177 @@ def register_card(request):
             'status': 'error',
             'message': f'카드 등록 중 오류가 발생했습니다: {str(e)}'
         })
+
+@login_required
+def station_sales(request):
+    """주유소 매출 관리 페이지"""
+    if not request.user.is_station:
+        messages.error(request, '주유소 회원만 접근할 수 있습니다.')
+        return redirect('home')
+    
+    # 매출 데이터 조회
+    sales_data = SalesData.objects.filter(station=request.user).order_by('-sales_date')
+    
+    context = {
+        'sales_data': sales_data,
+    }
+    
+    return render(request, 'Cust_Station/station_sales.html', context)
+
+@login_required
+@require_http_methods(["POST"])
+def upload_sales_data(request):
+    """매출 데이터 엑셀 파일 업로드"""
+    if not request.user.is_station:
+        return JsonResponse({'error': '권한이 없습니다.'}, status=403)
+    
+    try:
+        if 'sales_file' not in request.FILES:
+            return JsonResponse({'error': '파일이 선택되지 않았습니다.'}, status=400)
+        
+        sales_file = request.FILES['sales_file']
+        if not sales_file.name.endswith('.xlsx'):
+            return JsonResponse({'error': '엑셀 파일(.xlsx)만 업로드 가능합니다.'}, status=400)
+        
+        # 저장 경로 설정
+        station_folder = f'sales_data/{request.user.id}'
+        save_path = os.path.join(settings.MEDIA_ROOT, station_folder)
+        
+        # 폴더가 없으면 생성
+        os.makedirs(save_path, exist_ok=True)
+        
+        # 엑셀 파일 처리
+        import pandas as pd
+        df = pd.read_excel(sales_file)
+        
+        # 필수 컬럼 확인
+        required_columns = ['매출일', '총매출액']
+        if not all(col in df.columns for col in required_columns):
+            return JsonResponse({'error': '필수 컬럼(매출일, 총매출액)이 없습니다.'}, status=400)
+        
+        success_count = 0
+        error_count = 0
+        
+        # 데이터 저장
+        for _, row in df.iterrows():
+            try:
+                sales_date = pd.to_datetime(row['매출일']).date()
+                total_sales = float(row['총매출액'])
+                
+                # 파일명 생성
+                file_name = f'{request.user.id}_{sales_date.strftime("%Y%m%d")}.xlsx'
+                file_path = os.path.join(station_folder, file_name)
+                
+                # 파일 저장
+                with open(os.path.join(save_path, file_name), 'wb+') as destination:
+                    for chunk in sales_file.chunks():
+                        destination.write(chunk)
+                
+                # 매출 데이터 생성 또는 업데이트
+                SalesData.objects.update_or_create(
+                    station=request.user,
+                    sales_date=sales_date,
+                    defaults={
+                        'total_sales': total_sales,
+                        'file_name': file_path,
+                        'original_file_name': sales_file.name
+                    }
+                )
+                success_count += 1
+                
+            except Exception as e:
+                error_count += 1
+                logger.error(f'매출 데이터 저장 중 오류 발생: {str(e)}')
+        
+        message = f'매출 데이터 업로드 완료 (성공: {success_count}건, 실패: {error_count}건)'
+        return JsonResponse({'message': message, 'success_count': success_count, 'error_count': error_count})
+    
+    except Exception as e:
+        logger.error(f'매출 데이터 업로드 중 오류 발생: {str(e)}')
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["DELETE"])
+def delete_sales_data(request, sales_id):
+    """매출 데이터 삭제"""
+    if not request.user.is_station:
+        return JsonResponse({'error': '권한이 없습니다.'}, status=403)
+    
+    try:
+        sales_data = get_object_or_404(SalesData, id=sales_id, station=request.user)
+        sales_data.delete()
+        return JsonResponse({'message': '매출 데이터가 성공적으로 삭제되었습니다.'})
+    
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def download_sales_file(request, sales_id):
+    """매출 데이터 파일 다운로드"""
+    if not request.user.is_station:
+        return JsonResponse({'error': '권한이 없습니다.'}, status=403)
+    
+    try:
+        sales_data = get_object_or_404(SalesData, id=sales_id, station=request.user)
+        file_path = os.path.join(settings.MEDIA_ROOT, sales_data.file_name)
+        
+        if not os.path.exists(file_path):
+            return JsonResponse({'error': '파일을 찾을 수 없습니다.'}, status=404)
+        
+        response = FileResponse(open(file_path, 'rb'))
+        response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
+        return response
+        
+    except Exception as e:
+        logger.error(f'파일 다운로드 중 오류 발생: {str(e)}')
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def search_customer(request):
+    """전화번호로 사용자를 검색하는 뷰"""
+    if request.method == 'GET':
+        phone = request.GET.get('phone')
+        if not phone:
+            return JsonResponse({
+                'status': 'error',
+                'message': '전화번호를 입력해주세요.'
+            }, status=400)
+
+        try:
+            # 사용자 검색
+            user = CustomUser.objects.filter(username=phone).first()
+            
+            if not user:
+                return JsonResponse({
+                    'status': 'success',
+                    'exists': False,
+                    'message': '등록되지 않은 사용자입니다.'
+                })
+
+            # 프로필 정보 가져오기
+            profile = CustomerProfile.objects.filter(user=user).first()
+            
+            # 현재 주유소와의 관계 확인
+            relation = CustomerStationRelation.objects.filter(
+                customer=user,
+                station=request.user
+            ).exists()
+
+            return JsonResponse({
+                'status': 'success',
+                'exists': True,
+                'data': {
+                    'phone': profile.customer_phone if profile else None,
+                    'membership_card': profile.membership_card if profile else None,
+                    'is_registered_here': relation
+                },
+                'message': '사용자를 찾았습니다.'
+            })
+
+        except Exception as e:
+            print(f"[DEBUG] 사용자 검색 중 오류 발생: {str(e)}")
+            return JsonResponse({
+                'status': 'error',
+                'message': '사용자 검색 중 오류가 발생했습니다.'
+            }, status=500)

@@ -156,9 +156,9 @@ STATICFILES_FINDERS = [
 # 어드민 정적 파일 설정
 ADMIN_MEDIA_PREFIX = '/static/admin/'
 
-# Media files
+# Media files (Uploaded files)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # 메시지 프레임워크 설정
 from django.contrib.messages import constants as messages

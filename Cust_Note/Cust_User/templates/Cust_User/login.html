@@ -11,7 +11,10 @@
 
 <div class="login-container">
     <div class="login-header">
+        <a href="{% url 'home' %}" class="brand-link">
+            <i class="fas fa-gas-pump"></i>
         <h1>Oil Note</h1>
+        </a>
         <p>스마트한 주유 관리의 시작</p>
     </div>
     
@@ -64,6 +67,34 @@
 
 {% block extra_css %}
 <style>
+    body {
+        padding-top: 0 !important;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+    }
+
+    .brand-link {
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .brand-link i {
+        font-size: 2rem;
+        color: var(--primary-color);
+    }
+
+    .brand-link h1 {
+        margin: 0;
+        color: var(--primary-color);
+    }
+
     :root {
         --primary-color: #007bff;
         --secondary-color: #6c757d;
@@ -129,6 +160,7 @@
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         position: relative;
         z-index: 1;
+        margin: 2rem auto;
     }
 
     .login-header {
@@ -136,16 +168,10 @@
         margin-bottom: 2rem;
     }
 
-    .login-header h1 {
-        color: var(--primary-color);
-        font-size: 2rem;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-    }
-
     .login-header p {
         color: var(--secondary-color);
         font-size: 1rem;
+        margin-top: 0.5rem;
     }
 
     .input-group {
@@ -206,24 +232,18 @@
     }
 
     .remember-me input[type="checkbox"] {
-        width: 1rem;
-        height: 1rem;
-    }
-
-    .remember-me label {
-        color: #495057;
-        font-size: 0.9rem;
+        width: auto;
     }
 
     .login-btn {
         width: 100%;
         padding: 0.75rem;
         background: var(--primary-color);
+        color: white;
         border: none;
         border-radius: 0.5rem;
-        color: white;
         font-size: 1rem;
-        font-weight: 600;
+        font-weight: 500;
         cursor: pointer;
         transition: all 0.3s ease;
     }
@@ -234,22 +254,33 @@
     }
 
     .divider {
-        display: flex;
-        align-items: center;
+        text-align: center;
         margin: 1.5rem 0;
-        color: #6c757d;
+        position: relative;
     }
 
     .divider::before,
     .divider::after {
-        content: '';
-        flex: 1;
+        content: "";
+        position: absolute;
+        top: 50%;
+        width: 45%;
         height: 1px;
         background: #dee2e6;
     }
 
+    .divider::before {
+        left: 0;
+    }
+
+    .divider::after {
+        right: 0;
+    }
+
     .divider span {
+        background: white;
         padding: 0 1rem;
+        color: #6c757d;
         font-size: 0.9rem;
     }
 
@@ -258,9 +289,8 @@
     }
 
     .signup-link p {
-        color: #495057;
+        color: #6c757d;
         margin-bottom: 1rem;
-        font-size: 0.9rem;
     }
 
     .signup-buttons {
@@ -278,37 +308,29 @@
         border-radius: 0.5rem;
         text-decoration: none;
         font-weight: 500;
-        font-size: 0.9rem;
         transition: all 0.3s ease;
     }
 
     .signup-btn.customer {
-        background: rgba(0, 123, 255, 0.1);
-        color: var(--primary-color);
+        background: #e9ecef;
+        color: #495057;
     }
 
     .signup-btn.station {
-        background: rgba(108, 117, 125, 0.1);
-        color: var(--secondary-color);
+        background: #e9ecef;
+        color: #495057;
     }
 
     .signup-btn:hover {
         transform: translateY(-1px);
+        background: #dee2e6;
     }
 
-    .signup-btn.customer:hover {
-        background: rgba(0, 123, 255, 0.2);
-    }
-
-    .signup-btn.station:hover {
-        background: rgba(108, 117, 125, 0.2);
-    }
-
-    @media (max-width: 480px) {
+    @media (max-width: 576px) {
         .login-container {
             width: 100%;
-            padding: 1.5rem;
             margin: 1rem;
+            padding: 1.5rem;
         }
     }
 </style>
