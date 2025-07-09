@@ -1,0 +1,31 @@
+# Django 및 기본 의존성
+Django>=4.2.0,<5.0.0  # 안정적인 최신 버전 사용
+python-dotenv>=1.0.0  # 환경 변수 관리
+
+# 데이터베이스
+psycopg2-binary>=2.9.9  # PostgreSQL 어댑터
+
+# 로깅
+python-json-logger>=2.0.7  # JSON 형식 로깅
+
+# 보안
+django-cors-headers>=4.3.0  # CORS 관리
+django-allauth>=0.57.0  # 인증 관리
+
+# API
+djangorestframework>=3.14.0  # REST API 지원
+
+# 캐싱
+redis>=5.0.1  # 캐싱 백엔드
+django-redis>=5.4.0  # Django Redis 통합
+
+# 유틸리티
+Pillow>=10.0.0  # 이미지 처리
+python-dateutil>=2.8.2  # 날짜/시간 처리
+
+# 개발 도구
+django-debug-toolbar>=4.2.0  # 디버깅 도구
+black>=23.10.0  # 코드 포맷터
+flake8>=6.1.0  # 코드 린터
+pytest>=7.4.0  # 테스트 프레임워크
+pytest-django>=4.5.2  # Django 테스트 지원 

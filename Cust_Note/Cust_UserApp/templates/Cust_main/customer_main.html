@@ -1,0 +1,170 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Oil Note - 메인{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm border-0 bg-primary text-white">
+                <div class="card-body">
+                    <h1 class="card-title h3 mb-3">
+                        <i class="fas fa-user-circle me-2"></i>{{ user.customer_profile.name }}님, 환영합니다!
+                    </h1>
+                    <p class="card-text mb-0">오늘도 안전한 주유 되세요.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 연결된 주유소 섹션 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-gas-pump me-2 text-primary"></i>연결된 주유소
+                        </h5>
+                        <a href="{% url 'customer:station_list' %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-plus me-1"></i>주유소 추가
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if registered_stations %}
+                        <div class="list-group list-group-flush">
+                            {% for relation in registered_stations %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">
+                                                {% if relation.is_primary %}
+                                                    <span class="badge bg-primary me-2">주거래</span>
+                                                {% endif %}
+                                                {{ relation.station.station_profile.station_name }}
+                                            </h6>
+                                            <small class="text-muted">
+                                                <i class="fas fa-map-marker-alt me-1"></i>
+                                                {{ relation.station.station_profile.station_address }}
+                                            </small>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="mb-1">
+                                                <span class="badge bg-info">
+                                                    <i class="fas fa-coins me-1"></i>{{ relation.points }} P
+                                                </span>
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-history me-1"></i>{{ relation.visit_count }}회 방문
+                                                </span>
+                                            </div>
+                                            <small class="text-muted">
+                                                최근 방문: 
+                                                {% if relation.last_visit_date %}
+                                                    {{ relation.last_visit_date|date:"Y.m.d" }}
+                                                {% else %}
+                                                    방문 기록 없음
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-store fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-3">아직 연결된 주유소가 없습니다.</p>
+                            <a href="{% url 'customer:station_list' %}" class="btn btn-primary">
+                                <i class="fas fa-plus me-1"></i>주유소 찾아보기
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-gas-pump fa-2x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">이번 달 주유 횟수</h5>
+                    <h3 class="text-primary mb-0">0회</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-won-sign fa-2x text-success"></i>
+                    </div>
+                    <h5 class="card-title">이번 달 총 금액</h5>
+                    <h3 class="text-success mb-0">0원</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-tint fa-2x text-info"></i>
+                    </div>
+                    <h5 class="card-title">이번 달 총 주유량</h5>
+                    <h3 class="text-info mb-0">0L</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-history me-2 text-secondary"></i>최근 주유 기록
+                    </h5>
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted mb-3">아직 주유 기록이 없습니다.</p>
+                        <a href="{% url 'customer:records' %}" class="btn btn-sm btn-primary">
+                            첫 번째 기록 추가하기
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<style>
+    .list-group-item {
+        border: none;
+        padding: 0.75rem 1.25rem;
+        transition: all 0.2s ease;
+    }
+    .list-group-item:hover {
+        background-color: #f8f9fa;
+        transform: translateX(5px);
+    }
+    .card {
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+    .badge {
+        font-weight: 500;
+    }
+    @media (max-width: 768px) {
+        .card {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %} 

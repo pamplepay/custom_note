@@ -1,0 +1,56 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Oil Note - 주유소 정보{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">주유소 프로필</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="station_name" class="form-label">주유소 이름</label>
+                            <input type="text" class="form-control" id="station_name" name="station_name" value="{{ station_name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">전화번호</label>
+                            <input type="tel" class="form-control" id="phone" name="phone" value="{{ phone }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="address" class="form-label">주소</label>
+                            <input type="text" class="form-control" id="address" name="address" value="{{ address }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="business_number" class="form-label">사업자 등록번호</label>
+                            <input type="text" class="form-control" id="business_number" name="business_number" value="{{ business_number }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="oil_company_code" class="form-label">정유사 코드</label>
+                            <input type="text" class="form-control" id="oil_company_code" name="oil_company_code" value="{{ oil_company_code }}" maxlength="1" required>
+                            <div class="form-text">1자리 숫자</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="agency_code" class="form-label">대리점 코드</label>
+                            <input type="text" class="form-control" id="agency_code" name="agency_code" value="{{ agency_code }}" maxlength="3" required>
+                            <div class="form-text">3자리 숫자</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="station_code" class="form-label">주유소 코드</label>
+                            <input type="text" class="form-control" id="station_code" name="station_code" value="{{ station_code }}" maxlength="12" required>
+                            <div class="form-text">12자리 숫자</div>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">저장</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

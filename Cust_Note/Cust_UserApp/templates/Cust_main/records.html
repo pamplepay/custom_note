@@ -1,0 +1,43 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Oil Note - 주유 기록{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h1 class="card-title h3 mb-4">주유 기록</h1>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>날짜</th>
+                                    <th>주유소</th>
+                                    <th>유종</th>
+                                    <th>주유량</th>
+                                    <th>금액</th>
+                                    <th>관리</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <p class="text-muted mb-0">아직 주유 기록이 없습니다.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-end mt-3">
+                        <button type="button" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>주유 기록 추가
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

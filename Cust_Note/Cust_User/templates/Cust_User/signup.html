@@ -1,0 +1,84 @@
+{% extends 'base/base.html' %}
+
+{% block content %}
+<div class="container-fluid px-3 py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-sm-10 col-md-8 col-lg-7 col-xl-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="text-center mb-0 h4">
+                        {% if request.resolver_match.url_name == 'customer_signup' %}
+                            일반 고객 회원가입
+                        {% else %}
+                            주유소 회원가입
+                        {% endif %}
+                    </h3>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="form-group mb-3">
+                                {{ field.label_tag }}
+                                <div class="input-group">
+                                    {{ field }}
+                                </div>
+                                {% if field.help_text %}
+                                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="alert alert-danger mt-1 p-2">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">회원가입</button>
+                        </div>
+                    </form>
+                    <div class="mt-4 text-center">
+                        <p class="mb-0">이미 계정이 있으신가요? <a href="{% url 'users:login' %}" class="text-primary">로그인</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_css %}
+<style>
+    @media (max-width: 576px) {
+        .container-fluid {
+            padding: 0.5rem !important;
+        }
+        .card-body {
+            padding: 1rem !important;
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+        }
+        .form-group {
+            margin-bottom: 1rem !important;
+        }
+    }
+    
+    /* 라디오 버튼 스타일링 */
+    .radio-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    /* 입력 필드 스타일링 */
+    .form-control {
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+    }
+    
+    /* 에러 메시지 스타일링 */
+    .alert {
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+{% endblock %} 

@@ -1,0 +1,162 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Oil Note - 주유소 관리{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- 포인트카드 관리 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-credit-card me-2"></i>멤버쉽카드 관리
+                        </h5>
+                        <a href="{% url 'station:cardmanage' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-cog me-1"></i>카드 관리
+                        </a>
+                    </div>
+                    
+                    <!-- 카드 통계 -->
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center p-3 bg-light rounded">
+                                <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+                                    <i class="fas fa-credit-card text-primary"></i>
+                                </div>
+                                <div>
+                                    <h6 class="text-muted mb-1">전체 카드</h6>
+                                    <h3 class="mb-0">{{ total_cards }}장</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center p-3 bg-light rounded">
+                                <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3">
+                                    <i class="fas fa-check-circle text-success"></i>
+                                </div>
+                                <div>
+                                    <h6 class="text-muted mb-1">사용 가능</h6>
+                                    <h3 class="mb-0">{{ active_cards }}장</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center p-3 bg-light rounded">
+                                <div class="rounded-circle bg-warning bg-opacity-10 p-3 me-3">
+                                    <i class="fas fa-clock text-warning"></i>
+                                </div>
+                                <div>
+                                    <h6 class="text-muted mb-1">사용중</h6>
+                                    <h3 class="mb-0">{{ inactive_cards }}장</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 사용 현황 프로그레스 바 -->
+                    <div class="mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">사용 현황</h6>
+                            <span class="text-muted">100.0%</span>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ active_percentage }}%" aria-valuenow="{{ active_percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            <div class="progress-bar bg-warning" role="progressbar" style="width: {{ inactive_percentage }}%" aria-valuenow="{{ inactive_percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="d-flex justify-content-start mt-2">
+                            <div class="me-3">
+                                <i class="fas fa-circle text-success me-1"></i>
+                                <small>사용 가능</small>
+                            </div>
+                            <div>
+                                <i class="fas fa-circle text-warning me-1"></i>
+                                <small>사용중</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 쿠폰 관리 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-ticket-alt me-2"></i>쿠폰 관리
+                        </h5>
+                        <a href="{% url 'station:couponmanage' %}" class="btn btn-primary">
+                            <i class="fas fa-cog me-1"></i>쿠폰 관리
+                        </a>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0">
+                                <div class="card-body text-center">
+                                    <h6 class="card-subtitle mb-2 text-muted">발행된 쿠폰</h6>
+                                    <h2 class="card-title mb-0">0장</h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0">
+                                <div class="card-body text-center">
+                                    <h6 class="card-subtitle mb-2 text-muted">사용된 쿠폰</h6>
+                                    <h2 class="card-title mb-0">0장</h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light border-0">
+                                <div class="card-body text-center">
+                                    <h6 class="card-subtitle mb-2 text-muted">미사용 쿠폰</h6>
+                                    <h2 class="card-title mb-0">0장</h2>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 유가 정보 관리 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-gas-pump me-2"></i>유가 정보 관리
+                        </h5>
+                        <button type="button" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i>유가 정보 저장
+                        </button>
+                    </div>
+                    <form id="fuelPriceForm">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">휘발유 (원/L)</label>
+                                <input type="number" class="form-control" name="gasoline" placeholder="1,500">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">경유 (원/L)</label>
+                                <input type="number" class="form-control" name="diesel" placeholder="1,300">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">LPG (원/L)</label>
+                                <input type="number" class="form-control" name="lpg" placeholder="800">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

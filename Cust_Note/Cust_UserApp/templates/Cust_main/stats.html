@@ -1,0 +1,53 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Oil Note - 통계{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h1 class="card-title h3 mb-4">주유 통계</h1>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">이번 달 총 주유 금액</h5>
+                                    <p class="display-6 mb-0">0원</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">이번 달 총 주유량</h5>
+                                    <p class="display-6 mb-0">0L</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">평균 주유 단가</h5>
+                                    <p class="display-6 mb-0">0원/L</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h2 class="h4 mb-4">월별 주유 금액 추이</h2>
+                    <div style="height: 300px;" class="d-flex align-items-center justify-content-center">
+                        <p class="text-muted">아직 주유 기록이 없습니다.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

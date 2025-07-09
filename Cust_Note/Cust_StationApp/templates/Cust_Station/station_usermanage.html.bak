@@ -1,0 +1,1392 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}Oil Note - 고객 관리{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 모달 z-index 조정 */
+    .modal-backdrop {
+        z-index: 1040 !important;
+    }
+    
+    .modal {
+        z-index: 1050 !important;
+    }
+    
+    /* 모달 위치 조정 */
+    .modal-dialog {
+        margin-top: 5rem !important;
+    }
+    
+    /* 모달이 네비게이션 바 아래에 표시되도록 조정 */
+    #cardSelectionModal .modal-dialog {
+        margin-top: 7rem !important;
+    }
+    
+    /* 카드 선택 모달 스크롤 영역 조정 */
+    #cardSelectionModal .modal-body {
+        max-height: calc(100vh - 250px);
+        overflow-y: auto;
+    }
+
+    /* 검색 입력 필드 스타일링 */
+    .search-input {
+        position: relative;
+    }
+    
+    .search-input i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+    
+    .search-input input {
+        padding-left: 40px;
+        border-radius: 20px;
+    }
+    
+    /* 고객 카드 스타일링 */
+    .customer-card {
+        transition: transform 0.2s;
+    }
+    
+    .customer-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    /* 버튼 스타일링 */
+    .btn-icon {
+        width: 35px;
+        height: 35px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+
+    .accordion-button:not(.collapsed) {
+        background-color: #f8f9fa;
+        color: #0d6efd;
+    }
+    .accordion-button:focus {
+        box-shadow: none;
+        border-color: rgba(0,0,0,.125);
+    }
+    .rounded-circle {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .input-group {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .input-group .form-control {
+        width: 354.33px;
+        height: 38px;
+        border-radius: 4px;
+        padding: 6px 12px;
+    }
+
+    .input-group .btn {
+        height: 38px;
+        min-width: 60px;
+        border-radius: 4px;
+        padding: 6px 12px;
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+        color: white;
+        font-weight: 400;
+    }
+
+    .input-group .btn:hover {
+        background-color: #0b5ed7;
+        border-color: #0a58ca;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- 고객 관리 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="mb-0">고객 관리</h2>
+                        <button type="button" class="btn btn-primary" id="addCustomerBtn">
+                            <i class="fas fa-user-plus me-2"></i>신규 고객 등록
+                        </button>
+                    </div>
+                    
+                    <!-- 고객 통계 -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center p-3 bg-light rounded">
+                                <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+                                    <i class="fas fa-users text-primary"></i>
+                                </div>
+                                <div>
+                                    <h6 class="text-muted mb-1">전체 고객</h6>
+                                    <h3 class="mb-0">{{ customers|length }}명</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center p-3 bg-light rounded">
+                                <div class="rounded-circle bg-success bg-opacity-10 p-3 me-3">
+                                    <i class="fas fa-calendar-check text-success"></i>
+                                </div>
+                                <div>
+                                    <h6 class="text-muted mb-1">이번 달 방문</h6>
+                                    <h3 class="mb-0">0명</h3>
+                                </div>
+                            </div>
+                        </div>                        
+                    </div>
+
+                    <!-- 검색 영역 -->
+                    <div class="mb-4">
+                        <div class="position-relative">
+                            <i class="fas fa-search text-primary position-absolute" style="left: 15px; top: 50%; transform: translateY(-50%); z-index: 10;"></i>
+                            <input type="text" class="form-control ps-5" id="searchInput" 
+                                   placeholder="고객 검색 (전화번호 또는 카드번호)" style="height: 45px;">
+                        </div>
+                    </div>
+
+                    <!-- 고객 목록 -->
+                    <div class="accordion" id="customerAccordion">
+                        {% for customer in customers %}
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-0">
+                                <div class="accordion accordion-flush" id="customerAccordion-{{ customer.id }}">
+                                    <div class="accordion-item border-0">
+                                        <div class="d-flex justify-content-between align-items-center p-3">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-user-circle text-primary me-3 fs-4"></i>
+                                                <div>
+                                                    <h6 class="mb-0">{{ customer.phone|default:'-' }}</h6>                                                    
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <button class="btn btn-link text-decoration-none p-0 me-2" type="button" 
+                                                        data-bs-toggle="collapse" data-bs-target="#customerCollapse-{{ customer.id }}">
+                                                    <i class="fas fa-chevron-down"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div id="customerCollapse-{{ customer.id }}" class="accordion-collapse collapse" 
+                                             data-bs-parent="#customerAccordion-{{ customer.id }}">
+                                            <div class="accordion-body px-3 pb-3 pt-0">
+                                                <div class="border-top pt-3">
+                                                    <div class="row g-3">
+                                                        <div class="col-12">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <span class="text-muted">멤버십 카드</span>
+                                                                <span>{{ customer.membership_card|default:'-' }}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <span class="text-muted">최근 방문</span>
+                                                                <span>{{ customer.last_visit|default:'-' }}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <span class="text-muted">총 방문 횟수</span>
+                                                                <span>{{ customer.visit_count|default:'0' }}회</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12 mt-3">
+                                                            <div class="btn-group w-100">
+                                                                <button class="btn btn-sm btn-outline-primary edit-customer" data-customer-id="{{ customer.id }}">
+                                                                    수정
+                                                                </button>
+                                                                <button class="btn btn-sm btn-outline-danger delete-customer" data-customer-id="{{ customer.id }}">
+                                                                    삭제
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- 페이지네이션 -->
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if current_page > 1 %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ current_page|add:'-1' }}" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                            
+                            {% for page_num in page_range %}
+                            <li class="page-item {% if page_num == current_page %}active{% endif %}">
+                                <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+                            </li>
+                            {% endfor %}
+                            
+                            {% if current_page < total_pages %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ current_page|add:'1' }}" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 고객 등록 모달 -->
+<div class="modal fade" id="customerRegistrationModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-plus me-2"></i>신규 고객 등록
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="customerRegistrationForm" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    <!-- 전화번호 입력 그룹 -->
+                    <div class="mb-4">
+                        <label class="h6 mb-3">전화번호</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <div class="bg-light rounded p-2" style="width: 45px; height: 45px;">
+                                <i class="fas fa-phone"></i>
+                            </div>
+                            <input type="tel" class="form-control flex-grow-1" id="phone" name="phone" 
+                                   style="height: 45px;"
+                                   pattern="[0-9]{10,11}" placeholder="전화번호 (숫자만 입력)" required>
+                            <button class="btn btn-primary" type="button" id="checkPhoneBtn" 
+                                   style="width: 80px; height: 45px; margin-top: -5px;">
+                                    조회
+                                </button>
+                        </div>
+                        <div class="form-text text-muted mt-2">
+                            <i class="fas fa-info-circle me-1"></i>숫자만 입력해주세요 (예: 01012345678)
+                        </div>
+                        <div id="phoneCheckResult" class="mt-2" style="display: none;">
+                            <!-- 조회 결과가 여기에 표시됩니다 -->
+                        </div>
+                    </div>
+
+                    <!-- 멤버십 카드 입력 그룹 -->
+                    <div class="mb-4">
+                        <label class="h6 mb-3">멤버십 카드 번호</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <div class="bg-light rounded p-2" style="width: 45px; height: 45px;">
+                                <i class="fas fa-credit-card"></i>
+                            </div>
+                            <input type="text" class="form-control flex-grow-1" id="card_number" name="card_number" 
+                                   style="height: 45px;"
+                                   pattern="[0-9]{16}" placeholder="멤버십 카드 번호 (숫자만 입력)" required>
+                            <button class="btn btn-primary" type="button" data-bs-target="#cardManageModal"
+                                   style="width: 80px; height: 45px; margin-top: -5px;">
+                                선택
+                            </button>
+                        </div>
+                        <div class="form-text text-muted mt-2">
+                            <i class="fas fa-info-circle me-1"></i>16자리 카드번호를 입력하거나 선택해주세요
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-user-plus me-1"></i>고객 등록
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 고객 상세 정보 모달 -->
+<div class="modal fade" id="customerDetailModal" tabindex="-1" aria-labelledby="customerDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" style="margin-top: 10rem;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="customerDetailModalLabel">
+                    <i class="fas fa-user me-2"></i>고객 상세 정보
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-light border-0 h-100">
+                            <div class="card-body">
+                                <h6 class="card-title text-primary mb-3">
+                                    <i class="fas fa-user me-2"></i>기본 정보
+                                </h6>
+                                <div class="mb-2">
+                                    <strong>이름:</strong> <span id="detailName">-</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>전화번호:</strong> <span id="detailPhone">-</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>포인트카드:</strong> <span id="detailCard" class="font-monospace">-</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>가입일:</strong> <span id="detailJoinDate">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light border-0 h-100">
+                            <div class="card-body">
+                                <h6 class="card-title text-primary mb-3">
+                                    <i class="fas fa-chart-line me-2"></i>이용 통계
+                                </h6>
+                                <div class="mb-2">
+                                    <strong>총 방문횟수:</strong> <span id="detailVisitCount">0회</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>전월 주유금액:</strong> <span id="detailLastMonthAmount">0원</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>금월 주유금액:</strong> <span id="detailThisMonthAmount">0원</span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>최근 방문일:</strong> <span id="detailLastVisit">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 멤버십 카드 관리 모달 -->
+<div class="modal fade" id="cardManageModal" tabindex="-1" aria-labelledby="cardManageModalLabel" aria-hidden="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cardManageModalLabel">
+                    <i class="fas fa-credit-card me-2"></i>멤버십 카드 관리
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 멤버십 카드 등록 폼 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">멤버십 카드 등록</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="card-registration-form" onsubmit="registerCard(event)">
+                            {% csrf_token %}
+                            <div class="input-group">
+                                <input type="text" 
+                                       id="card-number" 
+                                       class="form-control" 
+                                       placeholder="멤버십 카드 번호 입력 (16자리)" 
+                                       maxlength="16" 
+                                       required>
+                                <button type="submit" 
+                                        class="btn btn-primary" 
+                                        style="margin-top: -5px;">
+                                    등록
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 미사용 카드 목록 -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">미사용 카드 목록</h5>
+                        <button id="refresh-cards-btn" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-sync-alt"></i> 새로고침
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <ul id="unusedCardsList" class="list-group">
+                            <!-- 카드 목록이 여기에 동적으로 추가됩니다 -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// 전역 변수로 이벤트 리스너 등록 상태 관리
+let isEventListenerRegistered = false;
+
+// DOM이 로드되면 실행
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded');
+    
+    // CSRF 토큰 설정
+    window.csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    
+    // 이벤트 리스너가 이미 등록되어 있다면 중복 등록 방지
+    if (window.isEventListenerRegistered) {
+        console.log('Event listeners already registered, skipping...');
+        return;
+    }
+    
+    // 고객 등록 폼 제출 이벤트 리스너 설정
+    const customerRegistrationForm = document.getElementById('customerRegistrationForm');
+    if (customerRegistrationForm) {
+        customerRegistrationForm.removeEventListener('submit', registerCustomer);  // 기존 리스너 제거
+        customerRegistrationForm.addEventListener('submit', registerCustomer);
+    }
+    
+    // 멤버십 카드 선택 버튼 이벤트 리스너 설정
+    const cardSelectionBtn = document.querySelector('[data-bs-target="#cardManageModal"]');
+    if (cardSelectionBtn) {
+        cardSelectionBtn.removeEventListener('click', openCardSelectionModal);  // 기존 리스너 제거
+        cardSelectionBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const cardModal = new bootstrap.Modal(document.getElementById('cardManageModal'));
+            cardModal.show();
+        });
+    }
+    
+    // 전화번호 조회 버튼 이벤트 리스너 설정
+    const phoneCheckBtn = document.getElementById('checkPhoneBtn');
+    if (phoneCheckBtn) {
+        phoneCheckBtn.removeEventListener('click', () => checkDuplicate('phone'));  // 기존 리스너 제거
+        phoneCheckBtn.addEventListener('click', () => checkDuplicate('phone'));
+    }
+    
+    // 실시간 검색 이벤트 리스너 설정
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.removeEventListener('input', e => performSearch(e.target.value));  // 기존 리스너 제거
+        searchInput.addEventListener('input', e => performSearch(e.target.value));
+    }
+    
+    // 이벤트 리스너 등록 완료 표시
+    window.isEventListenerRegistered = true;
+    console.log('Event listeners registered successfully');
+});
+
+// 고객 상세 정보 보기
+function viewCustomerDetail(customerId) {
+    // 여기서 고객 상세 정보를 불러와서 모달에 표시
+    const modal = new bootstrap.Modal(document.getElementById('customerDetailModal'));
+    modal.show();
+}
+
+// 멤버십 카드 관리 모달 열기
+let isCardModalOpen = false;  // 모달 상태 추적
+function openCardSelectionModal() {
+    console.log('Opening card selection modal');
+    
+    // 이미 모달이 열려있으면 중복 호출 방지
+    if (isCardModalOpen) {
+        console.log('Modal is already open, skipping fetch');
+        return;
+    }
+    
+    isCardModalOpen = true;  // 모달 상태 업데이트
+    
+    // CSRF 토큰 새로 가져오기
+    const csrftoken = window.csrfToken || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    
+    // 미사용 카드 목록 가져오기
+    fetch('{% url "station:get_unused_cards" %}', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Received card data:', data);
+        
+        const cardList = document.getElementById('unusedCardsList');
+        cardList.innerHTML = '';
+        
+        if (data.status === 'success') {
+            if (!data.cards || data.cards.length === 0) {
+                console.log('No unused cards found');
+                cardList.innerHTML = `
+                    <li class="list-group-item text-center">등록된 미사용 카드가 없습니다</li>
+                `;
+            } else {
+                console.log(`Found ${data.cards.length} unused cards`);
+                data.cards.forEach(card => {
+                    console.log('Adding card to list:', card);
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    li.innerHTML = `
+                        <div>
+                            <span class="card-number font-monospace">${card.number}</span>
+                            <small class="text-muted ms-2">${card.created_at}</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="selectCard('${card.number}')">
+                            <i class="fas fa-check me-1"></i>선택
+                        </button>
+                    `;
+                    cardList.appendChild(li);
+                });
+            }
+        } else {
+            console.error('Error:', data.message);
+            cardList.innerHTML = `
+                <li class="list-group-item text-center text-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>${data.message || '카드 목록을 불러오는데 실패했습니다.'}
+                </li>
+            `;
+        }
+        
+        // 모달 표시
+        const modalElement = document.getElementById('cardManageModal');
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const cardList = document.getElementById('unusedCardsList');
+        cardList.innerHTML = `
+            <li class="list-group-item text-center text-danger">
+                <i class="fas fa-exclamation-circle me-2"></i>카드 목록을 불러오는데 실패했습니다.
+            </li>
+        `;
+        isCardModalOpen = false;  // 에러 발생 시 상태 초기화
+    });
+}
+
+// 멤버십 카드 선택 처리
+function selectCard(cardNumber) {
+    document.getElementById('card_number').value = cardNumber;
+    
+    // 카드 관리 모달 닫기
+    const cardModal = bootstrap.Modal.getInstance(document.getElementById('cardManageModal'));
+    if (cardModal) {
+        cardModal.hide();
+    }
+    
+    // 고객 등록 모달이 이미 열려있지 않은 경우에만 열기
+    const registerModal = document.getElementById('customerRegistrationModal');
+    if (!registerModal.classList.contains('show')) {
+        const modal = new bootstrap.Modal(registerModal);
+        modal.show();
+    }
+}
+
+// 모달 닫힘 이벤트 리스너 설정
+const customerRegistrationModal = document.getElementById('customerRegistrationModal');
+if (customerRegistrationModal) {
+    customerRegistrationModal.addEventListener('hidden.bs.modal', function() {
+        console.log('Register modal closed, cleaning up');
+        
+        // 카드 관리 모달도 함께 닫기
+        const cardModal = bootstrap.Modal.getInstance(document.getElementById('cardManageModal'));
+        if (cardModal) {
+            cardModal.hide();
+        }
+        
+        // 입력 필드 초기화
+        document.getElementById('customerRegistrationForm').reset();
+        document.getElementById('phoneCheckResult').innerHTML = '';
+        document.getElementById('cardCheckResult').innerHTML = '';
+        
+        // backdrop 제거
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => backdrop.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('padding-right');
+    });
+}
+
+// 중복 체크 함수
+async function checkDuplicate(type) {
+    const phone = document.getElementById('phone').value;
+    const cardNumber = document.getElementById('card_number').value;
+    const csrftoken = window.csrfToken || document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+    // 전화번호 체크만 수행
+    if (type === 'phone') {
+        if (!phone || phone.length !== 11) {
+            document.getElementById('phoneCheckResult').innerHTML = 
+                '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>전화번호를 올바르게 입력해주세요.</span>';
+            return;
+        }
+
+        // 요청 데이터 준비
+        const requestData = {
+            phone: phone
+        };
+
+        // 헤더 준비
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        // CSRF 토큰이 있으면 추가
+        if (csrftoken) {
+            headers['X-CSRFToken'] = csrftoken;
+        }
+
+        try {
+            const response = await fetch('{% url "station:check_customer" %}', {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(requestData)
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'error') {
+                document.getElementById('phoneCheckResult').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>${data.message}
+                    </div>
+                `;
+                // 이미 등록된 고객인 경우 입력 필드 비활성화
+                if (data.exists && data.registered) {
+                    document.getElementById('card_number').disabled = true;
+                    document.querySelector('button[type="submit"]').disabled = true;
+                }
+            } else {
+                if (data.exists) {
+                    // 다른 주유소에 등록된 고객
+                    document.getElementById('phoneCheckResult').innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>${data.message}
+                        </div>
+                    `;
+                    document.getElementById('card_number').disabled = false;
+                    document.querySelector('button[type="submit"]').disabled = false;
+                } else {
+                    // 신규 고객
+                    document.getElementById('phoneCheckResult').innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>${data.message}
+                        </div>
+                    `;
+                    document.getElementById('card_number').disabled = false;
+                    document.querySelector('button[type="submit"]').disabled = false;
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('error', '전화번호 조회 중 오류가 발생했습니다.');
+        }
+    }
+}
+
+// 고객 등록 함수
+function registerCustomer(e) {
+    e.preventDefault();
+    
+    // 폼 제출 버튼 찾기
+    const submitButton = document.querySelector('#customerRegistrationForm button[type="submit"]');
+    
+    // 버튼이 이미 비활성화되어 있다면 중복 제출 방지
+    if (submitButton.disabled) {
+        console.log('Form submission blocked - already processing');
+        return;
+    }
+    
+    // 버튼 비활성화 및 로딩 상태 표시
+    submitButton.disabled = true;
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>처리중...';
+    
+    const formData = new FormData(document.getElementById('customerRegistrationForm'));
+    const data = {
+        phone: formData.get('phone'),
+        card_number: formData.get('card_number')
+    };
+    
+    fetch('/station/register-customer/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 성공 메시지 표시
+            showToast('success', data.message);
+            
+            // 모달 닫기
+            const modal = bootstrap.Modal.getInstance(document.getElementById('customerRegistrationModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // 페이지 새로고침
+            window.location.reload();
+        } else {
+            showToast('error', data.message || '고객 등록 중 오류가 발생했습니다.');
+            // 버튼 상태 복구
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', '등록 중 오류가 발생했습니다: ' + error.message);
+        // 버튼 상태 복구
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+    });
+}
+
+function adjustGridLayout() {
+    // 모든 고객 카드 요소 선택
+    const cards = document.querySelectorAll('.customer-card');
+    
+    // 각 카드의 위치와 크기를 재계산
+    cards.forEach(card => {
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+    });
+}
+
+function showToast(type, message) {
+    const toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        // 토스트 컨테이너가 없으면 생성
+        const container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.style.position = 'fixed';
+        container.style.top = '1rem';
+        container.style.right = '1rem';
+        container.style.zIndex = '1060';
+        document.body.appendChild(container);
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : 'danger'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+    
+    document.getElementById('toastContainer').appendChild(toast);
+    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+    bsToast.show();
+    
+    // 토스트가 숨겨진 후 요소 제거
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
+}
+
+function addNewCustomerToList(customer) {
+    const customerList = document.querySelector('.row.g-3');
+    const emptyMessage = customerList.querySelector('.empty-state')?.closest('.col-12');
+    
+    // 빈 상태 메시지가 있으면 제거
+    if (emptyMessage) {
+        emptyMessage.remove();
+    }
+    
+    // 새 고객 카드 HTML 생성
+    const newCustomerCard = document.createElement('div');
+    newCustomerCard.className = 'col-md-6 col-lg-4 customer-card';
+    newCustomerCard.setAttribute('data-customer-id', customer.id);
+    newCustomerCard.style.opacity = '0';
+    newCustomerCard.style.transform = 'translateY(-20px)';
+    newCustomerCard.style.transition = 'all 0.3s ease-out';
+    
+    newCustomerCard.innerHTML = `
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-4">
+                <h6 class="card-title mb-2 customer-name">${customer.name || '고객'}</h6>
+                <p class="card-text text-muted mb-2">${customer.phone}</p>
+                <p class="card-text text-muted mb-3">${customer.card_number}</p>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary edit-customer" data-customer-id="${customer.id}">
+                        수정
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger delete-customer" data-customer-id="${customer.id}">
+                        삭제
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 새 카드를 목록의 맨 앞에 추가
+    if (customerList.firstChild) {
+        customerList.insertBefore(newCustomerCard, customerList.firstChild);
+    } else {
+        customerList.appendChild(newCustomerCard);
+    }
+    
+    // 애니메이션 효과 적용
+    requestAnimationFrame(() => {
+        newCustomerCard.style.opacity = '1';
+        newCustomerCard.style.transform = 'translateY(0)';
+    });
+    
+    // 이벤트 리스너 추가
+    const deleteBtn = newCustomerCard.querySelector('.delete-customer');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function() {
+            deleteCustomer(customer.id);
+        });
+    }
+    
+    const editBtn = newCustomerCard.querySelector('.edit-customer');
+    if (editBtn) {
+        editBtn.addEventListener('click', function() {
+            editCustomer(customer.id);
+        });
+    }
+}
+
+// 실시간 검색 함수
+function performSearch(searchTerm) {
+    const customerCards = document.querySelectorAll('.customer-card');
+    const searchTermLower = searchTerm.toLowerCase().trim();
+    
+    customerCards.forEach(card => {
+        const customerName = card.querySelector('.customer-name')?.textContent.toLowerCase() || '';
+        const customerPhone = card.querySelector('.customer-phone')?.textContent.toLowerCase() || '';
+        const customerCard = card.querySelector('.customer-card-number')?.textContent.toLowerCase() || '';
+        
+        // 검색어가 이름, 전화번호, 또는 카드번호에 포함되는지 확인
+        const isMatch = searchTermLower === '' || 
+                       customerName.includes(searchTermLower) ||
+                       customerPhone.includes(searchTermLower) ||
+                       customerCard.includes(searchTermLower);
+        
+        // 카드 표시/숨김
+        if (isMatch) {
+            card.style.display = 'block';
+            card.classList.remove('d-none');
+        } else {
+            card.style.display = 'none';
+            card.classList.add('d-none');
+        }
+    });
+    
+    // 검색 결과가 없을 때 메시지 표시
+    const visibleCards = document.querySelectorAll('.customer-card:not(.d-none)');
+    let noResultsMessage = document.getElementById('noSearchResults');
+    
+    if (visibleCards.length === 0 && searchTermLower !== '') {
+        if (!noResultsMessage) {
+            noResultsMessage = document.createElement('div');
+            noResultsMessage.id = 'noSearchResults';
+            noResultsMessage.className = 'col-12 text-center py-5';
+            noResultsMessage.innerHTML = `
+                <div class="text-muted">
+                    <i class="fas fa-search fa-3x mb-3 text-light"></i>
+                    <p class="mb-0">검색 결과가 없습니다.</p>
+                    <small>다른 검색어를 시도해보세요.</small>
+                </div>
+            `;
+            document.querySelector('.row.g-3').appendChild(noResultsMessage);
+        }
+        noResultsMessage.style.display = 'block';
+    } else {
+        if (noResultsMessage) {
+            noResultsMessage.style.display = 'none';
+        }
+    }
+}
+
+// 고객 삭제 함수
+function deleteCustomer(customerId) {
+    if (confirm('정말로 이 고객을 삭제하시겠습니까?')) {
+        fetch('/station/delete-customer/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                customer_id: customerId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast('success', '고객이 성공적으로 삭제되었습니다.');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showToast('error', data.message || '고객 삭제 중 오류가 발생했습니다.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('error', '고객 삭제 중 오류가 발생했습니다.');
+        });
+    }
+}
+
+function showEmptyState() {
+    const customerList = document.querySelector('.row.g-3');
+    const existingEmptyState = customerList.querySelector('.empty-state');
+    
+    if (!existingEmptyState) {
+        const emptyMessage = document.createElement('div');
+        emptyMessage.className = 'col-12 text-center py-5';
+        emptyMessage.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">등록된 고객이 없습니다</h5>
+                <p class="text-muted mb-0">새로운 고객을 등록해주세요</p>
+            </div>
+        `;
+        customerList.appendChild(emptyMessage);
+    }
+}
+
+// 페이지 로드 시 초기 상태 설정
+document.addEventListener('DOMContentLoaded', function() {
+    // 이벤트 리스너가 이미 등록되어 있다면 중복 등록 방지
+    if (window.isEventListenerRegistered) {
+        return;
+    }
+
+    const customerList = document.querySelector('.row.g-3');
+    const customerCards = customerList.querySelectorAll('.customer-card');
+    
+    // 고객 등록 모달 이벤트 설정
+    const registrationModal = document.getElementById('customerRegistrationModal');
+    if (registrationModal) {
+        // 모달이 열릴 때 초기화
+        registrationModal.addEventListener('show.bs.modal', function() {
+            const form = this.querySelector('#customerRegistrationForm');
+            const phoneCheckResult = this.querySelector('#phoneCheckResult');
+            if (form) form.reset();
+            if (phoneCheckResult) phoneCheckResult.style.display = 'none';
+        });
+
+        // 모달이 닫힐 때 정리
+        registrationModal.addEventListener('hidden.bs.modal', function() {
+            const form = this.querySelector('#customerRegistrationForm');
+            const phoneCheckResult = this.querySelector('#phoneCheckResult');
+            if (form) {
+                form.reset();
+                const submitButton = form.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = '<i class="fas fa-user-plus me-1"></i>고객 등록';
+                }
+            }
+            if (phoneCheckResult) phoneCheckResult.style.display = 'none';
+        });
+    }
+
+    // 멤버십 카드 선택 버튼 클릭 이벤트
+    const cardSelectBtn = document.querySelector('[data-bs-target="#cardManageModal"]');
+    if (cardSelectBtn) {
+        cardSelectBtn.addEventListener('click', function() {
+            // 카드 관리 모달 열기
+            const modal = new bootstrap.Modal(document.getElementById('cardManageModal'));
+            modal.show();
+            
+            // 미사용 카드 목록 로드
+            loadUnusedCards();
+        });
+    }
+
+    // 카드 관리 모달 이벤트 설정
+    const cardManageModal = document.getElementById('cardManageModal');
+    if (cardManageModal) {
+        // 모달이 열릴 때 초기화
+        cardManageModal.addEventListener('show.bs.modal', function() {
+            const cardsList = this.querySelector('#unusedCardsList');
+            if (cardsList) {
+                cardsList.innerHTML = `
+                    <li class="list-group-item text-center">
+                        <i class="fas fa-spinner fa-spin me-2"></i>카드 목록을 불러오는 중...
+                    </li>
+                `;
+            }
+        });
+
+        // 모달이 닫힐 때 정리
+        cardManageModal.addEventListener('hidden.bs.modal', function() {
+            const cardsList = this.querySelector('#unusedCardsList');
+            if (cardsList) {
+                cardsList.innerHTML = `
+                    <li class="list-group-item text-center">
+                        <i class="fas fa-info-circle me-1"></i>새로고침을 눌러 카드 목록을 조회하세요.
+                    </li>
+                `;
+            }
+        });
+    }
+    
+    // 기존 고객 카드들에 대한 이벤트 리스너 등록
+    customerCards.forEach(card => {
+        const deleteBtn = card.querySelector('.delete-customer');
+        const editBtn = card.querySelector('.edit-customer');
+        
+        if (deleteBtn) {
+            const customerId = card.dataset.customerId;
+            deleteBtn.addEventListener('click', () => deleteCustomer(customerId));
+        }
+        
+        if (editBtn) {
+            const customerId = card.dataset.customerId;
+            editBtn.addEventListener('click', () => editCustomer(customerId));
+        }
+    });
+    
+    // 빈 상태 체크
+    if (customerCards.length === 0) {
+        showEmptyState();
+    }
+    
+    window.isEventListenerRegistered = true;
+});
+
+// 미사용 카드 목록 로드
+function loadUnusedCards() {
+    fetch('{% url "station:get_unused_cards" %}')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('서버 응답 오류');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                const cardList = document.getElementById('unusedCardsList');
+                cardList.innerHTML = ''; // 기존 목록 초기화
+                
+                if (data.cards.length === 0) {
+                    cardList.innerHTML = '<li class="list-group-item text-center">등록된 미사용 카드가 없습니다</li>';
+                } else {
+                    data.cards.forEach(card => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        li.innerHTML = `
+                            <div>
+                                <span class="card-number font-monospace">${card.number}</span>
+                                <small class="text-muted ms-2">${card.created_at}</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="selectCard('${card.number}')">
+                                <i class="fas fa-check me-1"></i>선택
+                            </button>
+                        `;
+                        cardList.appendChild(li);
+                    });
+                }
+            } else {
+                console.error('카드 목록 조회 실패:', data.message);
+                alert('카드 목록을 불러오는데 실패했습니다: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('카드 목록 조회 중 오류:', error);
+            alert('카드 목록을 불러오는데 실패했습니다. 잠시 후 다시 시도해주세요.');
+        });
+}
+
+// 멤버십 카드 등록 폼 제출 처리
+function registerCard(event) {
+    event.preventDefault();
+    
+    const cardNumber = document.getElementById('card-number').value.trim();
+    if (!cardNumber) {
+        alert('카드번호를 입력해주세요.');
+        return;
+    }
+    
+    // CSRF 토큰 가져오기
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // 카드 등록 요청
+    fetch('{% url "station:register_card" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            card_number: cardNumber
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('멤버십 카드가 성공적으로 등록되었습니다.');
+            document.getElementById('card-number').value = ''; // 입력 필드 초기화
+            refreshUnusedCards(); // 카드 목록 새로고침
+        } else {
+            alert(data.message || '카드 등록에 실패했습니다.');
+        }
+    })
+    .catch(error => {
+        console.error('카드 등록 중 오류:', error);
+        alert('카드 등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    });
+}
+
+// 신규 고객 등록 버튼 클릭 이벤트
+document.getElementById('addCustomerBtn').addEventListener('click', function() {
+    // 모달 내의 폼 초기화
+    document.getElementById('customerRegistrationForm').reset();
+    document.getElementById('phoneCheckResult').style.display = 'none';
+    
+    // 모달 열기
+    const modal = new bootstrap.Modal(document.getElementById('customerRegistrationModal'));
+    modal.show();
+});
+
+// 고객 목록 새로고침 함수
+function loadCustomerList() {
+    const currentPage = new URLSearchParams(window.location.search).get('page') || 1;
+    const searchQuery = document.getElementById('searchInput')?.value || '';
+    
+    fetch(`/station/usermanage/?page=${currentPage}&search=${encodeURIComponent(searchQuery)}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const customerList = document.querySelector('.row.g-3');
+        if (!customerList) return;
+
+        // 기존 고객 카드 제거
+        const existingCards = customerList.querySelectorAll('.customer-card');
+        existingCards.forEach(card => card.remove());
+
+        // 새 고객 데이터 추가
+        if (data.customers && data.customers.length > 0) {
+            data.customers.forEach(customer => {
+                const customerCard = document.createElement('div');
+                customerCard.className = 'col-md-6 col-lg-4 customer-card';
+                customerCard.setAttribute('data-customer-id', customer.id);
+                customerCard.innerHTML = `
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body text-center py-4">
+                            <h6 class="card-title mb-2 customer-name">${customer.username || '고객'}</h6>
+                            <p class="card-text text-muted mb-2">${customer.phone || '-'}</p>
+                            <p class="card-text text-muted mb-3">${customer.card_number || '-'}</p>
+                            <div class="btn-group mb-3">
+                                <button class="btn btn-sm btn-outline-primary edit-customer" data-customer-id="${customer.id}">
+                                    수정
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-customer" data-customer-id="${customer.id}">
+                                    삭제
+                                </button>
+                            </div>
+                            
+                            <!-- 아코디언 추가 -->
+                            <div class="accordion accordion-flush" id="accordion-${customer.id}">
+                                <div class="accordion-item border-0">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed p-2 bg-light rounded" type="button" 
+                                                data-bs-toggle="collapse" data-bs-target="#collapse-${customer.id}">
+                                            <small><i class="fas fa-history me-2"></i>최근 방문 정보</small>
+                                        </button>
+                                    </h2>
+                                    <div id="collapse-${customer.id}" class="accordion-collapse collapse" 
+                                         data-bs-parent="#accordion-${customer.id}">
+                                        <div class="accordion-body p-2 text-start">
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <small class="text-muted">최근 방문:</small>
+                                                <small>${customer.last_visit || '-'}</small>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <small class="text-muted">총 방문 횟수:</small>
+                                                <small>${customer.visit_count || 0}회</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                customerList.appendChild(customerCard);
+
+                // 이벤트 리스너 추가
+                const deleteBtn = customerCard.querySelector('.delete-customer');
+                const editBtn = customerCard.querySelector('.edit-customer');
+                
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', () => deleteCustomer(customer.id));
+                }
+                if (editBtn) {
+                    editBtn.addEventListener('click', () => editCustomer(customer.id));
+                }
+            });
+
+            // 빈 상태 메시지 제거
+            const emptyState = customerList.querySelector('.empty-state')?.closest('.col-12');
+            if (emptyState) {
+                emptyState.remove();
+            }
+        } else {
+            showEmptyState();
+        }
+
+        // 페이지네이션 업데이트
+        updatePagination(data);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('고객 목록을 불러오는 중 오류가 발생했습니다.', 'error');
+    });
+}
+
+// 페이지네이션 업데이트 함수
+function updatePagination(data) {
+    const pagination = document.querySelector('.pagination');
+    if (!pagination) return;
+
+    let paginationHtml = '';
+    
+    // 이전 페이지 버튼
+    paginationHtml += `
+        <li class="page-item ${data.current_page <= 1 ? 'disabled' : ''}">
+            <a class="page-link" href="?page=${data.current_page - 1}" ${data.current_page <= 1 ? 'tabindex="-1"' : ''}>
+                <i class="fas fa-chevron-left"></i>
+            </a>
+        </li>
+    `;
+
+    // 페이지 번호
+    data.page_range.forEach(page => {
+        paginationHtml += `
+            <li class="page-item ${page === data.current_page ? 'active' : ''}">
+                <a class="page-link" href="?page=${page}">${page}</a>
+            </li>
+        `;
+    });
+
+    // 다음 페이지 버튼
+    paginationHtml += `
+        <li class="page-item ${data.current_page >= data.total_pages ? 'disabled' : ''}">
+            <a class="page-link" href="?page=${data.current_page + 1}" ${data.current_page >= data.total_pages ? 'tabindex="-1"' : ''}>
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        </li>
+    `;
+
+    pagination.innerHTML = paginationHtml;
+
+    // 페이지네이션 클릭 이벤트
+    pagination.querySelectorAll('.page-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const page = new URLSearchParams(this.href.split('?')[1]).get('page');
+            if (page) {
+                const url = new URL(window.location.href);
+                url.searchParams.set('page', page);
+                window.history.pushState({}, '', url);
+                loadCustomerList();
+            }
+        });
+    });
+}
+
+function refreshUnusedCards() {
+    fetch('{% url "station:get_unused_cards" %}')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('서버 응답 오류');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                const cardList = document.getElementById('unusedCardsList');
+                cardList.innerHTML = ''; // 기존 목록 초기화
+                
+                if (data.cards.length === 0) {
+                    cardList.innerHTML = '<li class="list-group-item text-center">등록된 미사용 카드가 없습니다</li>';
+                } else {
+                    data.cards.forEach(card => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        li.innerHTML = `
+                            <div>
+                                <span class="card-number font-monospace">${card.number}</span>
+                                <small class="text-muted ms-2">${card.created_at}</small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="selectCard('${card.number}')">
+                                <i class="fas fa-check me-1"></i>선택
+                            </button>
+                        `;
+                        cardList.appendChild(li);
+                    });
+                }
+            } else {
+                console.error('카드 목록 조회 실패:', data.message);
+                alert('카드 목록을 불러오는데 실패했습니다: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('카드 목록 조회 중 오류:', error);
+            alert('카드 목록을 불러오는데 실패했습니다. 잠시 후 다시 시도해주세요.');
+        });
+}
+
+// 페이지 로드 시 카드 목록 초기 로드
+document.addEventListener('DOMContentLoaded', refreshUnusedCards);
+
+// 새로고침 버튼 클릭 이벤트 핸들러
+document.getElementById('refresh-cards-btn').addEventListener('click', refreshUnusedCards);
+</script>
+{% endblock %} 

@@ -1,0 +1,315 @@
+{% extends 'base/base.html' %}
+
+{% block title %}로그인 - Oil Note{% endblock %}
+
+{% block content %}
+<div class="background-shapes">
+    <div class="shape"></div>
+    <div class="shape"></div>
+    <div class="shape"></div>
+</div>
+
+<div class="login-container">
+    <div class="login-header">
+        <h1>Oil Note</h1>
+        <p>스마트한 주유 관리의 시작</p>
+    </div>
+    
+    <form method="post" class="needs-validation" novalidate>
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="input-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+                <small class="help-text">{{ field.help_text }}</small>
+            {% endif %}
+            {% for error in field.errors %}
+                <div class="error-message">{{ error }}</div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        <div class="login-options">
+            <div class="remember-me">
+                <input type="checkbox" id="remember">
+                <label for="remember">로그인 상태 유지</label>
+            </div>
+        </div>
+
+        <button type="submit" class="login-btn">로그인</button>
+
+        <div class="divider">
+            <span>또는</span>
+        </div>
+
+        <div class="signup-options">
+            <div class="signup-link">
+                <p>아직 계정이 없으신가요?</p>
+                <div class="signup-buttons">
+                    <a href="{% url 'users:customer_signup' %}" class="signup-btn customer">
+                        <i class="fas fa-user"></i>
+                        일반 고객 회원가입
+                    </a>
+                    <a href="{% url 'users:station_signup' %}" class="signup-btn station">
+                        <i class="fas fa-gas-pump"></i>
+                        주유소 회원가입
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #007bff;
+        --secondary-color: #6c757d;
+        --background-color: #f8f9fa;
+    }
+
+    .background-shapes {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+    }
+
+    .shape {
+        position: absolute;
+        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+        border-radius: 50%;
+        filter: blur(50px);
+        opacity: 0.1;
+        animation: floatAnimation 10s infinite ease-in-out;
+    }
+
+    .shape:nth-child(1) {
+        width: 300px;
+        height: 300px;
+        top: -150px;
+        left: -150px;
+        animation-delay: 0s;
+    }
+
+    .shape:nth-child(2) {
+        width: 200px;
+        height: 200px;
+        bottom: -100px;
+        right: -100px;
+        animation-delay: -2s;
+    }
+
+    .shape:nth-child(3) {
+        width: 150px;
+        height: 150px;
+        bottom: 50%;
+        left: 50%;
+        animation-delay: -4s;
+    }
+
+    @keyframes floatAnimation {
+        0%, 100% {
+            transform: translateY(0) rotate(0deg);
+        }
+        50% {
+            transform: translateY(-20px) rotate(10deg);
+        }
+    }
+
+    .login-container {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        padding: 2.5rem;
+        border-radius: 1rem;
+        width: 400px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        position: relative;
+        z-index: 1;
+    }
+
+    .login-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .login-header h1 {
+        color: var(--primary-color);
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .login-header p {
+        color: var(--secondary-color);
+        font-size: 1rem;
+    }
+
+    .input-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .input-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #495057;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .input-group input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .input-group input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        outline: none;
+    }
+
+    .help-text {
+        display: block;
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .error-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+        padding: 0.5rem;
+        background: rgba(220, 53, 69, 0.1);
+        border-radius: 0.25rem;
+    }
+
+    .login-options {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .remember-me {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .remember-me input[type="checkbox"] {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .remember-me label {
+        color: #495057;
+        font-size: 0.9rem;
+    }
+
+    .login-btn {
+        width: 100%;
+        padding: 0.75rem;
+        background: var(--primary-color);
+        border: none;
+        border-radius: 0.5rem;
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .login-btn:hover {
+        background: #0056b3;
+        transform: translateY(-1px);
+    }
+
+    .divider {
+        display: flex;
+        align-items: center;
+        margin: 1.5rem 0;
+        color: #6c757d;
+    }
+
+    .divider::before,
+    .divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #dee2e6;
+    }
+
+    .divider span {
+        padding: 0 1rem;
+        font-size: 0.9rem;
+    }
+
+    .signup-options {
+        text-align: center;
+    }
+
+    .signup-link p {
+        color: #495057;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .signup-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .signup-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .signup-btn.customer {
+        background: rgba(0, 123, 255, 0.1);
+        color: var(--primary-color);
+    }
+
+    .signup-btn.station {
+        background: rgba(108, 117, 125, 0.1);
+        color: var(--secondary-color);
+    }
+
+    .signup-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .signup-btn.customer:hover {
+        background: rgba(0, 123, 255, 0.2);
+    }
+
+    .signup-btn.station:hover {
+        background: rgba(108, 117, 125, 0.2);
+    }
+
+    @media (max-width: 480px) {
+        .login-container {
+            width: 100%;
+            padding: 1.5rem;
+            margin: 1rem;
+        }
+    }
+</style>
+{% endblock %} 

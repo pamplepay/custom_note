@@ -1,0 +1,180 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Oil Note - 주유소 홈{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm border-0 bg-success text-white">
+                <div class="card-body">
+                    <h1 class="card-title h3 mb-3">
+                        <i class="fas fa-gas-pump me-2"></i>{{ user.station_profile.station_name|default:"주유소" }} 관리자님, 환영합니다!
+                    </h1>
+                    <p class="card-text mb-0">오늘도 행복한 하루 되세요.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-users fa-2x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">오늘 방문 고객</h5>
+                    <h3 class="text-primary mb-0">0명</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-won-sign fa-2x text-success"></i>
+                    </div>
+                    <h5 class="card-title">오늘 매출</h5>
+                    <h3 class="text-success mb-0">0원</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-tint fa-2x text-info"></i>
+                    </div>
+                    <h5 class="card-title">오늘 판매량</h5>
+                    <h3 class="text-info mb-0">0L</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-gas-pump fa-2x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">오늘 매출</h5>
+                    <h3 class="text-primary mb-0">0원</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-users fa-2x text-success"></i>
+                    </div>
+                    <h5 class="card-title">총 회원수</h5>
+                    <h3 class="text-success mb-0">0명</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-info bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-credit-card fa-2x text-info"></i>
+                    </div>
+                    <h5 class="card-title">등록 카드</h5>
+                    <h3 class="text-info mb-0">{{ total_cards }}장</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-warning bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-ticket-alt fa-2x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">발행 쿠폰</h5>
+                    <h3 class="text-warning mb-0">0장</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-chart-line me-2"></i>매출 추이
+                    </h5>
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-area fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">아직 매출 데이터가 없습니다.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-chart-pie me-2"></i>유종별 판매 비율
+                    </h5>
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">아직 판매 데이터가 없습니다.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-history me-2"></i>최근 거래 내역
+                    </h5>
+                    <div class="text-center py-4">
+                        <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
+                        <p class="text-muted mb-3">아직 거래 내역이 없습니다.</p>
+                        <a href="{% url 'station:management' %}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-cog me-1"></i>주유소 관리하기
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메뉴 카드 -->
+    <div class="row g-4">
+        <!-- 고객 관리 카드 -->
+        <div class="col-md-6 col-lg-4">
+            <a href="{% url 'station:usermanage' %}" class="text-decoration-none">
+                <div class="card h-100 border-0 shadow-sm hover-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-users fa-3x mb-3 text-primary"></i>
+                        <h5 class="card-title">고객 관리</h5>
+                        <p class="card-text text-muted">고객 정보를 조회하고 관리합니다.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        
+        <!-- 멤버십 카드 관리 카드 -->
+        <div class="col-md-6 col-lg-4">
+            <a href="{% url 'station:cardmanage' %}" class="text-decoration-none">
+                <div class="card h-100 border-0 shadow-sm hover-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-credit-card fa-3x mb-3 text-primary"></i>
+                        <h5 class="card-title">멤버십 카드 관리</h5>
+                        <p class="card-text text-muted">멤버십 카드를 등록하고 관리합니다.</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %} 
