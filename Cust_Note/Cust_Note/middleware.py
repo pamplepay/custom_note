@@ -1,5 +1,5 @@
 class DisableSecurityHeadersMiddleware:
-    """개발 환경에서 보안 헤더를 비활성화하는 미들웨어"""
+    """보안 헤더를 관리하는 미들웨어"""
     
     def __init__(self, get_response):
         self.get_response = get_response
@@ -16,12 +16,24 @@ class DisableSecurityHeadersMiddleware:
             'Cross-Origin-Embedder-Policy',
             'Cross-Origin-Resource-Policy',
             'Referrer-Policy',
-            'Content-Security-Policy',
-            'Content-Security-Policy-Report-Only',
         ]
         
         for header in headers_to_remove:
             if header in response:
                 del response[header]
+        
+        # Content Security Policy 설정
+        csp_directives = [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://code.jquery.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+            "img-src 'self' data: https:",
+            "font-src 'self' data: https://cdnjs.cloudflare.com",
+            "connect-src 'self'",
+            "frame-src 'self'",
+            "object-src 'none'",
+        ]
+        
+        response['Content-Security-Policy'] = "; ".join(csp_directives)
                 
         return response 
