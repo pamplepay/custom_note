@@ -18,6 +18,7 @@ import os
 from django.conf import settings
 from django.db.utils import IntegrityError
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from excel_sample.models import SalesData as ExcelSalesData
 
 logger = logging.getLogger(__name__)
 
@@ -418,25 +419,68 @@ def register_cards_single(request):
 @login_required
 def register_cards_bulk(request):
     """카드 일괄 등록"""
+    logger.info(f"일괄 카드 등록 요청 - 사용자: {request.user.username}, 메소드: {request.method}")
+    
     if not request.user.is_station:
-        logger.warning(f"권한 없는 사용자의 일괄 등록 시도: {request.user.username}")
+        logger.warning(f"권한 없는 사용자의 카드 등록 시도: {request.user.username}")
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
     
     if request.method == 'POST':
         try:
-            data = json.loads(request.body)
-            start_number = data.get('startNumber', '').strip()
-            card_count = int(data.get('cardCount', 0))
-            tid = data.get('tid', '').strip()
-            
-            logger.info(f"일괄 등록 요청 - 시작번호: {start_number}, 카드수: {card_count}, TID: {tid}")
-            
-            # 입력 검증
-            if not start_number or len(start_number) != 16 or not start_number.isdigit():
-                logger.warning(f"잘못된 시작 번호 형식: {start_number}")
+            # 주유소 프로필에서 정유사 코드와 대리점 코드 가져오기
+            station_profile = request.user.station_profile
+            if not station_profile:
+                logger.error(f"주유소 프로필을 찾을 수 없음: {request.user.username}")
                 return JsonResponse({
                     'status': 'error',
-                    'message': '시작 번호는 16자리 숫자여야 합니다.'
+                    'message': '주유소 프로필 정보가 없습니다.'
+                }, status=400)
+
+            oil_company_code = station_profile.oil_company_code
+            agency_code = station_profile.agency_code
+
+            if not oil_company_code or len(oil_company_code) != 1:
+                logger.error(f"잘못된 정유사 코드: {oil_company_code}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '주유소 프로필의 정유사 코드가 올바르지 않습니다.'
+                }, status=400)
+
+            if not agency_code or len(agency_code) != 3:
+                logger.error(f"잘못된 대리점 코드: {agency_code}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '주유소 프로필의 대리점 코드가 올바르지 않습니다.'
+                }, status=400)
+
+            logger.info(f"요청 본문: {request.body.decode('utf-8')}")
+            data = json.loads(request.body)
+            start_num = data.get('startNumber', '').strip()
+            try:
+                card_count = int(data.get('cardCount', 0))
+            except (ValueError, TypeError):
+                logger.warning(f"잘못된 카드 수 형식: {data.get('cardCount')}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '카드 수는 숫자여야 합니다.'
+                }, status=400)
+            tid = data.get('tid', '').strip()
+            
+            logger.info(f"시작번호: {start_num}, 카드수: {card_count}, TID: {tid}")
+            
+            # 입력값 검증
+            if not start_num or len(start_num) != 16 or not start_num.isdigit():
+                logger.warning(f"잘못된 시작번호 형식: {start_num}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '시작번호는 16자리 숫자여야 합니다.'
+                })
+            
+            if not card_count or card_count <= 0:
+                logger.warning(f"잘못된 카드 수: {card_count}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '카드 수는 1개 이상이어야 합니다.'
                 })
             
             if not tid:
@@ -446,16 +490,16 @@ def register_cards_bulk(request):
                     'message': 'TID는 필수 입력값입니다.'
                 })
             
-            if card_count < 1 or card_count > 1000:
-                logger.warning(f"잘못된 카드 수: {card_count}")
+            try:
+                start_num = int(start_num)
+            except ValueError:
+                logger.warning(f"시작번호를 정수로 변환할 수 없음: {start_num}")
                 return JsonResponse({
                     'status': 'error',
-                    'message': '카드 수는 1~1000 사이여야 합니다.'
-                })
-            
-            start_num = int(start_number)
-            created_cards = []
-            duplicate_cards = []
+                    'message': '시작번호는 숫자여야 합니다.'
+                }, status=400)
+
+            registered_cards = []
             
             for i in range(card_count):
                 card_number = str(start_num + i).zfill(16)
@@ -465,7 +509,11 @@ def register_cards_bulk(request):
                     # get_or_create를 사용하여 중복 생성 방지
                     card, created = PointCard.objects.get_or_create(
                         number=card_number,
-                        defaults={'tids': []}
+                        defaults={
+                            'tids': [],
+                            'oil_company_code': oil_company_code,
+                            'agency_code': agency_code
+                        }
                     )
                     logger.debug(f"카드 생성 결과: created={created}, card_id={card.id}")
                     
@@ -491,50 +539,42 @@ def register_cards_bulk(request):
                         mapping.save()
                         logger.info(f"비활성화된 매핑을 활성화함: mapping_id={mapping.id}")
                     
-                    if created:
-                        created_cards.append(card_number)
-                        logger.info(f"새 카드 등록: {card_number}")
-                    else:
-                        if mapping_created:
-                            logger.info(f"기존 카드 매핑: {card_number}")
-                        duplicate_cards.append(card_number)
-                        
+                    registered_cards.append({
+                        'number': card.number,
+                        'is_used': card.is_used,
+                        'created_at': card.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                    })
+                    
                 except Exception as e:
-                    logger.error(f"카드 {card_number} 등록 중 오류 발생: {str(e)}", exc_info=True)
-                    duplicate_cards.append(card_number)
+                    logger.error(f"카드 {card_number} 생성 중 오류: {str(e)}", exc_info=True)
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': f'카드 {card_number} 생성 중 오류가 발생했습니다.'
+                    }, status=500)
             
-            message = f'{len(created_cards)}개의 카드가 등록되었습니다.'
-            if duplicate_cards:
-                message += f' (중복 {len(duplicate_cards)}개 제외)'
-            
-            logger.info(message)
             return JsonResponse({
                 'status': 'success',
-                'message': message,
-                'created_count': len(created_cards),
-                'duplicate_count': len(duplicate_cards)
+                'message': f'{len(registered_cards)}개의 카드가 성공적으로 등록되었습니다.',
+                'cards': registered_cards
             })
             
         except json.JSONDecodeError:
-            logger.error("JSON 디코딩 오류", exc_info=True)
+            logger.error("잘못된 JSON 형식")
             return JsonResponse({
                 'status': 'error',
                 'message': '잘못된 요청 형식입니다.'
-            }, status=400)
-        except ValueError as e:
-            logger.error(f"값 오류: {str(e)}", exc_info=True)
-            return JsonResponse({
-                'status': 'error',
-                'message': str(e)
             }, status=400)
         except Exception as e:
             logger.error(f"카드 일괄 등록 중 오류 발생: {str(e)}", exc_info=True)
             return JsonResponse({
                 'status': 'error',
-                'message': f'카드 일괄 등록 중 오류가 발생했습니다: {str(e)}'
+                'message': '카드 일괄 등록 중 오류가 발생했습니다.'
             }, status=500)
     
-    return JsonResponse({'status': 'error', 'message': '잘못된 요청 방식입니다.'}, status=405)
+    return JsonResponse({
+        'status': 'error',
+        'message': '잘못된 요청 메소드입니다.'
+    }, status=405)
 
 @login_required
 def update_card_status(request):
@@ -717,11 +757,41 @@ def register_card(request):
     logger.info("\n=== 멤버십 카드 등록 시작 ===")
     logger.info(f"요청 사용자: {request.user.username}")
     
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 카드 등록 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
     try:
+        # 주유소 프로필에서 정유사 코드와 대리점 코드 가져오기
+        station_profile = request.user.station_profile
+        if not station_profile:
+            logger.error(f"주유소 프로필을 찾을 수 없음: {request.user.username}")
+            return JsonResponse({
+                'status': 'error',
+                'message': '주유소 프로필 정보가 없습니다.'
+            }, status=400)
+
+        oil_company_code = station_profile.oil_company_code
+        agency_code = station_profile.agency_code
+
+        if not oil_company_code or len(oil_company_code) != 1:
+            logger.error(f"잘못된 정유사 코드: {oil_company_code}")
+            return JsonResponse({
+                'status': 'error',
+                'message': '주유소 프로필의 정유사 코드가 올바르지 않습니다.'
+            }, status=400)
+
+        if not agency_code or len(agency_code) != 3:
+            logger.error(f"잘못된 대리점 코드: {agency_code}")
+            return JsonResponse({
+                'status': 'error',
+                'message': '주유소 프로필의 대리점 코드가 올바르지 않습니다.'
+            }, status=400)
+
         # 요청 데이터 파싱
         data = json.loads(request.body)
-        card_number = data.get('card_number')
-        tid = data.get('tid')  # TID 값 추가
+        card_number = data.get('card_number', '').strip()
+        tid = data.get('tid', '').strip()  # TID 값 추가
         logger.debug(f"입력된 카드번호: {card_number}, TID: {tid}")
         
         # 입력값 검증
@@ -750,6 +820,8 @@ def register_card(request):
         # 새 카드 생성
         new_card = PointCard.objects.create(
             number=card_number,
+            oil_company_code=oil_company_code,
+            agency_code=agency_code,
             tids=[tid],
             created_at=timezone.now()
         )
@@ -764,24 +836,28 @@ def register_card(request):
         )
         logger.info(f"카드 매핑 생성 완료: {new_card.number}, TID: {tid}")
         
-        logger.info("=== 멤버십 카드 등록 완료 ===\n")
         return JsonResponse({
             'status': 'success',
-            'message': '멤버십 카드가 성공적으로 등록되었습니다'
+            'message': '카드가 성공적으로 등록되었습니다.',
+            'card': {
+                'number': new_card.number,
+                'is_used': new_card.is_used,
+                'created_at': new_card.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
         })
         
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON 파싱 오류: {str(e)}", exc_info=True)
+    except json.JSONDecodeError:
+        logger.error("잘못된 JSON 형식")
         return JsonResponse({
             'status': 'error',
-            'message': '잘못된 요청 형식입니다'
-        })
+            'message': '잘못된 요청 형식입니다.'
+        }, status=400)
     except Exception as e:
         logger.error(f"카드 등록 중 오류 발생: {str(e)}", exc_info=True)
         return JsonResponse({
             'status': 'error',
-            'message': f'카드 등록 중 오류가 발생했습니다: {str(e)}'
-        })
+            'message': '카드 등록 중 오류가 발생했습니다.'
+        }, status=500)
 
 @login_required
 def register_customer(request):
@@ -1095,11 +1171,14 @@ def station_sales(request):
         messages.error(request, '주유소 회원만 접근할 수 있습니다.')
         return redirect('home')
     
-    # 매출 데이터 조회
+    # 기존 주유소app SalesData
     sales_data = SalesData.objects.filter(station=request.user).order_by('-sales_date')
+    # 엑셀에서 불러온 SalesData
+    excel_sales_data = ExcelSalesData.objects.all().order_by('-sale_date', '-sale_time')
     
     context = {
         'sales_data': sales_data,
+        'excel_sales_data': excel_sales_data,
     }
     
     return render(request, 'Cust_Station/station_sales.html', context)

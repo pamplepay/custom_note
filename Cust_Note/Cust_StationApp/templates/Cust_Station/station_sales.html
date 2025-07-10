@@ -6,7 +6,7 @@
 {% block content %}
 <div class="container mt-4">
     <h2 class="mb-4">매출 관리</h2>
-
+    
     <!-- 매출 데이터 업로드 -->
     <div class="card mb-4">
         <div class="card-body">
@@ -63,6 +63,43 @@
             </div>
         </div>
     </div>
+
+<!-- 엑셀 기반 매출 데이터 목록 -->
+<div class="card mt-4">
+    <div class="card-body">
+        <h5 class="card-title">엑셀 기반 매출 데이터</h5>
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>판매일자</th>
+                        <th>주유시간</th>
+                        <th>고객명</th>
+                        <th>제품</th>
+                        <th>판매수량</th>
+                        <th>판매금액</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in excel_sales_data %}
+                    <tr>
+                        <td>{{ s.sale_date }}</td>
+                        <td>{{ s.sale_time }}</td>
+                        <td>{{ s.customer_name }}</td>
+                        <td>{{ s.product_pack }}</td>
+                        <td>{{ s.quantity }}</td>
+                        <td>{{ s.total_amount }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">엑셀 기반 매출 데이터가 없습니다.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 </div>
 
 {% block extra_js %}
@@ -75,19 +112,19 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData(this);
         
         fetch('{% url "station:upload_sales" %}', {
-            method: 'POST',
-            headers: {
+        method: 'POST',
+        headers: {
                 'X-CSRFToken': '{{ csrf_token }}'
-            },
+        },
             body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
+    })
+    .then(response => response.json())
+    .then(data => {
             if (data.error) {
                 alert(data.error);
             } else {
                 alert(data.message);
-                location.reload();
+            location.reload();
             }
         })
         .catch(error => {
@@ -112,14 +149,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     if (data.error) {
                         alert(data.error);
-                    } else {
+        } else {
                         alert(data.message);
                         location.reload();
-                    }
-                })
-                .catch(error => {
+        }
+    })
+    .catch(error => {
                     alert('오류가 발생했습니다.');
-                    console.error('Error:', error);
+        console.error('Error:', error);
                 });
             }
         });

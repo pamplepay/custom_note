@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 class PointCard(models.Model):
     """멤버십 카드 모델"""
     number = models.CharField(max_length=16, unique=True, help_text="16자리 카드번호")
+    oil_company_code = models.CharField(max_length=1, verbose_name='정유사코드', help_text="정유사 코드 (1자리)", default='0')
+    agency_code = models.CharField(max_length=3, verbose_name='대리점코드', help_text="대리점 코드 (3자리)", default='000')
     tids = models.JSONField(default=list, help_text="카드가 등록된 TID 목록")
     is_used = models.BooleanField(default=False, help_text="카드 사용 여부")
     created_at = models.DateTimeField(auto_now_add=True, help_text="카드 생성일시")
@@ -24,7 +26,12 @@ class PointCard(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"카드번호: {self.number} (사용{'중' if self.is_used else '가능'})"
+        return f"카드번호: {self.full_number} (사용{'중' if self.is_used else '가능'})"
+
+    @property
+    def full_number(self):
+        """20자리 전체 카드번호 반환"""
+        return f"{self.oil_company_code}{self.agency_code}{self.number}"
 
     def add_tid(self, tid):
         """TID를 카드에 추가"""
@@ -73,21 +80,6 @@ class PointCard(models.Model):
         else:
             logger.info(f"TID {tid}가 카드 {self.number}에 존재하지 않음")
             return False
-
-    @property
-    def oil_company_code(self):
-        """정유사 코드 반환"""
-        return self.number[0] if self.number else None
-    
-    @property
-    def agency_code(self):
-        """대리점 코드 반환"""
-        return self.number[1:4] if len(self.number) >= 4 else None
-    
-    @property
-    def station_code(self):
-        """주유소 코드 반환"""
-        return self.number[4:] if len(self.number) >= 16 else None
 
 class StationCardMapping(models.Model):
     card = models.ForeignKey(

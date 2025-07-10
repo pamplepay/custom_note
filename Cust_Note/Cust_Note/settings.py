@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "Cust_User.apps.CustUserConfig",
     "Cust_UserApp",
     "Cust_StationApp",
+    'excel_sample.apps.ExcelSampleConfig',  # 엑셀 샘플 앱 추가
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
