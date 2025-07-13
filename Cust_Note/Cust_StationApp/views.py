@@ -1265,11 +1265,10 @@ def upload_sales_data(request):
         from datetime import datetime
         
         original_name = os.path.basename(sales_file.name)
-        # 현재 날짜를 YYYYMMDD 형식으로 가져오기
-        current_date = datetime.now().strftime('%Y%m%d')
-        # 파일명: 날짜_Tid.xlsx
-        file_extension = '.xlsx'
-        file_name = f'{current_date}_{tid}{file_extension}'
+        # 파일명에서 확장자 분리
+        name_without_ext, file_extension = os.path.splitext(original_name)
+        # 파일명: 원본파일명_Tid.xlsx
+        file_name = f'{name_without_ext}_{tid}{file_extension}'
         # 저장 경로: Cust_Note/upload/<TID>/
         upload_root = os.path.join(settings.BASE_DIR, 'upload', tid)
         os.makedirs(upload_root, exist_ok=True)
@@ -1324,51 +1323,157 @@ def analyze_sales_file(request):
         from datetime import datetime
         
         logger.info(f"파일 분석 시작: {filename}")
+        logger.info(f"파일 경로: {file_path}")
         
-        # 엑셀 파일 읽기
+        # 엑셀 파일 읽기 (첫 번째 행부터 시작)
+        logger.info("엑셀 파일 읽기 시작...")
         df = pd.read_excel(
             file_path,
-            skiprows=4,  # 처음 4행은 건너뛰기
+            skiprows=0,  # 첫 번째 행부터 시작
             names=['판매일자', '주유시간', '고객번호', '고객명', '발행번호', '주류상품종류', 
                   '판매구분', '결제구분', '판매구분2', '노즐', '제품코드', '제품/PACK',
                   '판매수량', '판매단가', '판매금액', '적립포인트', '포인트', '보너스',
                   'POS_ID', 'POS코드', '판매점', '영수증', '승인번호', '승인일시',
                   '보너스카드', '고객카드번호', '데이터생성일시']
         )
+        logger.info(f"엑셀 파일 읽기 완료. 총 {len(df)} 행 발견")
         
         # 빈 행 제거
         df_cleaned = df.dropna(how='all')
+        logger.info(f"빈 행 제거 후: {len(df_cleaned)} 행")
         
-        # 합계 행 제거 (마지막 행이 합계인 경우)
-        if len(df_cleaned) > 0 and df_cleaned.iloc[-1]['판매일자'] == '합계':
-            df_cleaned = df_cleaned.iloc[:-1]
+        # 헤더 행과 합계 행 제거 (더 안전한 처리)
+        if len(df_cleaned) > 0:
+            # 첫 번째 행이 헤더인 경우 제거
+            first_row_sale_date = str(df_cleaned.iloc[0]['판매일자']).strip()
+            if first_row_sale_date == '판매일자' or first_row_sale_date == 'nan' or first_row_sale_date == '':
+                logger.info("헤더 행 제거")
+                df_cleaned = df_cleaned.iloc[1:]
+                logger.info(f"헤더 제거 후: {len(df_cleaned)} 행")
+            
+            # 마지막 행이 합계인 경우 제거
+            if len(df_cleaned) > 0:
+                last_row_sale_date = str(df_cleaned.iloc[-1]['판매일자']).strip()
+                if last_row_sale_date == '합계' or last_row_sale_date == 'nan' or last_row_sale_date == '':
+                    logger.info("합계 행 제거")
+                    df_cleaned = df_cleaned.iloc[:-1]
+                    logger.info(f"합계 제거 후: {len(df_cleaned)} 행")
         
         # 기존 데이터 삭제 (같은 파일에서 온 데이터)
-        ExcelSalesData.objects.filter(source_file=filename).delete()
+        logger.info(f"기존 데이터 삭제: {filename}")
+        deleted_count = ExcelSalesData.objects.filter(source_file=filename).delete()[0]
+        logger.info(f"삭제된 기존 데이터: {deleted_count}개")
+        
+        # 데이터 분석 결과 출력
+        logger.info("=== 📊 엑셀 파일 분석 결과 ===")
+        logger.info(f"📈 기본 정보")
+        logger.info(f"파일명: {filename}")
+        logger.info(f"총 데이터 행 개수: {len(df)}행")
+        logger.info(f"실제 데이터 행 개수: {len(df_cleaned)}행")
+        
+        # 날짜별 데이터 분석
+        if len(df_cleaned) > 0:
+            try:
+                sale_dates = df_cleaned['판매일자'].dropna()
+                if len(sale_dates) > 0:
+                    min_date = sale_dates.min()
+                    max_date = sale_dates.max()
+                    logger.info(f"📅 날짜 범위")
+                    logger.info(f"최초 판매일: {min_date}")
+                    logger.info(f"최종 판매일: {max_date}")
+                    
+                    # 날짜별 데이터 개수
+                    date_counts = sale_dates.value_counts().sort_index()
+                    logger.info(f"날짜별 데이터 개수:")
+                    for date, count in date_counts.items():
+                        logger.info(f"  {date}: {count}행")
+            except Exception as e:
+                logger.warning(f"날짜 분석 중 오류: {e}")
+        
+        # 제품별 데이터 분석
+        if len(df_cleaned) > 0:
+            try:
+                product_counts = df_cleaned['제품/PACK'].value_counts()
+                logger.info(f"⛽ 제품별 판매 현황")
+                total_products = len(product_counts)
+                for i, (product, count) in enumerate(product_counts.items(), 1):
+                    percentage = (count / len(df_cleaned) * 100) if len(df_cleaned) > 0 else 0
+                    logger.info(f"  {product}: {count}행 ({percentage:.1f}%)")
+            except Exception as e:
+                logger.warning(f"제품별 분석 중 오류: {e}")
+        
+        # 매출 정보 분석
+        if len(df_cleaned) > 0:
+            try:
+                total_quantity = df_cleaned['판매수량'].sum()
+                total_amount = df_cleaned['판매금액'].sum()
+                avg_unit_price = total_amount / total_quantity if total_quantity > 0 else 0
+                
+                logger.info(f"💰 매출 정보")
+                logger.info(f"총 판매수량: {total_quantity:,.2f}L")
+                logger.info(f"총 판매금액: {total_amount:,.0f}원")
+                logger.info(f"평균 단가: {avg_unit_price:,.0f}원/L")
+            except Exception as e:
+                logger.warning(f"매출 분석 중 오류: {e}")
+        
+        logger.info("=== 데이터베이스 저장 시작 ===")
         
         # 데이터베이스에 저장
         saved_count = 0
         for index, row in df_cleaned.iterrows():
             try:
-                # 날짜 파싱
-                sale_date_str = str(row['판매일자'])
+                # 날짜 파싱 (안전한 처리)
+                sale_date_str = str(row['판매일자']).strip()
+                if pd.isna(row['판매일자']) or sale_date_str == '' or sale_date_str == 'nan':
+                    logger.warning(f"행 {index}: 유효하지 않은 날짜 데이터 - 건너뛰기")
+                    continue
+                
+                sale_date = None
                 if '/' in sale_date_str:
-                    sale_date = datetime.strptime(sale_date_str, '%Y/%m/%d').date()
+                    try:
+                        sale_date = datetime.strptime(sale_date_str, '%Y/%m/%d').date()
+                    except ValueError:
+                        logger.warning(f"행 {index}: 날짜 형식 오류 '{sale_date_str}' - 건너뛰기")
+                        continue
                 else:
-                    continue  # 날짜 형식이 맞지 않으면 건너뛰기
+                    logger.warning(f"행 {index}: 날짜 형식이 맞지 않음 '{sale_date_str}' - 건너뛰기")
+                    continue
                 
-                # 시간 파싱
-                sale_time_str = str(row['주유시간'])
-                if ' ' in sale_time_str:
-                    time_part = sale_time_str.split(' ')[1]
-                    sale_time = datetime.strptime(time_part, '%H:%M').time()
-                else:
+                # 시간 파싱 (안전한 처리)
+                sale_time_str = str(row['주유시간']).strip()
+                if pd.isna(row['주유시간']) or sale_time_str == '' or sale_time_str == 'nan':
                     sale_time = datetime.now().time()
+                else:
+                    try:
+                        if ' ' in sale_time_str:
+                            time_part = sale_time_str.split(' ')[1]
+                            sale_time = datetime.strptime(time_part, '%H:%M').time()
+                        else:
+                            sale_time = datetime.now().time()
+                    except ValueError:
+                        logger.warning(f"행 {index}: 시간 형식 오류 '{sale_time_str}' - 현재 시간 사용")
+                        sale_time = datetime.now().time()
                 
-                # 숫자 데이터 처리
-                quantity = float(row['판매수량']) if pd.notna(row['판매수량']) else 0
-                unit_price = float(row['판매단가']) if pd.notna(row['판매단가']) else 0
-                total_amount = float(row['판매금액']) if pd.notna(row['판매금액']) else 0
+                # 숫자 데이터 처리 (안전한 변환)
+                def safe_float(value, default=0):
+                    if pd.isna(value):
+                        return default
+                    try:
+                        return float(value)
+                    except (ValueError, TypeError):
+                        return default
+                
+                def safe_int(value, default=0):
+                    if pd.isna(value):
+                        return default
+                    try:
+                        return int(float(value))  # float로 먼저 변환 후 int로 변환
+                    except (ValueError, TypeError):
+                        return default
+                
+                quantity = safe_float(row['판매수량'])
+                unit_price = safe_float(row['판매단가'])
+                total_amount = safe_float(row['판매금액'])
                 
                 # ExcelSalesData 객체 생성 및 저장
                 excel_data = ExcelSalesData(
@@ -1388,9 +1493,9 @@ def analyze_sales_file(request):
                     quantity=quantity,
                     unit_price=unit_price,
                     total_amount=total_amount,
-                    earned_points=int(row.get('적립포인트', 0)) if pd.notna(row.get('적립포인트', 0)) else 0,
-                    points=int(row.get('포인트', 0)) if pd.notna(row.get('포인트', 0)) else 0,
-                    bonus=int(row.get('보너스', 0)) if pd.notna(row.get('보너스', 0)) else 0,
+                    earned_points=safe_int(row.get('적립포인트', 0)),
+                    points=safe_int(row.get('포인트', 0)),
+                    bonus=safe_int(row.get('보너스', 0)),
                     pos_id=str(row.get('POS_ID', '')),
                     pos_code=str(row.get('POS코드', '')),
                     store=str(row.get('판매점', '')),
@@ -1405,11 +1510,16 @@ def analyze_sales_file(request):
                 excel_data.save()
                 saved_count += 1
                 
+                # 진행상황 로그 (10개마다)
+                if saved_count % 10 == 0:
+                    logger.info(f"저장 진행상황: {saved_count}/{len(df_cleaned)} 완료")
+                
             except Exception as e:
                 logger.error(f"행 {index} 처리 중 오류: {str(e)}")
                 continue
         
-        logger.info(f"분석 완료: {saved_count}개 데이터 저장")
+        logger.info(f"=== 분석 완료 ===")
+        logger.info(f"총 {saved_count}개 데이터 저장 완료")
         
         return JsonResponse({
             'message': f'파일 분석이 완료되었습니다: {filename} (총 {saved_count}개 데이터 저장)',
@@ -1456,47 +1566,6 @@ def delete_sales_file(request):
         logger = logging.getLogger(__name__)
         logger.error(f'파일 삭제 중 오류 발생: {str(e)}')
         return JsonResponse({'error': str(e)}, status=500)
-
-@login_required
-@require_http_methods(["DELETE"])
-def delete_sales_data(request, sales_id):
-    """매출 데이터 삭제"""
-    if not request.user.is_station:
-        return JsonResponse({'error': '권한이 없습니다.'}, status=403)
-    
-    try:
-        # 파일 삭제인지 데이터 삭제인지 확인
-        if sales_id == 'file':
-            filename = request.POST.get('filename')
-            if not filename:
-                return JsonResponse({'error': '파일명이 제공되지 않았습니다.'}, status=400)
-            
-            # TID 가져오기
-            tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
-            if not tid:
-                return JsonResponse({'error': '주유소 TID가 등록되어 있지 않습니다.'}, status=400)
-            
-            # 파일 경로 확인 및 삭제
-            import os
-            file_path = os.path.join(settings.BASE_DIR, 'upload', tid, filename)
-            if not os.path.exists(file_path):
-                return JsonResponse({'error': '파일을 찾을 수 없습니다.'}, status=404)
-            
-            os.remove(file_path)
-            return JsonResponse({'message': f'파일이 성공적으로 삭제되었습니다: {filename}'})
-        else:
-            # 기존 데이터 삭제 로직
-            sales_data = get_object_or_404(SalesData, id=sales_id, station=request.user)
-            sales_data.delete()
-            return JsonResponse({'message': '매출 데이터가 성공적으로 삭제되었습니다.'})
-    
-    except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f'삭제 중 오류 발생: {str(e)}')
-        return JsonResponse({'error': str(e)}, status=500)
-
-
 
 @login_required
 def download_uploaded_file(request):

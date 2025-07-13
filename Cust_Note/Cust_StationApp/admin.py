@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.contrib import messages
-from .models import PointCard, StationCardMapping, StationList
+from .models import PointCard, StationCardMapping, StationList, ExcelSalesData
 from Cust_User.models import CustomUser
 
 class StationCardMappingInline(admin.TabularInline):
@@ -221,6 +221,38 @@ class PointCardAdmin(admin.ModelAdmin):
         unused_cards.delete()
         self.message_user(request, f'{count}개의 미사용 카드가 삭제되었습니다.')
     bulk_delete_unused.short_description = "선택된 미사용 카드 삭제"
+
+@admin.register(ExcelSalesData)
+class ExcelSalesDataAdmin(admin.ModelAdmin):
+    list_display = ('tid', 'sale_date', 'sale_time', 'customer_name', 'product_pack', 'quantity', 'total_amount', 'source_file')
+    list_filter = ('sale_date', 'product_pack', 'tid', 'source_file')
+    search_fields = ('customer_name', 'product_pack', 'tid', 'source_file')
+    readonly_fields = ('data_created_at',)
+    list_per_page = 50
+    
+    fieldsets = (
+        ('기본 정보', {
+            'fields': ('tid', 'sale_date', 'sale_time', 'source_file')
+        }),
+        ('고객 정보', {
+            'fields': ('customer_number', 'customer_name', 'issue_number')
+        }),
+        ('제품 정보', {
+            'fields': ('product_type', 'product_code', 'product_pack', 'nozzle')
+        }),
+        ('판매 정보', {
+            'fields': ('sale_type', 'payment_type', 'sale_type2', 'quantity', 'unit_price', 'total_amount')
+        }),
+        ('포인트 정보', {
+            'fields': ('earned_points', 'points', 'bonus')
+        }),
+        ('시스템 정보', {
+            'fields': ('pos_id', 'pos_code', 'store', 'receipt', 'approval_number', 'approval_datetime', 'bonus_card', 'customer_card_number', 'data_created_at')
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).order_by('-sale_date', '-sale_time')
 
 @admin.register(StationCardMapping)
 class StationCardMappingAdmin(admin.ModelAdmin):
