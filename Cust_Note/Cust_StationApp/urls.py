@@ -31,6 +31,8 @@ urlpatterns = [
     # 매출 관리 관련 URL
     path('sales/', views.station_sales, name='sales'),
     path('sales/upload/', views.upload_sales_data, name='upload_sales'),
+    path('sales/analyze/', views.analyze_sales_file, name='analyze_sales'),
+    path('sales/download-uploaded/', views.download_uploaded_file, name='download_uploaded_file'),
     path('sales/delete/<int:sales_id>/', views.delete_sales_data, name='delete_sales'),
-    path('sales/download/<int:sales_id>/', views.download_sales_file, name='download_sales'),
+    path('sales/delete/file/', views.delete_sales_file, name='delete_sales_file'),
 ] 

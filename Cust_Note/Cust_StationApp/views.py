@@ -4,7 +4,7 @@ from django.http import JsonResponse, FileResponse
 from django.contrib import messages
 from django.db.models import Q
 from Cust_User.models import CustomUser, CustomerProfile, CustomerStationRelation
-from .models import PointCard, StationCardMapping, SalesData
+from .models import PointCard, StationCardMapping, SalesData, ExcelSalesData
 from datetime import datetime, timedelta
 import json
 import logging
@@ -18,7 +18,6 @@ import os
 from django.conf import settings
 from django.db.utils import IntegrityError
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
-from excel_sample.models import SalesData as ExcelSalesData
 
 logger = logging.getLogger(__name__)
 
@@ -1171,12 +1170,46 @@ def station_sales(request):
         messages.error(request, '주유소 회원만 접근할 수 있습니다.')
         return redirect('home')
     
+    # TID 가져오기
+    tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
+    
+    # 업로드된 엑셀 파일 목록 가져오기
+    uploaded_files = []
+    if tid:
+        import os
+        upload_root = os.path.join(settings.BASE_DIR, 'upload', tid)
+        if os.path.exists(upload_root):
+            for filename in os.listdir(upload_root):
+                if filename.endswith('.xlsx'):
+                    file_path = os.path.join(upload_root, filename)
+                    file_stat = os.stat(file_path)
+                    # 파일 크기를 읽기 쉽게 변환
+                    size = file_stat.st_size
+                    if size < 1024:
+                        size_str = f"{size} B"
+                    elif size < 1024 * 1024:
+                        size_str = f"{size / 1024:.1f} KB"
+                    else:
+                        size_str = f"{size / (1024 * 1024):.1f} MB"
+                    
+                    uploaded_files.append({
+                        'filename': filename,
+                        'size': size_str,
+                        'size_bytes': file_stat.st_size,
+                        'modified': file_stat.st_mtime,
+                        'path': file_path
+                    })
+    
+    # 파일명으로 정렬 (최신순)
+    uploaded_files.sort(key=lambda x: x['filename'], reverse=True)
+    
     # 기존 주유소app SalesData
     sales_data = SalesData.objects.filter(station=request.user).order_by('-sales_date')
     # 엑셀에서 불러온 SalesData
     excel_sales_data = ExcelSalesData.objects.all().order_by('-sale_date', '-sale_time')
     
     context = {
+        'uploaded_files': uploaded_files,
         'sales_data': sales_data,
         'excel_sales_data': excel_sales_data,
     }
@@ -1229,9 +1262,14 @@ def upload_sales_data(request):
         
         # 원본 파일명에서 디렉토리 제거
         import os
+        from datetime import datetime
+        
         original_name = os.path.basename(sales_file.name)
-        # 파일명: tid_원본파일명
-        file_name = f'{tid}_{original_name}'
+        # 현재 날짜를 YYYYMMDD 형식으로 가져오기
+        current_date = datetime.now().strftime('%Y%m%d')
+        # 파일명: 날짜_Tid.xlsx
+        file_extension = '.xlsx'
+        file_name = f'{current_date}_{tid}{file_extension}'
         # 저장 경로: Cust_Note/upload/<TID>/
         upload_root = os.path.join(settings.BASE_DIR, 'upload', tid)
         os.makedirs(upload_root, exist_ok=True)
@@ -1259,6 +1297,167 @@ def upload_sales_data(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 @login_required
+@require_http_methods(["POST"])
+def analyze_sales_file(request):
+    """업로드된 엑셀 파일 분석"""
+    if not request.user.is_station:
+        return JsonResponse({'error': '권한이 없습니다.'}, status=403)
+    
+    try:
+        filename = request.POST.get('filename')
+        if not filename:
+            return JsonResponse({'error': '파일명이 제공되지 않았습니다.'}, status=400)
+        
+        # TID 가져오기
+        tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
+        if not tid:
+            return JsonResponse({'error': '주유소 TID가 등록되어 있지 않습니다.'}, status=400)
+        
+        # 파일 경로 확인
+        import os
+        file_path = os.path.join(settings.BASE_DIR, 'upload', tid, filename)
+        if not os.path.exists(file_path):
+            return JsonResponse({'error': '파일을 찾을 수 없습니다.'}, status=404)
+        
+        # 엑셀 파일 분석 및 데이터베이스 저장
+        import pandas as pd
+        from datetime import datetime
+        
+        logger.info(f"파일 분석 시작: {filename}")
+        
+        # 엑셀 파일 읽기
+        df = pd.read_excel(
+            file_path,
+            skiprows=4,  # 처음 4행은 건너뛰기
+            names=['판매일자', '주유시간', '고객번호', '고객명', '발행번호', '주류상품종류', 
+                  '판매구분', '결제구분', '판매구분2', '노즐', '제품코드', '제품/PACK',
+                  '판매수량', '판매단가', '판매금액', '적립포인트', '포인트', '보너스',
+                  'POS_ID', 'POS코드', '판매점', '영수증', '승인번호', '승인일시',
+                  '보너스카드', '고객카드번호', '데이터생성일시']
+        )
+        
+        # 빈 행 제거
+        df_cleaned = df.dropna(how='all')
+        
+        # 합계 행 제거 (마지막 행이 합계인 경우)
+        if len(df_cleaned) > 0 and df_cleaned.iloc[-1]['판매일자'] == '합계':
+            df_cleaned = df_cleaned.iloc[:-1]
+        
+        # 기존 데이터 삭제 (같은 파일에서 온 데이터)
+        ExcelSalesData.objects.filter(source_file=filename).delete()
+        
+        # 데이터베이스에 저장
+        saved_count = 0
+        for index, row in df_cleaned.iterrows():
+            try:
+                # 날짜 파싱
+                sale_date_str = str(row['판매일자'])
+                if '/' in sale_date_str:
+                    sale_date = datetime.strptime(sale_date_str, '%Y/%m/%d').date()
+                else:
+                    continue  # 날짜 형식이 맞지 않으면 건너뛰기
+                
+                # 시간 파싱
+                sale_time_str = str(row['주유시간'])
+                if ' ' in sale_time_str:
+                    time_part = sale_time_str.split(' ')[1]
+                    sale_time = datetime.strptime(time_part, '%H:%M').time()
+                else:
+                    sale_time = datetime.now().time()
+                
+                # 숫자 데이터 처리
+                quantity = float(row['판매수량']) if pd.notna(row['판매수량']) else 0
+                unit_price = float(row['판매단가']) if pd.notna(row['판매단가']) else 0
+                total_amount = float(row['판매금액']) if pd.notna(row['판매금액']) else 0
+                
+                # ExcelSalesData 객체 생성 및 저장
+                excel_data = ExcelSalesData(
+                    tid=tid,
+                    sale_date=sale_date,
+                    sale_time=sale_time,
+                    customer_number=str(row.get('고객번호', '')),
+                    customer_name=str(row.get('고객명', '')),
+                    issue_number=str(row.get('발행번호', '')),
+                    product_type=str(row.get('주류상품종류', '')),
+                    sale_type=str(row.get('판매구분', '')),
+                    payment_type=str(row.get('결제구분', '')),
+                    sale_type2=str(row.get('판매구분2', '')),
+                    nozzle=str(row.get('노즐', '')),
+                    product_code=str(row.get('제품코드', '')),
+                    product_pack=str(row.get('제품/PACK', '')),
+                    quantity=quantity,
+                    unit_price=unit_price,
+                    total_amount=total_amount,
+                    earned_points=int(row.get('적립포인트', 0)) if pd.notna(row.get('적립포인트', 0)) else 0,
+                    points=int(row.get('포인트', 0)) if pd.notna(row.get('포인트', 0)) else 0,
+                    bonus=int(row.get('보너스', 0)) if pd.notna(row.get('보너스', 0)) else 0,
+                    pos_id=str(row.get('POS_ID', '')),
+                    pos_code=str(row.get('POS코드', '')),
+                    store=str(row.get('판매점', '')),
+                    receipt=str(row.get('영수증', '')),
+                    approval_number=str(row.get('승인번호', '')),
+                    approval_datetime=datetime.now(),
+                    bonus_card=str(row.get('보너스카드', '')),
+                    customer_card_number=str(row.get('고객카드번호', '')),
+                    data_created_at=datetime.now(),
+                    source_file=filename
+                )
+                excel_data.save()
+                saved_count += 1
+                
+            except Exception as e:
+                logger.error(f"행 {index} 처리 중 오류: {str(e)}")
+                continue
+        
+        logger.info(f"분석 완료: {saved_count}개 데이터 저장")
+        
+        return JsonResponse({
+            'message': f'파일 분석이 완료되었습니다: {filename} (총 {saved_count}개 데이터 저장)',
+            'result': {
+                'filename': filename,
+                'total_rows': len(df_cleaned),
+                'saved_count': saved_count,
+                'tid': tid
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f'파일 분석 중 오류 발생: {str(e)}')
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def delete_sales_file(request):
+    """업로드된 엑셀 파일 삭제"""
+    if not request.user.is_station:
+        return JsonResponse({'error': '권한이 없습니다.'}, status=403)
+    
+    try:
+        filename = request.POST.get('filename')
+        if not filename:
+            return JsonResponse({'error': '파일명이 제공되지 않았습니다.'}, status=400)
+        
+        # TID 가져오기
+        tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
+        if not tid:
+            return JsonResponse({'error': '주유소 TID가 등록되어 있지 않습니다.'}, status=400)
+        
+        # 파일 경로 확인 및 삭제
+        import os
+        file_path = os.path.join(settings.BASE_DIR, 'upload', tid, filename)
+        if not os.path.exists(file_path):
+            return JsonResponse({'error': '파일을 찾을 수 없습니다.'}, status=404)
+        
+        os.remove(file_path)
+        return JsonResponse({'message': f'파일이 성공적으로 삭제되었습니다: {filename}'})
+    
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'파일 삭제 중 오류 발생: {str(e)}')
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
 @require_http_methods(["DELETE"])
 def delete_sales_data(request, sales_id):
     """매출 데이터 삭제"""
@@ -1266,33 +1465,76 @@ def delete_sales_data(request, sales_id):
         return JsonResponse({'error': '권한이 없습니다.'}, status=403)
     
     try:
-        sales_data = get_object_or_404(SalesData, id=sales_id, station=request.user)
-        sales_data.delete()
-        return JsonResponse({'message': '매출 데이터가 성공적으로 삭제되었습니다.'})
+        # 파일 삭제인지 데이터 삭제인지 확인
+        if sales_id == 'file':
+            filename = request.POST.get('filename')
+            if not filename:
+                return JsonResponse({'error': '파일명이 제공되지 않았습니다.'}, status=400)
+            
+            # TID 가져오기
+            tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
+            if not tid:
+                return JsonResponse({'error': '주유소 TID가 등록되어 있지 않습니다.'}, status=400)
+            
+            # 파일 경로 확인 및 삭제
+            import os
+            file_path = os.path.join(settings.BASE_DIR, 'upload', tid, filename)
+            if not os.path.exists(file_path):
+                return JsonResponse({'error': '파일을 찾을 수 없습니다.'}, status=404)
+            
+            os.remove(file_path)
+            return JsonResponse({'message': f'파일이 성공적으로 삭제되었습니다: {filename}'})
+        else:
+            # 기존 데이터 삭제 로직
+            sales_data = get_object_or_404(SalesData, id=sales_id, station=request.user)
+            sales_data.delete()
+            return JsonResponse({'message': '매출 데이터가 성공적으로 삭제되었습니다.'})
     
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'삭제 중 오류 발생: {str(e)}')
         return JsonResponse({'error': str(e)}, status=500)
 
+
+
 @login_required
-def download_sales_file(request, sales_id):
-    """매출 데이터 파일 다운로드"""
+def download_uploaded_file(request):
+    """업로드된 엑셀 파일 다운로드"""
     if not request.user.is_station:
         return JsonResponse({'error': '권한이 없습니다.'}, status=403)
     
     try:
-        sales_data = get_object_or_404(SalesData, id=sales_id, station=request.user)
-        file_path = os.path.join(settings.MEDIA_ROOT, sales_data.file_name)
+        filename = request.GET.get('filename')
+        if not filename:
+            return JsonResponse({'error': '파일명이 제공되지 않았습니다.'}, status=400)
         
+        # TID 가져오기
+        tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
+        if not tid:
+            return JsonResponse({'error': '주유소 TID가 등록되어 있지 않습니다.'}, status=400)
+        
+        # 파일 경로 확인
+        file_path = os.path.join(settings.BASE_DIR, 'upload', tid, filename)
         if not os.path.exists(file_path):
             return JsonResponse({'error': '파일을 찾을 수 없습니다.'}, status=404)
         
+        # 파일 다운로드 - 서버에 저장된 이름으로 다운로드
+        filename = os.path.basename(file_path)
+        logger.info(f"다운로드 파일명: {filename}")
+        logger.info(f"전체 파일 경로: {file_path}")
+        
+        # 한글 파일명 처리를 위한 URL 인코딩
+        import urllib.parse
+        encoded_filename = urllib.parse.quote(filename)
+        
         response = FileResponse(open(file_path, 'rb'))
         response['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
+        response['Content-Disposition'] = f'attachment; filename="{encoded_filename}"; filename*=UTF-8\'\'{encoded_filename}'
         return response
         
     except Exception as e:
-        logger.error(f'파일 다운로드 중 오류 발생: {str(e)}')
+        logger.error(f'업로드된 파일 다운로드 중 오류 발생: {str(e)}')
         return JsonResponse({'error': str(e)}, status=500)
 
 @login_required
