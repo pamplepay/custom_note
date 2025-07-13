@@ -218,39 +218,138 @@
         </div>
     </div>
 
-<!-- 엑셀 기반 매출 데이터 목록 -->
+<!-- 날짜별 매출 통계 -->
 <div class="card mt-4">
     <div class="card-body">
-        <h5 class="card-title">엑셀 기반 매출 데이터</h5>
+        <h5 class="card-title d-flex justify-content-between align-items-center">
+            <span>
+                날짜별 매출 통계 
+                <span class="badge bg-primary">{{ sales_statistics|length }}개</span>
+            </span>
+            <button class="btn btn-outline-secondary btn-sm" id="viewAllStatisticsBtn">
+                <i class="fas fa-list"></i> 전체 상세 리스트 보기
+            </button>
+        </h5>
         <div class="table-responsive">
-            <table class="table table-bordered">
-                <thead>
+            <table class="table table-hover">
+                <thead class="table-light">
                     <tr>
-                        <th>판매일자</th>
-                        <th>주유시간</th>
-                        <th>고객명</th>
-                        <th>제품</th>
-                        <th>판매수량</th>
-                        <th>판매금액</th>
+                        <th>날짜</th>
+                        <th>총 거래건수</th>
+                        <th>총 판매수량</th>
+                        <th>총 판매금액</th>
+                        <th>평균 단가</th>
+                        <th>최다 판매 제품</th>
+                        <th>작업</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for s in excel_sales_data %}
-                    <tr>
-                        <td>{{ s.sale_date }}</td>
-                        <td>{{ s.sale_time }}</td>
-                        <td>{{ s.customer_name }}</td>
-                        <td>{{ s.product_pack }}</td>
-                        <td>{{ s.quantity }}</td>
-                        <td>{{ s.total_amount }}</td>
+                    {% for stat in sales_statistics %}
+                    <tr class="stat-row" data-stat-id="{{ stat.tid }}">
+                        <td>
+                            <strong>{{ stat.sale_date|date:"Y-m-d" }}</strong>
+                            <br><small class="text-muted">{{ stat.source_file }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ stat.total_transactions }}건</span>
+                        </td>
+                        <td>{{ stat.total_quantity|floatformat:2 }}L</td>
+                        <td>
+                            <strong class="text-success">{{ stat.total_amount|floatformat:0 }}원</strong>
+                        </td>
+                        <td>{{ stat.avg_unit_price|floatformat:0 }}원/L</td>
+                        <td>
+                            <span class="badge bg-warning">{{ stat.top_product }}</span>
+                            <br><small class="text-muted">{{ stat.top_product_count }}회</small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-primary view-details" 
+                                        data-stat-id="{{ stat.tid }}" 
+                                        data-sale-date="{{ stat.sale_date|date:'Y-m-d' }}"
+                                        title="통계 상세보기">
+                                    <i class="fas fa-chart-pie"></i>
+                                </button>
+                                <button class="btn btn-outline-info view-sales-list" 
+                                        data-stat-id="{{ stat.tid }}" 
+                                        data-sale-date="{{ stat.sale_date|date:'Y-m-d' }}"
+                                        title="매출 리스트 보기">
+                                    <i class="fas fa-list"></i>
+                                </button>
+                            </div>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center">엑셀 기반 매출 데이터가 없습니다.</td>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <i class="fas fa-chart-bar fa-2x mb-2"></i>
+                            <br>분석된 통계 데이터가 없습니다.<br>
+                            <small>엑셀 파일을 업로드하고 분석해주세요.</small>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- 상세보기 모달 (개별) -->
+<div class="modal fade" id="statisticsModal" tabindex="-1" aria-labelledby="statisticsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="statisticsModalLabel">매출 상세 정보</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="statisticsDetails">
+                    <!-- 상세 정보가 여기에 로드됩니다 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 전체 리스트 상세보기 모달 -->
+<div class="modal fade" id="statisticsListModal" tabindex="-1" aria-labelledby="statisticsListModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="statisticsListModalLabel">전체 매출 통계 상세 리스트</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="statisticsListDetails">
+                    <!-- 전체 리스트가 여기에 로드됩니다 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 매출 리스트 상세보기 모달 -->
+<div class="modal fade" id="salesListModal" tabindex="-1" aria-labelledby="salesListModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="salesListModalLabel">매출 리스트 상세보기</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="salesListDetails">
+                    <!-- 매출 리스트가 여기에 로드됩니다 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
         </div>
     </div>
 </div>
@@ -277,7 +376,7 @@ if (typeof window.salesPageInitialized === 'undefined') {
         function initializeSalesPage() {
             console.log('이벤트 리스너 초기화 시작'); // 디버그 로그
             
-            // 매출 데이터 업로드
+    // 매출 데이터 업로드
             const uploadForm = document.getElementById('uploadForm');
             let isUploading = false; // 업로드 중복 방지 플래그
             
@@ -285,7 +384,7 @@ if (typeof window.salesPageInitialized === 'undefined') {
                 uploadForm.setAttribute('data-initialized', 'true');
                 
                 uploadForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
+        e.preventDefault();
                     
                     // 이미 업로드 중이면 중단
                     if (isUploading) {
@@ -295,7 +394,7 @@ if (typeof window.salesPageInitialized === 'undefined') {
                     
                     isUploading = true; // 업로드 시작
                     
-                    const formData = new FormData(this);
+        const formData = new FormData(this);
                     const submitButton = this.querySelector('button[type="submit"]');
                     const originalText = submitButton.textContent;
                     
@@ -304,33 +403,33 @@ if (typeof window.salesPageInitialized === 'undefined') {
                     submitButton.textContent = '업로드 중...';
                     
                     console.log('파일 업로드 시작'); // 디버그 로그
-                    
-                    fetch('{% url "station:upload_sales" %}', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': '{{ csrf_token }}'
-                        },
-                        body: formData
-                    })
+        
+        fetch('{% url "station:upload_sales" %}', {
+        method: 'POST',
+        headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+        },
+            body: formData
+    })
                     .then(response => {
                         console.log('서버 응답 상태:', response.status); // 디버그 로그
                         return response.json();
                     })
-                    .then(data => {
+    .then(data => {
                         console.log('서버 응답 데이터:', data); // 디버그 로그
-                        if (data.error) {
-                            alert(data.error);
-                        } else {
-                            alert(data.message);
+            if (data.error) {
+                alert(data.error);
+            } else {
+                alert(data.message);
                             // 페이지 새로고침
                             setTimeout(() => {
                                 window.location.reload();
                             }, 1000);
-                        }
-                    })
-                    .catch(error => {
+            }
+        })
+        .catch(error => {
                         console.error('업로드 오류:', error); // 디버그 로그
-                        alert('오류가 발생했습니다.');
+            alert('오류가 발생했습니다.');
                     })
                     .finally(() => {
                         // 업로드 완료 후 상태 초기화
@@ -346,7 +445,7 @@ if (typeof window.salesPageInitialized === 'undefined') {
                 if (!button.hasAttribute('data-initialized')) {
                     button.setAttribute('data-initialized', 'true');
                     
-                    button.addEventListener('click', function() {
+        button.addEventListener('click', function() {
                         const filename = this.dataset.filename;
                         const originalText = this.textContent;
                         
@@ -361,8 +460,8 @@ if (typeof window.salesPageInitialized === 'undefined') {
                         
                         fetch('{% url "station:analyze_sales" %}', {
                             method: 'POST',
-                            headers: {
-                                'X-CSRFToken': '{{ csrf_token }}'
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
                             },
                             body: formData
                         })
@@ -432,25 +531,287 @@ if (typeof window.salesPageInitialized === 'undefined') {
                                     'X-CSRFToken': '{{ csrf_token }}'
                                 },
                                 body: formData
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.error) {
-                                    alert(data.error);
-                                } else {
-                                    alert(data.message);
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+        } else {
+                        alert(data.message);
                                     setTimeout(() => {
                                         window.location.reload();
                                     }, 1000);
-                                }
-                            })
-                            .catch(error => {
-                                alert('오류가 발생했습니다.');
-                                console.error('Error:', error);
-                            });
-                        }
-                    });
+        }
+    })
+    .catch(error => {
+                    alert('오류가 발생했습니다.');
+        console.error('Error:', error);
+                });
+            }
+        });
                 }
+            });
+        }
+        
+        // 상세보기 버튼 이벤트 리스너
+        document.querySelectorAll('.view-details').forEach(button => {
+            if (!button.hasAttribute('data-initialized')) {
+                button.setAttribute('data-initialized', 'true');
+                
+                button.addEventListener('click', function() {
+                    const statId = this.dataset.statId;
+                    const saleDate = this.dataset.saleDate;
+                    
+                    console.log('상세보기 요청:', statId, saleDate);
+                    
+                    // 모달 제목 설정
+                    document.getElementById('statisticsModalLabel').textContent = `${saleDate} 매출 상세 정보`;
+                    
+                    // 로딩 표시
+                    document.getElementById('statisticsDetails').innerHTML = `
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">상세 정보를 불러오는 중...</p>
+                        </div>
+                    `;
+                    
+                    // 모달 표시
+                    const modal = new bootstrap.Modal(document.getElementById('statisticsModal'));
+                    modal.show();
+                    
+                    // 해당 날짜의 상세 데이터 가져오기
+                    fetch(`{% url "station:get_sales_details" %}?date=${saleDate}&stat_id=${encodeURIComponent(statId)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.error) {
+                                document.getElementById('statisticsDetails').innerHTML = `
+                                    <div class="alert alert-danger">
+                                        <i class="fas fa-exclamation-triangle"></i> ${data.error}
+                                    </div>
+                                `;
+                            } else {
+                                // 상세 정보 표시
+                                let detailsHtml = `
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6><i class="fas fa-chart-pie"></i> 기본 통계</h6>
+                                            <table class="table table-sm">
+                                                <tr><td>총 거래건수</td><td><strong>${data.total_transactions}건</strong></td></tr>
+                                                <tr><td>총 판매수량</td><td><strong>${data.total_quantity}L</strong></td></tr>
+                                                <tr><td>총 판매금액</td><td><strong class="text-success">${data.total_amount}원</strong></td></tr>
+                                                <tr><td>평균 단가</td><td><strong>${data.avg_unit_price}원/L</strong></td></tr>
+                                            </table>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6><i class="fas fa-star"></i> 최다 판매 제품</h6>
+                                            <table class="table table-sm">
+                                                <tr><td>제품명</td><td><strong>${data.top_product}</strong></td></tr>
+                                                <tr><td>판매 횟수</td><td><strong>${data.top_product_count}회</strong></td></tr>
+                                                <tr><td>원본 파일</td><td><small>${data.source_file}</small></td></tr>
+                                                <tr><td>분석 시간</td><td><small>${data.created_at}</small></td></tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                `;
+                                
+                                // 제품별 판매 현황이 있으면 추가
+                                if (data.product_breakdown && data.product_breakdown.length > 0) {
+                                    detailsHtml += `
+                                        <hr>
+                                        <h6><i class="fas fa-list"></i> 제품별 판매 현황</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>제품명</th>
+                                                        <th>판매 횟수</th>
+                                                        <th>판매 수량</th>
+                                                        <th>판매 금액</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                    `;
+                                    
+                                    data.product_breakdown.forEach(product => {
+                                        detailsHtml += `
+                                            <tr>
+                                                <td>${product.product_name}</td>
+                                                <td>${product.count}회</td>
+                                                <td>${product.quantity}L</td>
+                                                <td>${product.amount}원</td>
+                                            </tr>
+                                        `;
+                                    });
+                                    
+                                    detailsHtml += `
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    `;
+                                }
+                                
+                                document.getElementById('statisticsDetails').innerHTML = detailsHtml;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('상세 정보 로드 오류:', error);
+                            document.getElementById('statisticsDetails').innerHTML = `
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> 상세 정보를 불러오는 중 오류가 발생했습니다.
+                                </div>
+                            `;
+    });
+});
+            }
+        });
+        
+        // 매출 리스트 상세보기 버튼 이벤트 리스너
+        document.querySelectorAll('.view-sales-list').forEach(button => {
+            if (!button.hasAttribute('data-initialized')) {
+                button.setAttribute('data-initialized', 'true');
+                
+                button.addEventListener('click', function() {
+                    const statId = this.dataset.statId;
+                    const saleDate = this.dataset.saleDate;
+                    
+                    console.log('매출 리스트 상세보기 요청:', statId, saleDate);
+                    
+                    // 모달 제목 설정
+                    document.getElementById('salesListModalLabel').textContent = `${saleDate} 매출 리스트 상세보기`;
+                    
+                    // 로딩 표시
+                    document.getElementById('salesListDetails').innerHTML = `
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">매출 리스트를 불러오는 중...</p>
+                        </div>
+                    `;
+                    
+                    // 모달 표시
+                    const modal = new bootstrap.Modal(document.getElementById('salesListModal'));
+                    modal.show();
+                    
+                    // 해당 날짜의 매출 리스트 데이터 가져오기
+                    fetch(`{% url "station:get_sales_list" %}?date=${saleDate}&stat_id=${encodeURIComponent(statId)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.error) {
+                                document.getElementById('salesListDetails').innerHTML = `
+                                    <div class="alert alert-danger">
+                                        <i class="fas fa-exclamation-triangle"></i> ${data.error}
+                                    </div>
+                                `;
+                            } else {
+                                // 매출 리스트 테이블 생성
+                                let listHtml = `
+                                    <div class="mb-3">
+                                        <h6><i class="fas fa-calendar"></i> ${data.sale_date} - 총 ${data.total_count}건의 매출</h6>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>시간</th>
+                                                    <th>고객번호</th>
+                                                    <th>고객명</th>
+                                                    <th>제품</th>
+                                                    <th>수량(L)</th>
+                                                    <th>단가(원)</th>
+                                                    <th>금액(원)</th>
+                                                    <th>결제방법</th>
+                                                    <th>영수증번호</th>
+                                                    <th>승인번호</th>
+                                                    <th>고객카드번호</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                `;
+                                
+                                data.sales_list.forEach(sale => {
+                                    listHtml += `
+                                        <tr>
+                                            <td>${sale.sale_time}</td>
+                                            <td>${sale.customer_number}</td>
+                                            <td>${sale.customer_name}</td>
+                                            <td>${sale.product_pack}</td>
+                                            <td>${sale.sale_quantity}</td>
+                                            <td>${sale.sale_unit_price}</td>
+                                            <td class="text-success fw-bold">${sale.sale_amount}</td>
+                                            <td>${sale.payment_method}</td>
+                                            <td>${sale.receipt_number}</td>
+                                            <td>${sale.approval_number}</td>
+                                            <td>${sale.customer_card_number}</td>
+                                        </tr>
+                                    `;
+                                });
+                                
+                                listHtml += `
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                `;
+                                
+                                document.getElementById('salesListDetails').innerHTML = listHtml;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('매출 리스트 로드 오류:', error);
+                            document.getElementById('salesListDetails').innerHTML = `
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> 매출 리스트를 불러오는 중 오류가 발생했습니다.
+                                </div>
+                            `;
+                        });
+                });
+            }
+        });
+        
+        // 전체 상세 리스트 보기 버튼 이벤트 리스너
+        const viewAllBtn = document.getElementById('viewAllStatisticsBtn');
+        if (viewAllBtn && !viewAllBtn.hasAttribute('data-initialized')) {
+            viewAllBtn.setAttribute('data-initialized', 'true');
+            viewAllBtn.addEventListener('click', function() {
+                // 모달 제목
+                document.getElementById('statisticsListModalLabel').textContent = '전체 매출 통계 상세 리스트';
+                // 로딩 표시
+                document.getElementById('statisticsListDetails').innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">전체 리스트를 불러오는 중...</p>
+                    </div>
+                `;
+                // 모달 표시
+                const modal = new bootstrap.Modal(document.getElementById('statisticsListModal'));
+                modal.show();
+                // 전체 리스트 데이터 가져오기 (API 필요, 예시 URL)
+                fetch('{% url "station:get_sales_statistics_list" %}')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            document.getElementById('statisticsListDetails').innerHTML = `
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> ${data.error}
+                                </div>
+                            `;
+                        } else {
+                            // 리스트 테이블 생성
+                            let listHtml = `<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>날짜</th><th>TID</th><th>총 거래건수</th><th>총 판매수량</th><th>총 판매금액</th><th>평균 단가</th><th>최다 판매 제품</th><th>원본 파일</th></tr></thead><tbody>`;
+                            data.statistics.forEach(stat => {
+                                listHtml += `<tr><td>${stat.sale_date}</td><td>${stat.tid}</td><td>${stat.total_transactions}</td><td>${stat.total_quantity}</td><td>${stat.total_amount}</td><td>${stat.avg_unit_price}</td><td>${stat.top_product} (${stat.top_product_count}회)</td><td>${stat.source_file}</td></tr>`;
+                            });
+                            listHtml += '</tbody></table></div>';
+                            document.getElementById('statisticsListDetails').innerHTML = listHtml;
+                        }
+                    })
+                    .catch(error => {
+                        document.getElementById('statisticsListDetails').innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> 리스트를 불러오는 중 오류가 발생했습니다.</div>`;
+                    });
             });
         }
     })();

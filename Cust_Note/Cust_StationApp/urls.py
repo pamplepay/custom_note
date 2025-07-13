@@ -34,4 +34,7 @@ urlpatterns = [
     path('sales/analyze/', views.analyze_sales_file, name='analyze_sales'),
     path('sales/download-uploaded/', views.download_uploaded_file, name='download_uploaded_file'),
     path('sales/delete/file/', views.delete_sales_file, name='delete_sales_file'),
+    path('sales/details/', views.get_sales_details, name='get_sales_details'),
+    path('sales/statistics-list/', views.get_sales_statistics_list, name='get_sales_statistics_list'),
+    path('sales/sales-list/', views.get_sales_list, name='get_sales_list'),
 ] 

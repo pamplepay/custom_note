@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.contrib import messages
-from .models import PointCard, StationCardMapping, StationList, ExcelSalesData
+from .models import PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics
 from Cust_User.models import CustomUser
 
 class StationCardMappingInline(admin.TabularInline):
@@ -221,6 +221,29 @@ class PointCardAdmin(admin.ModelAdmin):
         unused_cards.delete()
         self.message_user(request, f'{count}개의 미사용 카드가 삭제되었습니다.')
     bulk_delete_unused.short_description = "선택된 미사용 카드 삭제"
+
+@admin.register(SalesStatistics)
+class SalesStatisticsAdmin(admin.ModelAdmin):
+    list_display = ('tid', 'sale_date', 'total_transactions', 'total_amount', 'avg_unit_price', 'top_product', 'source_file', 'created_at')
+    list_filter = ('sale_date', 'source_file', 'created_at')
+    search_fields = ('tid', 'top_product', 'source_file')
+    readonly_fields = ('created_at',)
+    list_per_page = 50
+    
+    fieldsets = (
+        ('기본 정보', {
+            'fields': ('tid', 'sale_date', 'source_file', 'created_at')
+        }),
+        ('통계 정보', {
+            'fields': ('total_transactions', 'total_quantity', 'total_amount', 'avg_unit_price')
+        }),
+        ('제품 정보', {
+            'fields': ('top_product', 'top_product_count')
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).order_by('-sale_date', '-created_at')
 
 @admin.register(ExcelSalesData)
 class ExcelSalesDataAdmin(admin.ModelAdmin):

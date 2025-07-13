@@ -1208,10 +1208,17 @@ def station_sales(request):
     # 엑셀에서 불러온 SalesData
     excel_sales_data = ExcelSalesData.objects.all().order_by('-sale_date', '-sale_time')
     
+    # 통계 데이터 가져오기
+    from .models import SalesStatistics
+    sales_statistics = SalesStatistics.objects.filter(
+        tid=tid
+    ).order_by('-sale_date', '-created_at')
+    
     context = {
         'uploaded_files': uploaded_files,
         'sales_data': sales_data,
         'excel_sales_data': excel_sales_data,
+        'sales_statistics': sales_statistics,
     }
     
     return render(request, 'Cust_Station/station_sales.html', context)
@@ -1371,7 +1378,7 @@ def analyze_sales_file(request):
         logger.info(f"총 데이터 행 개수: {len(df)}행")
         logger.info(f"실제 데이터 행 개수: {len(df_cleaned)}행")
         
-        # 날짜별 데이터 분석
+        # 날짜별 데이터 분석 및 통계 저장
         if len(df_cleaned) > 0:
             try:
                 sale_dates = df_cleaned['판매일자'].dropna()
@@ -1382,11 +1389,74 @@ def analyze_sales_file(request):
                     logger.info(f"최초 판매일: {min_date}")
                     logger.info(f"최종 판매일: {max_date}")
                     
-                    # 날짜별 데이터 개수
+                    # 날짜별 데이터 개수 및 통계 계산
+                    # 날짜별 데이터 개수 및 통계 계산
                     date_counts = sale_dates.value_counts().sort_index()
                     logger.info(f"날짜별 데이터 개수:")
+                    
+                    # 기존 통계 데이터 확인 (같은 파일에서 온 데이터)
+                    from .models import SalesStatistics
+                    existing_stats = SalesStatistics.objects.filter(tid__startswith=tid, source_file=filename)
+                    if existing_stats.exists():
+                        logger.info(f"기존 통계 데이터 발견: {existing_stats.count()}개 - 중복 방지 모드로 진행")
+                    else:
+                        logger.info(f"새로운 파일 분석: {filename}")
+                    
+                    # 날짜별 통계 데이터 생성 및 저장
                     for date, count in date_counts.items():
                         logger.info(f"  {date}: {count}행")
+                        
+                        # 해당 날짜의 데이터만 필터링
+                        daily_data = df_cleaned[df_cleaned['판매일자'] == date]
+                        
+                        # 일별 통계 계산
+                        daily_quantity = daily_data['판매수량'].sum()
+                        daily_amount = daily_data['판매금액'].sum()
+                        daily_avg_price = daily_amount / daily_quantity if daily_quantity > 0 else 0
+                        
+                        # 제품별 판매 현황 (가장 많이 팔린 제품)
+                        product_counts = daily_data['제품/PACK'].value_counts()
+                        top_product = product_counts.index[0] if len(product_counts) > 0 else ''
+                        top_product_count = product_counts.iloc[0] if len(product_counts) > 0 else 0
+                        
+                        # SalesStatistics 모델에 통계 데이터 저장
+                        try:
+                            # 날짜 파싱
+                            if '/' in str(date):
+                                parsed_date = datetime.strptime(str(date), '%Y/%m/%d').date()
+                            else:
+                                parsed_date = date
+                            
+                            # 중복 확인 (tid, sale_date, source_file 조합)
+                            existing_stat = SalesStatistics.objects.filter(
+                                tid=tid,
+                                sale_date=parsed_date,
+                                source_file=filename
+                            ).first()
+                            
+                            if existing_stat:
+                                logger.info(f"중복 데이터 발견 - 건너뛰기: {date} ({existing_stat.total_transactions}건, {existing_stat.total_amount:,.0f}원)")
+                                continue
+                            
+                            # 새로운 통계 데이터 저장
+                            sales_stat = SalesStatistics(
+                                tid=tid,  # 주유소 TID만 저장
+                                sale_date=parsed_date,
+                                total_transactions=count,
+                                total_quantity=daily_quantity,
+                                total_amount=daily_amount,
+                                avg_unit_price=daily_avg_price,
+                                top_product=top_product,
+                                top_product_count=top_product_count,
+                                source_file=filename
+                            )
+                            sales_stat.save()
+                            logger.info(f"날짜별 통계 저장 완료: {date} - {count}건, {daily_amount:,.0f}원")
+                            
+                        except Exception as e:
+                            logger.error(f"날짜별 통계 저장 중 오류 ({date}): {str(e)}")
+                            continue
+                            
             except Exception as e:
                 logger.warning(f"날짜 분석 중 오류: {e}")
         
@@ -1607,6 +1677,75 @@ def download_uploaded_file(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 @login_required
+def get_sales_details(request):
+    """특정 날짜의 매출 상세 정보를 반환하는 API"""
+    if not request.user.is_station:
+        return JsonResponse({'error': '권한이 없습니다.'}, status=403)
+    
+    try:
+        date = request.GET.get('date')
+        stat_id = request.GET.get('stat_id')
+        
+        if not date or not stat_id:
+            return JsonResponse({'error': '날짜와 통계 ID가 필요합니다.'}, status=400)
+        
+        # TID 가져오기
+        tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
+        if not tid:
+            return JsonResponse({'error': '주유소 TID가 등록되어 있지 않습니다.'}, status=400)
+        
+        # 통계 데이터 가져오기
+        from .models import SalesStatistics
+        try:
+            stat = SalesStatistics.objects.get(tid=stat_id)
+        except SalesStatistics.DoesNotExist:
+            return JsonResponse({'error': '통계 데이터를 찾을 수 없습니다.'}, status=404)
+        
+        # 해당 날짜의 상세 데이터 가져오기
+        from .models import ExcelSalesData
+        daily_sales = ExcelSalesData.objects.filter(
+            tid=tid,
+            sale_date=date
+        ).order_by('sale_time')
+        
+        # 제품별 판매 현황 계산
+        product_breakdown = []
+        if daily_sales.exists():
+            from django.db.models import Sum, Count
+            product_stats = daily_sales.values('product_pack').annotate(
+                count=Count('id'),
+                quantity=Sum('quantity'),
+                amount=Sum('total_amount')
+            ).order_by('-amount')
+            
+            for product in product_stats:
+                product_breakdown.append({
+                    'product_name': product['product_pack'],
+                    'count': product['count'],
+                    'quantity': f"{product['quantity']:.2f}",
+                    'amount': f"{product['amount']:,.0f}"
+                })
+        
+        # 응답 데이터 구성
+        response_data = {
+            'total_transactions': stat.total_transactions,
+            'total_quantity': f"{stat.total_quantity:.2f}",
+            'total_amount': f"{stat.total_amount:,.0f}",
+            'avg_unit_price': f"{stat.avg_unit_price:,.0f}",
+            'top_product': stat.top_product,
+            'top_product_count': stat.top_product_count,
+            'source_file': stat.source_file,
+            'created_at': stat.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'product_breakdown': product_breakdown
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        logger.error(f'상세 정보 조회 중 오류 발생: {str(e)}')
+        return JsonResponse({'error': '상세 정보를 불러오는 중 오류가 발생했습니다.'}, status=500)
+
+@login_required
 def search_customer(request):
     """전화번호로 사용자를 검색하는 뷰"""
     if request.method == 'GET':
@@ -1654,3 +1793,103 @@ def search_customer(request):
                 'status': 'error',
                 'message': '사용자 검색 중 오류가 발생했습니다.'
             }, status=500)
+
+@login_required
+def get_sales_statistics_list(request):
+    """전체 매출 통계 리스트 반환"""
+    if not request.user.is_station:
+        return JsonResponse({'error': '권한이 없습니다.'}, status=403)
+    
+    try:
+        # TID 가져오기
+        tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
+        if not tid:
+            return JsonResponse({'error': '주유소 TID가 등록되어 있지 않습니다.'}, status=400)
+        
+        # 전체 통계 데이터 조회
+        from .models import SalesStatistics
+        statistics = SalesStatistics.objects.filter(
+            tid__startswith=tid
+        ).order_by('-sale_date', '-created_at')
+        
+        # JSON 응답용 데이터 변환
+        statistics_list = []
+        for stat in statistics:
+            statistics_list.append({
+                'sale_date': stat.sale_date.strftime('%Y-%m-%d') if stat.sale_date else '',
+                'tid': stat.tid,
+                'total_transactions': stat.total_transactions,
+                'total_quantity': f"{stat.total_quantity:.2f}",
+                'total_amount': f"{stat.total_amount:,.0f}",
+                'avg_unit_price': f"{stat.avg_unit_price:,.0f}",
+                'top_product': stat.top_product or '없음',
+                'top_product_count': stat.top_product_count,
+                'source_file': stat.source_file or '',
+                'created_at': stat.created_at.strftime('%Y-%m-%d %H:%M:%S') if stat.created_at else ''
+            })
+        
+        response_data = {
+            'statistics': statistics_list,
+            'total_count': len(statistics_list)
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        logger.error(f'매출 통계 리스트 조회 중 오류: {str(e)}')
+        return JsonResponse({'error': '통계 리스트를 불러오는 중 오류가 발생했습니다.'}, status=500)
+
+@login_required
+def get_sales_list(request):
+    """특정 날짜의 매출 리스트 반환"""
+    if not request.user.is_station:
+        return JsonResponse({'error': '권한이 없습니다.'}, status=403)
+    
+    try:
+        sale_date = request.GET.get('date')
+        stat_id = request.GET.get('stat_id')
+        
+        if not sale_date or not stat_id:
+            return JsonResponse({'error': '날짜와 통계 ID가 필요합니다.'}, status=400)
+        
+        # TID 가져오기
+        tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
+        if not tid:
+            return JsonResponse({'error': '주유소 TID가 등록되어 있지 않습니다.'}, status=400)
+        
+        # 해당 날짜의 매출 데이터 조회
+        from .models import ExcelSalesData
+        sales_list = ExcelSalesData.objects.filter(
+            sale_date=sale_date,
+            tid=tid
+        ).order_by('sale_time')
+        
+        # JSON 응답용 데이터 변환
+        sales_data = []
+        for sale in sales_list:
+            sales_data.append({
+                'sale_time': sale.sale_time.strftime('%H:%M:%S') if sale.sale_time else '',
+                'customer_number': sale.customer_number or '',
+                'customer_name': sale.customer_name or '',
+                'product_pack': sale.product_pack or '',
+                'sale_quantity': f"{sale.quantity:.2f}" if sale.quantity else '0.00',
+                'sale_unit_price': f"{sale.unit_price:,.0f}" if sale.unit_price else '0',
+                'sale_amount': f"{sale.total_amount:,.0f}" if sale.total_amount else '0',
+                'payment_method': sale.payment_type or '',
+                'receipt_number': sale.receipt or '',
+                'approval_number': sale.approval_number or '',
+                'customer_card_number': sale.customer_card_number or '',
+                'data_created_at': sale.data_created_at.strftime('%Y-%m-%d %H:%M:%S') if sale.data_created_at else ''
+            })
+        
+        response_data = {
+            'sale_date': sale_date,
+            'total_count': len(sales_data),
+            'sales_list': sales_data
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        logger.error(f'매출 리스트 조회 중 오류: {str(e)}')
+        return JsonResponse({'error': '매출 리스트를 불러오는 중 오류가 발생했습니다.'}, status=500)
