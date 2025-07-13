@@ -10,17 +10,17 @@
     <!-- 매출 데이터 업로드 -->
     <div class="card mb-4">
         <div class="card-body">
-            <h5 class="card-title">매출 데이터 업로드</h5>
+            <h5 class="card-title">매출 데이터 분석</h5>
             <form id="uploadForm" class="row g-3" enctype="multipart/form-data">
                 <div class="col-md-8">
                     <input type="file" class="form-control" id="sales_file" name="sales_file" accept=".xlsx" required>
-                    <div class="form-text">
-                        * 엑셀 파일(.xlsx)만 업로드 가능합니다.<br>
-                        * 필수 컬럼: 매출일, 총매출액
-                    </div>
+                    
                 </div>
-                <div class="col-md-4 d-flex align-items-end">
-                    <button type="submit" class="btn btn-success">업로드</button>
+                <div class="col-md-4 d-flex align-items-start">
+                    <button type="submit" class="btn btn-success">분석</button>
+                </div>
+                <div class="form-text">
+                    * 엑셀 파일(.xlsx)만 분석 가능합니다.<br>                        
                 </div>
             </form>
         </div>
@@ -101,67 +101,128 @@
     </div>
 </div>
 </div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // 매출 데이터 업로드
-    document.getElementById('uploadForm').addEventListener('submit', function(e) {
-        e.preventDefault();
+// 전역 변수로 중복 초기화 방지
+if (typeof window.salesPageInitialized === 'undefined') {
+    window.salesPageInitialized = true;
+    
+    // 즉시 실행 함수로 스코프 분리
+    (function() {
+        console.log('매출 페이지 JavaScript 초기화'); // 디버그 로그
         
-        const formData = new FormData(this);
-        
-        fetch('{% url "station:upload_sales" %}', {
-        method: 'POST',
-        headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-        },
-            body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-            if (data.error) {
-                alert(data.error);
-            } else {
-                alert(data.message);
-            location.reload();
-            }
-        })
-        .catch(error => {
-            alert('오류가 발생했습니다.');
-            console.error('Error:', error);
-        });
-    });
-
-    // 매출 데이터 삭제
-    document.querySelectorAll('.delete-sales').forEach(button => {
-        button.addEventListener('click', function() {
-            if (confirm('정말 삭제하시겠습니까?')) {
-                const salesId = this.dataset.salesId;
-                
-                fetch(`{% url "station:delete_sales" 0 %}`.replace('0', salesId), {
-                    method: 'DELETE',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        alert(data.error);
+        // DOM이 로드된 후 실행
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeSalesPage);
         } else {
-                        alert(data.message);
-                        location.reload();
+            initializeSalesPage();
         }
-    })
-    .catch(error => {
-                    alert('오류가 발생했습니다.');
-        console.error('Error:', error);
+        
+        function initializeSalesPage() {
+            console.log('이벤트 리스너 초기화 시작'); // 디버그 로그
+            
+            // 매출 데이터 업로드
+            const uploadForm = document.getElementById('uploadForm');
+            let isUploading = false; // 업로드 중복 방지 플래그
+            
+            if (uploadForm && !uploadForm.hasAttribute('data-initialized')) {
+                uploadForm.setAttribute('data-initialized', 'true');
+                
+                uploadForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    // 이미 업로드 중이면 중단
+                    if (isUploading) {
+                        console.log('이미 업로드 중입니다.');
+                        return;
+                    }
+                    
+                    isUploading = true; // 업로드 시작
+                    
+                    const formData = new FormData(this);
+                    const submitButton = this.querySelector('button[type="submit"]');
+                    const originalText = submitButton.textContent;
+                    
+                    // 버튼 비활성화
+                    submitButton.disabled = true;
+                    submitButton.textContent = '업로드 중...';
+                    
+                    console.log('파일 업로드 시작'); // 디버그 로그
+                    
+                    fetch('{% url "station:upload_sales" %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: formData
+                    })
+                    .then(response => {
+                        console.log('서버 응답 상태:', response.status); // 디버그 로그
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('서버 응답 데이터:', data); // 디버그 로그
+                        if (data.error) {
+                            alert(data.error);
+                        } else {
+                            alert(data.message);
+                            // 페이지 새로고침
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('업로드 오류:', error); // 디버그 로그
+                        alert('오류가 발생했습니다.');
+                    })
+                    .finally(() => {
+                        // 업로드 완료 후 상태 초기화
+                        isUploading = false;
+                        submitButton.disabled = false;
+                        submitButton.textContent = originalText;
+                    });
                 });
             }
-        });
-    });
-});
+
+            // 매출 데이터 삭제
+            document.querySelectorAll('.delete-sales').forEach(button => {
+                if (!button.hasAttribute('data-initialized')) {
+                    button.setAttribute('data-initialized', 'true');
+                    
+                    button.addEventListener('click', function() {
+                        if (confirm('정말 삭제하시겠습니까?')) {
+                            const salesId = this.dataset.salesId;
+                            
+                            fetch(`{% url "station:delete_sales" 0 %}`.replace('0', salesId), {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRFToken': '{{ csrf_token }}'
+                                }
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.error) {
+                                    alert(data.error);
+                                } else {
+                                    alert(data.message);
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 1000);
+                                }
+                            })
+                            .catch(error => {
+                                alert('오류가 발생했습니다.');
+                                console.error('Error:', error);
+                            });
+                        }
+                    });
+                }
+            });
+        }
+    })();
+}
 </script>
-{% endblock %}
 {% endblock %} 

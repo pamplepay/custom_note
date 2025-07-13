@@ -4,7 +4,7 @@ from django.http import JsonResponse, FileResponse
 from django.contrib import messages
 from django.db.models import Q
 from Cust_User.models import CustomUser, CustomerProfile, CustomerStationRelation
-from .models import PointCard, StationCardMapping, PointHistory, SalesData
+from .models import PointCard, StationCardMapping, SalesData
 from datetime import datetime, timedelta
 import json
 import logging
@@ -1183,76 +1183,79 @@ def station_sales(request):
     
     return render(request, 'Cust_Station/station_sales.html', context)
 
+from django.core.cache import cache
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
 @login_required
 @require_http_methods(["POST"])
 def upload_sales_data(request):
-    """매출 데이터 엑셀 파일 업로드"""
+    """매출 데이터 엑셀 파일 업로드 (TID별 폴더, TID_원본파일명으로 저장)"""
     if not request.user.is_station:
         return JsonResponse({'error': '권한이 없습니다.'}, status=403)
     
+    # 중복 요청 방지를 위한 로깅
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # 중복 요청 방지를 위한 캐시 키 생성
+    cache_key = f'upload_sales_{request.user.id}_{request.FILES.get("sales_file", {}).name if request.FILES else "no_file"}'
+    
+    # 이미 처리 중인 요청인지 확인
+    if cache.get(cache_key):
+        logger.warning(f'중복 업로드 요청 감지: {cache_key}')
+        return JsonResponse({'error': '이미 처리 중인 요청입니다. 잠시 후 다시 시도해주세요.'}, status=429)
+    
+    # 캐시에 처리 중임을 표시 (5초 동안)
+    cache.set(cache_key, True, 5)
+    
     try:
+        logger.info(f'파일 업로드 요청 시작 - 사용자: {request.user.username}')
+        
         if 'sales_file' not in request.FILES:
+            cache.delete(cache_key)
             return JsonResponse({'error': '파일이 선택되지 않았습니다.'}, status=400)
         
         sales_file = request.FILES['sales_file']
         if not sales_file.name.endswith('.xlsx'):
+            cache.delete(cache_key)
             return JsonResponse({'error': '엑셀 파일(.xlsx)만 업로드 가능합니다.'}, status=400)
         
-        # 저장 경로 설정
-        station_folder = f'sales_data/{request.user.id}'
-        save_path = os.path.join(settings.MEDIA_ROOT, station_folder)
+        # TID 가져오기
+        tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
+        if not tid:
+            cache.delete(cache_key)
+            return JsonResponse({'error': '주유소 TID가 등록되어 있지 않습니다.'}, status=400)
         
-        # 폴더가 없으면 생성
-        os.makedirs(save_path, exist_ok=True)
+        # 원본 파일명에서 디렉토리 제거
+        import os
+        original_name = os.path.basename(sales_file.name)
+        # 파일명: tid_원본파일명
+        file_name = f'{tid}_{original_name}'
+        # 저장 경로: Cust_Note/upload/<TID>/
+        upload_root = os.path.join(settings.BASE_DIR, 'upload', tid)
+        os.makedirs(upload_root, exist_ok=True)
+        file_path = os.path.join(upload_root, file_name)
         
-        # 엑셀 파일 처리
-        import pandas as pd
-        df = pd.read_excel(sales_file)
+        # 파일이 이미 존재하는지 확인
+        if os.path.exists(file_path):
+            logger.warning(f'파일이 이미 존재합니다: {file_path}')
+            cache.delete(cache_key)
+            return JsonResponse({'error': '동일한 파일이 이미 업로드되어 있습니다.'}, status=400)
         
-        # 필수 컬럼 확인
-        required_columns = ['매출일', '총매출액']
-        if not all(col in df.columns for col in required_columns):
-            return JsonResponse({'error': '필수 컬럼(매출일, 총매출액)이 없습니다.'}, status=400)
+        logger.info(f'파일 저장 시작: {file_path}')
+        # 파일 저장
+        with open(file_path, 'wb+') as destination:
+            for chunk in sales_file.chunks():
+                destination.write(chunk)
         
-        success_count = 0
-        error_count = 0
+        logger.info(f'파일 업로드 완료: {file_name}')
+        cache.delete(cache_key)  # 성공 시 캐시 삭제
+        return JsonResponse({'message': f'파일이 성공적으로 업로드되었습니다: {file_name}'})
         
-        # 데이터 저장
-        for _, row in df.iterrows():
-            try:
-                sales_date = pd.to_datetime(row['매출일']).date()
-                total_sales = float(row['총매출액'])
-                
-                # 파일명 생성
-                file_name = f'{request.user.id}_{sales_date.strftime("%Y%m%d")}.xlsx'
-                file_path = os.path.join(station_folder, file_name)
-                
-                # 파일 저장
-                with open(os.path.join(save_path, file_name), 'wb+') as destination:
-                    for chunk in sales_file.chunks():
-                        destination.write(chunk)
-                
-                # 매출 데이터 생성 또는 업데이트
-                SalesData.objects.update_or_create(
-                    station=request.user,
-                    sales_date=sales_date,
-                    defaults={
-                        'total_sales': total_sales,
-                        'file_name': file_path,
-                        'original_file_name': sales_file.name
-                    }
-                )
-                success_count += 1
-                
-            except Exception as e:
-                error_count += 1
-                logger.error(f'매출 데이터 저장 중 오류 발생: {str(e)}')
-        
-        message = f'매출 데이터 업로드 완료 (성공: {success_count}건, 실패: {error_count}건)'
-        return JsonResponse({'message': message, 'success_count': success_count, 'error_count': error_count})
-    
     except Exception as e:
-        logger.error(f'매출 데이터 업로드 중 오류 발생: {str(e)}')
+        logger.error(f'엑셀 파일 업로드 중 오류 발생: {str(e)}')
+        cache.delete(cache_key)  # 오류 시에도 캐시 삭제
         return JsonResponse({'error': str(e)}, status=500)
 
 @login_required

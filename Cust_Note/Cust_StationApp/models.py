@@ -157,36 +157,6 @@ class StationList(get_user_model()):
     def __str__(self):
         return self.username if hasattr(self, 'username') else str(self.id)
 
-class PointHistory(models.Model):
-    """포인트 변경 내역"""
-    customer_station_relation = models.ForeignKey(
-        CustomerStationRelation,
-        on_delete=models.CASCADE,
-        related_name='point_history',
-        verbose_name='고객-주유소 관계'
-    )
-    points = models.IntegerField(verbose_name='포인트 변경')
-    type = models.CharField(
-        max_length=10,
-        choices=[
-            ('적립', '적립'),
-            ('사용', '사용'),
-            ('수정', '수정'),
-            ('차감', '차감')
-        ],
-        verbose_name='변경 유형'
-    )
-    reason = models.CharField(max_length=200, verbose_name='변경 사유')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시')
-
-    class Meta:
-        verbose_name = '포인트 내역'
-        verbose_name_plural = '포인트 내역'
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.customer_station_relation} - {self.type} {self.points}점 ({self.created_at.strftime('%Y-%m-%d %H:%M')})"
-
 class SalesData(models.Model):
     """매출 데이터 모델"""
     station = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
