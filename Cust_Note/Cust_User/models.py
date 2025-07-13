@@ -62,6 +62,30 @@ class CustomerProfile(models.Model):
         null=True, 
         verbose_name='연료 타입'
     )
+    # 주유량 관련 필드
+    total_fuel_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0, 
+        verbose_name='총 주유량(L)'
+    )
+    monthly_fuel_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0, 
+        verbose_name='월 주유량(L)'
+    )
+    last_fuel_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0, 
+        verbose_name='최근 주유량(L)'
+    )
+    last_fuel_date = models.DateField(
+        blank=True, 
+        null=True, 
+        verbose_name='최근 주유일'
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='가입일')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
 

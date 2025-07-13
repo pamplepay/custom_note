@@ -1580,6 +1580,82 @@ def analyze_sales_file(request):
                 excel_data.save()
                 saved_count += 1
                 
+                # 보너스 카드와 일치하는 고객 찾아 방문 내역 저장
+                bonus_card = str(row.get('보너스카드', '')).strip()
+                if bonus_card and bonus_card != 'nan' and bonus_card != '':
+                    try:
+                        # Cust_UserApp의 CustomerVisitHistory 모델 import
+                        from Cust_UserApp.models import CustomerVisitHistory
+                        from Cust_User.models import CustomUser, CustomerProfile
+                        
+                        # 보너스 카드와 일치하는 고객 찾기
+                        customer_profile = CustomerProfile.objects.filter(
+                            membership_card__icontains=bonus_card
+                        ).first()
+                        
+                        if customer_profile:
+                            customer = customer_profile.user
+                            logger.info(f"고객 발견: {customer.username} (보너스카드: {bonus_card})")
+                            
+                            # 주유량 정보 가져오기 (quantity 값)
+                            fuel_quantity = safe_float(row.get('판매수량', 0))
+                            logger.info(f"주유량 추출: {fuel_quantity:.2f}L (원본값: {row.get('판매수량', 0)})")
+                            
+                            # 방문 내역 저장
+                            visit_history = CustomerVisitHistory(
+                                customer=customer,
+                                station=request.user,
+                                tid=tid,
+                                visit_date=sale_date,
+                                visit_time=sale_time,
+                                payment_type=str(row.get('결제구분', '')),
+                                product_pack=str(row.get('제품/PACK', '')),
+                                sale_amount=total_amount,
+                                approval_number=str(row.get('승인번호', ''))
+                            )
+                            visit_history.save()
+                            
+                            # 고객 프로필의 주유량 정보 업데이트
+                            from Cust_User.models import CustomerProfile
+                            customer_profile = CustomerProfile.objects.get(user=customer)
+                            
+                            # 이전 주유량 정보 로그
+                            logger.info(f"이전 주유량 정보 - 총: {customer_profile.total_fuel_amount:.2f}L, 월: {customer_profile.monthly_fuel_amount:.2f}L, 최근: {customer_profile.last_fuel_amount:.2f}L")
+                            
+                            # 총 주유량 증가
+                            customer_profile.total_fuel_amount += fuel_quantity
+                            
+                            # 월 주유량 계산 (같은 월이면 증가, 다른 월이면 초기화)
+                            from datetime import date
+                            current_month = sale_date.month
+                            current_year = sale_date.year
+                            
+                            if (customer_profile.last_fuel_date and 
+                                customer_profile.last_fuel_date.month == current_month and 
+                                customer_profile.last_fuel_date.year == current_year):
+                                # 같은 월이면 월 주유량 증가
+                                customer_profile.monthly_fuel_amount += fuel_quantity
+                                logger.info(f"같은 월 주유량 증가: {customer_profile.monthly_fuel_amount:.2f}L")
+                            else:
+                                # 다른 월이면 월 주유량 초기화
+                                customer_profile.monthly_fuel_amount = fuel_quantity
+                                logger.info(f"새로운 월 주유량 초기화: {customer_profile.monthly_fuel_amount:.2f}L")
+                            
+                            # 최근 주유량과 주유일 업데이트
+                            customer_profile.last_fuel_amount = fuel_quantity
+                            customer_profile.last_fuel_date = sale_date
+                            
+                            customer_profile.save()
+                            
+                            # 업데이트된 주유량 정보 로그
+                            logger.info(f"업데이트된 주유량 정보 - 총: {customer_profile.total_fuel_amount:.2f}L, 월: {customer_profile.monthly_fuel_amount:.2f}L, 최근: {customer_profile.last_fuel_amount:.2f}L")
+                            logger.info(f"방문 내역 및 주유량 저장 완료: {customer.username} - {sale_date} {sale_time} (주유량: {fuel_quantity:.2f}L)")
+                        else:
+                            logger.info(f"보너스카드 {bonus_card}와 일치하는 고객을 찾을 수 없음")
+                            
+                    except Exception as e:
+                        logger.error(f"방문 내역 저장 중 오류: {str(e)}")
+                
                 # 진행상황 로그 (10개마다)
                 if saved_count % 10 == 0:
                     logger.info(f"저장 진행상황: {saved_count}/{len(df_cleaned)} 완료")

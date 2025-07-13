@@ -178,14 +178,19 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(CustomerProfile)
 class CustomerProfileAdmin(admin.ModelAdmin):
-    list_display = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'created_at')
+    list_display = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'total_fuel_amount', 'monthly_fuel_amount', 'last_fuel_amount', 'created_at')
     list_filter = ('fuel_type', 'created_at')
     search_fields = ('name', 'customer_phone', 'car_number', 'car_model')
     readonly_fields = ('created_at', 'updated_at')
     
     fieldsets = (
-        ('기본 정보', {'fields': ('user', 'name')}),
+        ('기본 정보', {'fields': ('user', 'name', 'customer_phone')}),
         ('차량 정보', {'fields': ('car_number', 'car_model', 'fuel_type')}),
+        ('멤버십 정보', {'fields': ('membership_card',)}),
+        ('주유량 정보', {
+            'fields': ('total_fuel_amount', 'monthly_fuel_amount', 'last_fuel_amount', 'last_fuel_date'),
+            'classes': ('collapse',)
+        }),
         ('날짜 정보', {'fields': ('created_at', 'updated_at')}),
     )
 
