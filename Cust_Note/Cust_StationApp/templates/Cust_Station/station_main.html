@@ -387,8 +387,8 @@ function displayDailyData(data) {
         <h6 class="mb-3">${data.month} ${typeText} 상세</h6>
     `;
     
-    // 상위 제품 정보 표시 (판매량 조회 시에만)
-    if (data.type === 'quantity' && data.top_products && data.top_products.length > 0) {
+    // 상위 제품 정보 표시
+    if (data.top_products && data.top_products.length > 0) {
         html += `
             <div class="alert alert-info mb-3">
                 <h6 class="alert-heading mb-2">
@@ -398,17 +398,32 @@ function displayDailyData(data) {
         `;
         
         data.top_products.forEach((product, index) => {
-            html += `
-                <div class="col-md-6">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold">${index + 1}. ${product.product}</span>
-                        <div class="text-end">
-                            <div class="small text-muted">판매횟수: ${product.count}회</div>
-                            <div class="small text-muted">판매수량: ${parseFloat(product.quantity).toLocaleString()}L</div>
+            if (data.type === 'quantity') {
+                html += `
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold">${index + 1}. ${product.product}</span>
+                            <div class="text-end">
+                                <div class="small text-muted">판매횟수: ${product.count}회</div>
+                                <div class="small text-muted">판매수량: ${parseFloat(product.quantity).toLocaleString()}L</div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {  // amount
+                html += `
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold">${index + 1}. ${product.product}</span>
+                            <div class="text-end">
+                                <div class="small text-muted">판매횟수: ${product.count}회</div>
+                                <div class="small text-muted">판매수량: ${parseFloat(product.quantity).toLocaleString()}L</div>
+                                <div class="small text-muted">판매금액: ${parseFloat(product.amount).toLocaleString()}원</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
         });
         
         html += `
@@ -424,7 +439,7 @@ function displayDailyData(data) {
                     <tr>
                         <th>날짜</th>
                         <th class="text-end">${typeText}</th>
-                        ${data.type === 'quantity' && data.daily_product_stats && data.daily_product_stats.length > 0 ? '<th class="text-center">상위 제품</th>' : ''}
+                        ${data.daily_product_stats && data.daily_product_stats.length > 0 ? '<th class="text-center">상위 제품</th>' : ''}
                     </tr>
                 </thead>
                 <tbody>
@@ -433,7 +448,7 @@ function displayDailyData(data) {
     if (data.data.length === 0) {
         html += `
             <tr>
-                <td colspan="${data.type === 'quantity' && data.daily_product_stats && data.daily_product_stats.length > 0 ? '3' : '2'}" class="text-center text-muted">
+                <td colspan="${data.daily_product_stats && data.daily_product_stats.length > 0 ? '3' : '2'}" class="text-center text-muted">
                     <i class="fas fa-info-circle me-2"></i>
                     해당 월의 데이터가 없습니다.
                 </td>
@@ -446,15 +461,25 @@ function displayDailyData(data) {
                 : parseFloat(item.value).toLocaleString() + unit;
             
             let productInfo = '';
-            if (data.type === 'quantity' && data.daily_product_stats && data.daily_product_stats[index]) {
+            if (data.daily_product_stats && data.daily_product_stats[index]) {
                 const dailyStats = data.daily_product_stats[index];
                 if (dailyStats.products && dailyStats.products.length > 0) {
-                    productInfo = dailyStats.products.map(product => 
-                        `<div class="small">
-                            <strong>${product.product}</strong><br>
-                            <span class="text-muted">${product.count}회 / ${parseFloat(product.quantity).toLocaleString()}L</span>
-                        </div>`
-                    ).join('<hr class="my-1">');
+                    if (data.type === 'quantity') {
+                        productInfo = dailyStats.products.map(product => 
+                            `<div class="small">
+                                <strong>${product.product}</strong><br>
+                                <span class="text-muted">${product.count}회 / ${parseFloat(product.quantity).toLocaleString()}L</span>
+                            </div>`
+                        ).join('<hr class="my-1">');
+                    } else {  // amount
+                        productInfo = dailyStats.products.map(product => 
+                            `<div class="small">
+                                <strong>${product.product}</strong><br>
+                                <span class="text-muted">${product.count}회 / ${parseFloat(product.quantity).toLocaleString()}L</span><br>
+                                <span class="text-muted">${parseFloat(product.amount).toLocaleString()}원</span>
+                            </div>`
+                        ).join('<hr class="my-1">');
+                    }
                 }
             }
             
@@ -462,7 +487,7 @@ function displayDailyData(data) {
                 <tr>
                     <td>${item.date}</td>
                     <td class="text-end">${formattedValue}</td>
-                    ${data.type === 'quantity' && data.daily_product_stats && data.daily_product_stats.length > 0 ? `<td class="text-center">${productInfo}</td>` : ''}
+                    ${data.daily_product_stats && data.daily_product_stats.length > 0 ? `<td class="text-center">${productInfo}</td>` : ''}
                 </tr>
             `;
         });

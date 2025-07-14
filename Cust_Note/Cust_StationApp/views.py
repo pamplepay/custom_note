@@ -231,52 +231,85 @@ def get_daily_sales_data(request):
         # 상위 2개 제품 정보 추출
         top_products = []
         if monthly_stat and monthly_stat.product_sales_count:
-            # 판매 횟수 기준으로 상위 2개 제품 추출
-            sorted_products = sorted(
-                monthly_stat.product_sales_count.items(),
-                key=lambda x: x[1],
-                reverse=True
-            )[:2]
-            
-            for product, count in sorted_products:
-                # 해당 제품의 판매 수량 조회
-                quantity = monthly_stat.product_sales_quantity.get(product, 0) if monthly_stat.product_sales_quantity else 0
-                top_products.append({
-                    'product': product,
-                    'count': count,
-                    'quantity': float(quantity)
-                })
+            if data_type == 'quantity':
+                # 판매 수량 기준으로 상위 2개 제품 추출
+                sorted_products = sorted(
+                    monthly_stat.product_sales_quantity.items(),
+                    key=lambda x: x[1],
+                    reverse=True
+                )[:2] if monthly_stat.product_sales_quantity else []
+                
+                for product, quantity in sorted_products:
+                    # 해당 제품의 판매 횟수 조회
+                    count = monthly_stat.product_sales_count.get(product, 0) if monthly_stat.product_sales_count else 0
+                    top_products.append({
+                        'product': product,
+                        'count': count,
+                        'quantity': float(quantity)
+                    })
+            else:  # amount
+                # 판매 금액 기준으로 상위 2개 제품 추출
+                sorted_products = sorted(
+                    monthly_stat.product_sales_amount.items(),
+                    key=lambda x: x[1],
+                    reverse=True
+                )[:2] if monthly_stat.product_sales_amount else []
+                
+                for product, amount in sorted_products:
+                    # 해당 제품의 판매 횟수와 수량 조회
+                    count = monthly_stat.product_sales_count.get(product, 0) if monthly_stat.product_sales_count else 0
+                    quantity = monthly_stat.product_sales_quantity.get(product, 0) if monthly_stat.product_sales_quantity else 0
+                    top_products.append({
+                        'product': product,
+                        'count': count,
+                        'quantity': float(quantity),
+                        'amount': float(amount)
+                    })
         
-        # 각 날짜별로 상위 제품의 판매 현황 계산
+        # 각 날짜별로 상위 2개 제품의 실제 판매 현황 계산
+        from .models import ExcelSalesData
         daily_product_stats = []
-        if top_products and monthly_stat.product_breakdown:
-            for stat in daily_stats:
-                daily_product_data = {
-                    'date': stat.sale_date.strftime('%Y-%m-%d'),
-                    'products': []
-                }
-                
-                # 해당 날짜의 총 거래건수로 비율 계산
-                total_daily_transactions = stat.total_transactions
-                if total_daily_transactions > 0:
-                    for product_info in top_products:
-                        product_name = product_info['product']
-                        monthly_count = product_info['count']
-                        monthly_quantity = product_info['quantity']
-                        
-                        # 월별 비율을 일별로 적용 (간단한 추정)
-                        # 실제로는 일별 상세 데이터가 없으므로 월별 비율로 추정
-                        daily_ratio = monthly_count / monthly_stat.total_transactions if monthly_stat.total_transactions > 0 else 0
-                        estimated_daily_count = int(monthly_count / len(daily_stats))  # 월별 데이터를 일수로 나눔
-                        estimated_daily_quantity = monthly_quantity / len(daily_stats) if len(daily_stats) > 0 else 0
-                        
-                        daily_product_data['products'].append({
-                            'product': product_name,
-                            'count': estimated_daily_count,
-                            'quantity': float(estimated_daily_quantity)
-                        })
-                
-                daily_product_stats.append(daily_product_data)
+        for stat in daily_stats:
+            # 해당 날짜의 모든 ExcelSalesData 조회
+            rows = ExcelSalesData.objects.filter(
+                tid=stat.tid,
+                sale_date=stat.sale_date
+            )
+            # 제품별 집계
+            product_counts = {}
+            product_quantities = {}
+            product_amounts = {}
+            for row in rows:
+                product = (row.product_pack or '').strip()
+                if not product:
+                    continue
+                product_counts[product] = product_counts.get(product, 0) + 1
+                product_quantities[product] = product_quantities.get(product, 0) + float(row.quantity or 0)
+                product_amounts[product] = product_amounts.get(product, 0) + float(row.total_amount or 0)
+            
+            # data_type에 따라 상위 2개 제품 추출
+            if data_type == 'quantity':
+                # 판매 수량 기준
+                top2 = sorted(product_quantities.items(), key=lambda x: x[1], reverse=True)[:2]
+            else:  # amount
+                # 판매 금액 기준
+                top2 = sorted(product_amounts.items(), key=lambda x: x[1], reverse=True)[:2]
+            
+            products = []
+            for product_name, value in top2:
+                count = product_counts.get(product_name, 0)
+                quantity = product_quantities.get(product_name, 0)
+                amount = product_amounts.get(product_name, 0)
+                products.append({
+                    'product': product_name,
+                    'count': count,
+                    'quantity': float(quantity),
+                    'amount': float(amount)
+                })
+            daily_product_stats.append({
+                'date': stat.sale_date.strftime('%Y-%m-%d'),
+                'products': products
+            })
         
         return JsonResponse({
             'success': True,
