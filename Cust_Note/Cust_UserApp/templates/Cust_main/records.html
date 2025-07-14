@@ -1,4 +1,5 @@
 {% extends 'base/base.html' %}
+{% load humanize %}
 
 {% block title %}Oil Note - 주유 기록{% endblock %}
 
@@ -9,32 +10,105 @@
             <div class="card shadow-sm">
                 <div class="card-body">
                     <h1 class="card-title h3 mb-4">주유 기록</h1>
-                    <div class="table-responsive">
+                    <!-- 월별 선택 드롭다운 -->
+                    <form method="get" class="mb-3" id="month-select-form">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-auto">
+                                <select name="year" class="form-select" onchange="document.getElementById('month-select-form').submit();">
+                                    {% for y, m in month_list %}
+                                        {% if forloop.first %}
+                                            {% with y as last_year %}
+                                            {% endwith %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% for y, m in month_list %}
+                                        {% ifchanged y %}
+                                            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}년</option>
+                                        {% endifchanged %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <select name="month" class="form-select" onchange="document.getElementById('month-select-form').submit();">
+                                    {% for y, m in month_list %}
+                                        {% if y == year %}
+                                            <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}월</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                    <!-- PC: 테이블 -->
+                    <div class="table-responsive d-none d-md-block">
                         <table class="table table-hover">
                             <thead>
                                 <tr>
                                     <th>날짜</th>
+                                    <th>시간</th>
                                     <th>주유소</th>
                                     <th>유종</th>
                                     <th>주유량</th>
                                     <th>금액</th>
-                                    <th>관리</th>
+                                    <th>결제구분</th>
+                                    <th>멤버십카드</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td colspan="6" class="text-center py-4">
-                                        <p class="text-muted mb-0">아직 주유 기록이 없습니다.</p>
-                                    </td>
-                                </tr>
+                                {% if visit_records %}
+                                    {% for record in visit_records %}
+                                    <tr>
+                                        <td>{{ record.visit_date|date:"Y.m.d" }}</td>
+                                        <td>{{ record.visit_time|time:"H:i" }}</td>
+                                        <td>{{ record.station.station_profile.station_name|default:record.station.username }}</td>
+                                        <td>{{ record.product_pack|default:"-" }}</td>
+                                        <td>{{ record.fuel_quantity|floatformat:2 }}L</td>
+                                        <td>{{ record.sale_amount|floatformat:0|intcomma }}원</td>
+                                        <td>{{ record.payment_type|default:"-" }}</td>
+                                        <td>{{ record.membership_card|default:"-" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="8" class="text-center py-4">
+                                            <p class="text-muted mb-0">아직 주유 기록이 없습니다.</p>
+                                        </td>
+                                    </tr>
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
-                    <div class="text-end mt-3">
-                        <button type="button" class="btn btn-primary">
-                            <i class="fas fa-plus me-1"></i>주유 기록 추가
-                        </button>
+                    <!-- 모바일: 카드형 리스트 -->
+                    <div class="d-md-none">
+                        {% if visit_records %}
+                            {% for record in visit_records %}
+                            <div class="card mb-2">
+                                <div class="card-body py-2 px-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span><strong>{{ record.visit_date|date:"Y.m.d" }}</strong> {{ record.visit_time|time:"H:i" }}</span>
+                                        <span class="text-success fw-bold">{{ record.sale_amount|floatformat:0|intcomma }}원</span>
+                                    </div>
+                                    <div class="mt-1">
+                                        <div><span class="text-muted">주유소:</span> {{ record.station.station_profile.station_name|default:record.station.username }}</div>
+                                        <div><span class="text-muted">유종:</span> {{ record.product_pack|default:"-" }}</div>
+                                        <div><span class="text-muted">주유량:</span> {{ record.fuel_quantity|floatformat:2 }}L</div>
+                                        <div><span class="text-muted">결제구분:</span> {{ record.payment_type|default:"-" }}</div>
+                                        <div><span class="text-muted">멤버십카드:</span> {{ record.membership_card|default:"-" }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4">
+                                <p class="text-muted mb-0">아직 주유 기록이 없습니다.</p>
+                            </div>
+                        {% endif %}
                     </div>
+                    {% if visit_records %}
+                    <div class="text-end mt-3">
+                        <small class="text-muted">총 {{ visit_records.count }}건의 주유 기록</small>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

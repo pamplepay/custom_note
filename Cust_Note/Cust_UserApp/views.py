@@ -36,6 +36,38 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
             is_primary=True
         ).first()
         
+        # 이번달 주유 통계 계산
+        from .models import CustomerVisitHistory
+        from datetime import datetime, date
+        from django.db.models import Sum, Count
+        
+        current_date = datetime.now()
+        current_month = current_date.month
+        current_year = current_date.year
+        
+        # 이번달 방문 기록 조회
+        monthly_visits = CustomerVisitHistory.objects.filter(
+            customer=self.request.user,
+            visit_date__year=current_year,
+            visit_date__month=current_month
+        )
+        
+        # 통계 계산
+        monthly_visit_count = monthly_visits.count()
+        monthly_total_amount = monthly_visits.aggregate(
+            total=Sum('sale_amount')
+        )['total'] or 0
+        monthly_total_fuel = monthly_visits.aggregate(
+            total=Sum('fuel_quantity')
+        )['total'] or 0
+        
+        context.update({
+            'monthly_visit_count': monthly_visit_count,
+            'monthly_total_amount': monthly_total_amount,
+            'monthly_total_fuel': monthly_total_fuel,
+            'monthly_visits': monthly_visits[:5],  # 최근 5개 기록만
+        })
+        
         return context
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -48,6 +80,46 @@ class CustomerRecordsView(LoginRequiredMixin, TemplateView):
             messages.error(request, '고객 계정으로만 접근할 수 있습니다.')
             return redirect('users:login')
         return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from .models import CustomerVisitHistory
+        from datetime import datetime
+        from django.db.models import F
+
+        # year, month GET 파라미터 처리
+        now = datetime.now()
+        year = self.request.GET.get('year')
+        month = self.request.GET.get('month')
+        try:
+            year = int(year)
+        except (TypeError, ValueError):
+            year = now.year
+        try:
+            month = int(month)
+        except (TypeError, ValueError):
+            month = now.month
+
+        # 해당 월의 방문 기록만 필터링
+        visit_records = CustomerVisitHistory.objects.filter(
+            customer=self.request.user,
+            visit_date__year=year,
+            visit_date__month=month
+        ).select_related('station').order_by('-visit_date', '-visit_time')
+
+        # 사용자가 기록한 월 목록(최신순)
+        month_list = CustomerVisitHistory.objects.filter(
+            customer=self.request.user
+        ).annotate(
+            year_val=F('visit_date__year'),
+            month_val=F('visit_date__month')
+        ).values_list('year_val', 'month_val').distinct().order_by('-year_val', '-month_val')
+
+        context['visit_records'] = visit_records
+        context['year'] = year
+        context['month'] = month
+        context['month_list'] = month_list
+        return context
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomerStatsView(LoginRequiredMixin, TemplateView):

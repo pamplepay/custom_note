@@ -29,9 +29,9 @@ class CustomerFuelFilter(admin.SimpleListFilter):
 
 @admin.register(CustomerVisitHistory)
 class CustomerVisitHistoryAdmin(admin.ModelAdmin):
-    list_display = ['customer', 'station', 'visit_date', 'visit_time', 'sale_amount', 'visit_count', 'monthly_visit_count', 'customer_total_fuel', 'customer_monthly_fuel', 'customer_last_fuel']
+    list_display = ['customer', 'station', 'visit_date', 'visit_time', 'sale_amount', 'fuel_quantity', 'membership_card']
     list_filter = ['visit_date', 'station', 'payment_type', CustomerFuelFilter]
-    search_fields = ['customer__username', 'station__username', 'approval_number']
+    search_fields = ['customer__username', 'station__username', 'approval_number', 'membership_card']
     date_hierarchy = 'visit_date'
     ordering = ['-visit_date', '-visit_time']
     
@@ -40,10 +40,7 @@ class CustomerVisitHistoryAdmin(admin.ModelAdmin):
             'fields': ('customer', 'station', 'tid')
         }),
         ('방문 정보', {
-            'fields': ('visit_date', 'visit_time', 'payment_type', 'product_pack', 'sale_amount', 'approval_number')
-        }),
-        ('방문 횟수', {
-            'fields': ('visit_count', 'monthly_visit_count')
+            'fields': ('visit_date', 'visit_time', 'payment_type', 'product_pack', 'sale_amount', 'fuel_quantity', 'approval_number', 'membership_card')
         }),
         ('시스템 정보', {
             'fields': ('created_at',),
@@ -51,40 +48,7 @@ class CustomerVisitHistoryAdmin(admin.ModelAdmin):
         })
     )
     
-    readonly_fields = ['visit_count', 'monthly_visit_count', 'created_at']
+    readonly_fields = ['created_at']
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('customer', 'station', 'customer__customer_profile')
-    
-    def customer_total_fuel(self, obj):
-        """고객의 총 주유량"""
-        try:
-            if hasattr(obj.customer, 'customer_profile') and obj.customer.customer_profile:
-                return f"{obj.customer.customer_profile.total_fuel_amount:.2f}L"
-            return "0.00L"
-        except Exception:
-            return "0.00L"
-    customer_total_fuel.short_description = '총 주유량'
-    customer_total_fuel.admin_order_field = 'customer__customer_profile__total_fuel_amount'
-    
-    def customer_monthly_fuel(self, obj):
-        """고객의 월 주유량"""
-        try:
-            if hasattr(obj.customer, 'customer_profile') and obj.customer.customer_profile:
-                return f"{obj.customer.customer_profile.monthly_fuel_amount:.2f}L"
-            return "0.00L"
-        except Exception:
-            return "0.00L"
-    customer_monthly_fuel.short_description = '월 주유량'
-    customer_monthly_fuel.admin_order_field = 'customer__customer_profile__monthly_fuel_amount'
-    
-    def customer_last_fuel(self, obj):
-        """고객의 최근 주유량"""
-        try:
-            if hasattr(obj.customer, 'customer_profile') and obj.customer.customer_profile:
-                return f"{obj.customer.customer_profile.last_fuel_amount:.2f}L"
-            return "0.00L"
-        except Exception:
-            return "0.00L"
-    customer_last_fuel.short_description = '최근 주유량'
-    customer_last_fuel.admin_order_field = 'customer__customer_profile__last_fuel_amount' 
+        return super().get_queryset(request).select_related('customer', 'station', 'customer__customer_profile') 

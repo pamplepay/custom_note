@@ -1,4 +1,5 @@
 {% extends 'base/base.html' %}
+{% load humanize %}
 
 {% block title %}Oil Note - 메인{% endblock %}
 
@@ -26,9 +27,9 @@
                         <h5 class="mb-0">
                             <i class="fas fa-gas-pump me-2 text-primary"></i>연결된 주유소
                         </h5>
-                        <a href="{% url 'customer:station_list' %}" class="btn btn-sm btn-outline-primary">
+                        <!-- <a href="{% url 'customer:station_list' %}" class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-plus me-1"></i>주유소 추가
-                        </a>
+                        </a> -->
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -93,7 +94,7 @@
                         <i class="fas fa-gas-pump fa-2x text-primary"></i>
                     </div>
                     <h5 class="card-title">이번 달 주유 횟수</h5>
-                    <h3 class="text-primary mb-0">0회</h3>
+                    <h3 class="text-primary mb-0">{{ monthly_visit_count }}회</h3>
                 </div>
             </div>
         </div>
@@ -104,7 +105,7 @@
                         <i class="fas fa-won-sign fa-2x text-success"></i>
                     </div>
                     <h5 class="card-title">이번 달 총 금액</h5>
-                    <h3 class="text-success mb-0">0원</h3>
+                    <h3 class="text-success mb-0">{{ monthly_total_amount|floatformat:0|intcomma }}원</h3>
                 </div>
             </div>
         </div>
@@ -115,7 +116,7 @@
                         <i class="fas fa-tint fa-2x text-info"></i>
                     </div>
                     <h5 class="card-title">이번 달 총 주유량</h5>
-                    <h3 class="text-info mb-0">0L</h3>
+                    <h3 class="text-info mb-0">{{ monthly_total_fuel|floatformat:2 }}L</h3>
                 </div>
             </div>
         </div>
@@ -126,15 +127,68 @@
             <div class="card shadow-sm h-100 border-0">
                 <div class="card-body">
                     <h5 class="card-title">
-                        <i class="fas fa-history me-2 text-secondary"></i>최근 주유 기록
+                        <i class="fas fa-history me-2 text-secondary"></i>이번 달 주유 기록
                     </h5>
-                    <div class="text-center py-4">
-                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                        <p class="text-muted mb-3">아직 주유 기록이 없습니다.</p>
-                        <a href="{% url 'customer:records' %}" class="btn btn-sm btn-primary">
-                            첫 번째 기록 추가하기
-                        </a>
-                    </div>
+                    {% if monthly_visits %}
+                        <!-- PC: 테이블 -->
+                        <div class="table-responsive d-none d-md-block">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>날짜</th>
+                                        <th>시간</th>
+                                        <th>주유소</th>
+                                        <th>유종</th>
+                                        <th>주유량</th>
+                                        <th>금액</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for visit in monthly_visits %}
+                                    <tr>
+                                        <td>{{ visit.visit_date|date:"m.d" }}</td>
+                                        <td>{{ visit.visit_time|time:"H:i" }}</td>
+                                        <td>{{ visit.station.station_profile.station_name|default:visit.station.username }}</td>
+                                        <td>{{ visit.product_pack|default:"-" }}</td>
+                                        <td>{{ visit.fuel_quantity|floatformat:2 }}L</td>
+                                        <td>{{ visit.sale_amount|floatformat:0|intcomma }}원</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- 모바일: 카드형 리스트 -->
+                        <div class="d-md-none">
+                            {% for visit in monthly_visits %}
+                            <div class="card mb-2">
+                                <div class="card-body py-2 px-3">
+                                    <div class="d-flex justify-content-between">
+                                        <span><strong>{{ visit.visit_date|date:"m.d" }}</strong> {{ visit.visit_time|time:"H:i" }}</span>
+                                        <span class="text-success fw-bold">{{ visit.sale_amount|floatformat:0|intcomma }}원</span>
+                                    </div>
+                                    <div class="mt-1">
+                                        <div><span class="text-muted">주유소:</span> {{ visit.station.station_profile.station_name|default:visit.station.username }}</div>
+                                        <div><span class="text-muted">유종:</span> {{ visit.product_pack|default:"-" }}</div>
+                                        <div><span class="text-muted">주유량:</span> {{ visit.fuel_quantity|floatformat:2 }}L</div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="text-end mt-3">
+                            <a href="{% url 'customer:records' %}" class="btn btn-sm btn-outline-primary">
+                                전체 기록 보기
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-3">이번 달 주유 기록이 없습니다.</p>
+                            <a href="{% url 'customer:records' %}" class="btn btn-sm btn-primary">
+                                주유 기록 확인하기
+                            </a>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

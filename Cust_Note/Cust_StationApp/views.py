@@ -98,6 +98,9 @@ def station_main(request):
     active_cards = StationCardMapping.objects.filter(is_active=True, card__is_used=False).count()
     inactive_cards = StationCardMapping.objects.filter(is_active=True, card__is_used=True).count()
     
+    # VIP 고객수 (현재 주유소에 등록된 고객수)
+    total_customers = CustomerStationRelation.objects.filter(station=request.user, is_active=True).count()
+    
     # 월별 매출 통계 데이터 가져오기
     monthly_stats = None
     try:
@@ -173,6 +176,7 @@ def station_main(request):
         'total_cards': total_cards,
         'active_cards': active_cards,
         'inactive_cards': inactive_cards,
+        'total_customers': total_customers,
         'monthly_stats': monthly_stats,
     }
     return render(request, 'Cust_Station/station_main.html', context)
@@ -1972,6 +1976,20 @@ def analyze_sales_file(request):
                                 fuel_quantity = safe_float(row.get('판매수량', 0), handle_negative='keep')
                                 logger.info(f"주유량 추출: {fuel_quantity:.2f}L (원본값: {row.get('판매수량', 0)})")
                                 
+                                # 중복 방문 내역 체크 및 처리
+                                approval_number = str(row.get('승인번호', ''))
+                                existing_visit = CustomerVisitHistory.objects.filter(
+                                    customer=customer,
+                                    station=request.user,
+                                    visit_date=sale_date,
+                                    visit_time=sale_time,
+                                    approval_number=approval_number
+                                ).first()
+                                
+                                if existing_visit:
+                                    logger.info(f"중복 방문 내역 발견 - 기존 데이터 삭제 후 재저장: {customer.username} - {sale_date} {sale_time} (승인번호: {approval_number})")
+                                    existing_visit.delete()
+                                
                                 # 방문 내역 저장
                                 visit_history = CustomerVisitHistory(
                                     customer=customer,
@@ -1982,9 +2000,12 @@ def analyze_sales_file(request):
                                     payment_type=str(row.get('결제구분', '')),
                                     product_pack=str(row.get('제품/PACK', '')),
                                     sale_amount=total_amount,
-                                    approval_number=str(row.get('승인번호', ''))
+                                    fuel_quantity=fuel_quantity,
+                                    approval_number=approval_number,
+                                    membership_card=bonus_card
                                 )
                                 visit_history.save()
+                                logger.info(f"방문 내역 저장 완료: {customer.username} - {sale_date} {sale_time} (주유량: {fuel_quantity:.2f}L)")
                                 
                                 # 고객 프로필의 주유량 정보 업데이트
                                 from Cust_User.models import CustomerProfile
