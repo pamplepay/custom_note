@@ -23,7 +23,7 @@ class PointCard(models.Model):
 
     class Meta:
         verbose_name = "멤버십 카드"
-        verbose_name_plural = "멤버십 카드 목록"
+        verbose_name_plural = "1. 멤버십 카드 목록"
         ordering = ['-created_at']
 
     def __str__(self):
@@ -153,7 +153,7 @@ class StationList(get_user_model()):
     class Meta:
         proxy = True
         verbose_name = '주유소'
-        verbose_name_plural = '주유소 목록'
+        verbose_name_plural = '2. 주유소 목록'
 
     def __str__(self):
         return self.username if hasattr(self, 'username') else str(self.id)
@@ -209,7 +209,7 @@ class ExcelSalesData(models.Model):
 
     class Meta:
         verbose_name = '엑셀 매출 데이터'
-        verbose_name_plural = '엑셀 매출 데이터 목록'
+        verbose_name_plural = '5. 엑셀 매출 데이터 목록'
         ordering = ['-sale_date', '-sale_time']
 
     def __str__(self):
@@ -230,9 +230,9 @@ class SalesStatistics(models.Model):
 
     class Meta:
         verbose_name = '매출 통계'
-        verbose_name_plural = '매출 통계 목록'
+        verbose_name_plural = '4. 매출 통계 목록'
         ordering = ['-sale_date', '-created_at']
-        unique_together = ['tid', 'sale_date', 'source_file']
+        unique_together = ['tid', 'sale_date']
 
     def __str__(self):
         return f"{self.tid} - {self.sale_date} ({self.total_transactions}건, {self.total_amount:,.0f}원)"

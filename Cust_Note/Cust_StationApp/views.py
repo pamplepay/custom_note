@@ -1427,11 +1427,10 @@ def analyze_sales_file(request):
                             else:
                                 parsed_date = date
                             
-                            # 중복 확인 (tid, sale_date, source_file 조합)
+                            # 중복 확인 (tid, sale_date 조합)
                             existing_stat = SalesStatistics.objects.filter(
                                 tid=tid,
-                                sale_date=parsed_date,
-                                source_file=filename
+                                sale_date=parsed_date
                             ).first()
                             
                             if existing_stat:
@@ -1490,6 +1489,9 @@ def analyze_sales_file(request):
         
         # 데이터베이스에 저장
         saved_count = 0
+        daily_records = {}  # 날짜별로 데이터 그룹화
+        
+        # 먼저 날짜별로 데이터 그룹화
         for index, row in df_cleaned.iterrows():
             try:
                 # 날짜 파싱 (안전한 처리)
@@ -1509,160 +1511,217 @@ def analyze_sales_file(request):
                     logger.warning(f"행 {index}: 날짜 형식이 맞지 않음 '{sale_date_str}' - 건너뛰기")
                     continue
                 
-                # 시간 파싱 (안전한 처리)
-                sale_time_str = str(row['주유시간']).strip()
-                if pd.isna(row['주유시간']) or sale_time_str == '' or sale_time_str == 'nan':
-                    sale_time = datetime.now().time()
-                else:
-                    try:
-                        if ' ' in sale_time_str:
-                            time_part = sale_time_str.split(' ')[1]
-                            sale_time = datetime.strptime(time_part, '%H:%M').time()
-                        else:
-                            sale_time = datetime.now().time()
-                    except ValueError:
-                        logger.warning(f"행 {index}: 시간 형식 오류 '{sale_time_str}' - 현재 시간 사용")
-                        sale_time = datetime.now().time()
-                
-                # 숫자 데이터 처리 (안전한 변환)
-                def safe_float(value, default=0):
-                    if pd.isna(value):
-                        return default
-                    try:
-                        return float(value)
-                    except (ValueError, TypeError):
-                        return default
-                
-                def safe_int(value, default=0):
-                    if pd.isna(value):
-                        return default
-                    try:
-                        return int(float(value))  # float로 먼저 변환 후 int로 변환
-                    except (ValueError, TypeError):
-                        return default
-                
-                quantity = safe_float(row['판매수량'])
-                unit_price = safe_float(row['판매단가'])
-                total_amount = safe_float(row['판매금액'])
-                
-                # ExcelSalesData 객체 생성 및 저장
-                excel_data = ExcelSalesData(
-                    tid=tid,
-                    sale_date=sale_date,
-                    sale_time=sale_time,
-                    customer_number=str(row.get('고객번호', '')),
-                    customer_name=str(row.get('고객명', '')),
-                    issue_number=str(row.get('발행번호', '')),
-                    product_type=str(row.get('주류상품종류', '')),
-                    sale_type=str(row.get('판매구분', '')),
-                    payment_type=str(row.get('결제구분', '')),
-                    sale_type2=str(row.get('판매구분2', '')),
-                    nozzle=str(row.get('노즐', '')),
-                    product_code=str(row.get('제품코드', '')),
-                    product_pack=str(row.get('제품/PACK', '')),
-                    quantity=quantity,
-                    unit_price=unit_price,
-                    total_amount=total_amount,
-                    earned_points=safe_int(row.get('적립포인트', 0)),
-                    points=safe_int(row.get('포인트', 0)),
-                    bonus=safe_int(row.get('보너스', 0)),
-                    pos_id=str(row.get('POS_ID', '')),
-                    pos_code=str(row.get('POS코드', '')),
-                    store=str(row.get('판매점', '')),
-                    receipt=str(row.get('영수증', '')),
-                    approval_number=str(row.get('승인번호', '')),
-                    approval_datetime=datetime.now(),
-                    bonus_card=str(row.get('보너스카드', '')),
-                    customer_card_number=str(row.get('고객카드번호', '')),
-                    data_created_at=datetime.now(),
-                    source_file=filename
-                )
-                excel_data.save()
-                saved_count += 1
-                
-                # 보너스 카드와 일치하는 고객 찾아 방문 내역 저장
-                bonus_card = str(row.get('보너스카드', '')).strip()
-                if bonus_card and bonus_card != 'nan' and bonus_card != '':
-                    try:
-                        # Cust_UserApp의 CustomerVisitHistory 모델 import
-                        from Cust_UserApp.models import CustomerVisitHistory
-                        from Cust_User.models import CustomUser, CustomerProfile
-                        
-                        # 보너스 카드와 일치하는 고객 찾기
-                        customer_profile = CustomerProfile.objects.filter(
-                            membership_card__icontains=bonus_card
-                        ).first()
-                        
-                        if customer_profile:
-                            customer = customer_profile.user
-                            logger.info(f"고객 발견: {customer.username} (보너스카드: {bonus_card})")
-                            
-                            # 주유량 정보 가져오기 (quantity 값)
-                            fuel_quantity = safe_float(row.get('판매수량', 0))
-                            logger.info(f"주유량 추출: {fuel_quantity:.2f}L (원본값: {row.get('판매수량', 0)})")
-                            
-                            # 방문 내역 저장
-                            visit_history = CustomerVisitHistory(
-                                customer=customer,
-                                station=request.user,
-                                tid=tid,
-                                visit_date=sale_date,
-                                visit_time=sale_time,
-                                payment_type=str(row.get('결제구분', '')),
-                                product_pack=str(row.get('제품/PACK', '')),
-                                sale_amount=total_amount,
-                                approval_number=str(row.get('승인번호', ''))
-                            )
-                            visit_history.save()
-                            
-                            # 고객 프로필의 주유량 정보 업데이트
-                            from Cust_User.models import CustomerProfile
-                            customer_profile = CustomerProfile.objects.get(user=customer)
-                            
-                            # 이전 주유량 정보 로그
-                            logger.info(f"이전 주유량 정보 - 총: {customer_profile.total_fuel_amount:.2f}L, 월: {customer_profile.monthly_fuel_amount:.2f}L, 최근: {customer_profile.last_fuel_amount:.2f}L")
-                            
-                            # 총 주유량 증가
-                            customer_profile.total_fuel_amount += fuel_quantity
-                            
-                            # 월 주유량 계산 (같은 월이면 증가, 다른 월이면 초기화)
-                            from datetime import date
-                            current_month = sale_date.month
-                            current_year = sale_date.year
-                            
-                            if (customer_profile.last_fuel_date and 
-                                customer_profile.last_fuel_date.month == current_month and 
-                                customer_profile.last_fuel_date.year == current_year):
-                                # 같은 월이면 월 주유량 증가
-                                customer_profile.monthly_fuel_amount += fuel_quantity
-                                logger.info(f"같은 월 주유량 증가: {customer_profile.monthly_fuel_amount:.2f}L")
-                            else:
-                                # 다른 월이면 월 주유량 초기화
-                                customer_profile.monthly_fuel_amount = fuel_quantity
-                                logger.info(f"새로운 월 주유량 초기화: {customer_profile.monthly_fuel_amount:.2f}L")
-                            
-                            # 최근 주유량과 주유일 업데이트
-                            customer_profile.last_fuel_amount = fuel_quantity
-                            customer_profile.last_fuel_date = sale_date
-                            
-                            customer_profile.save()
-                            
-                            # 업데이트된 주유량 정보 로그
-                            logger.info(f"업데이트된 주유량 정보 - 총: {customer_profile.total_fuel_amount:.2f}L, 월: {customer_profile.monthly_fuel_amount:.2f}L, 최근: {customer_profile.last_fuel_amount:.2f}L")
-                            logger.info(f"방문 내역 및 주유량 저장 완료: {customer.username} - {sale_date} {sale_time} (주유량: {fuel_quantity:.2f}L)")
-                        else:
-                            logger.info(f"보너스카드 {bonus_card}와 일치하는 고객을 찾을 수 없음")
-                            
-                    except Exception as e:
-                        logger.error(f"방문 내역 저장 중 오류: {str(e)}")
-                
-                # 진행상황 로그 (10개마다)
-                if saved_count % 10 == 0:
-                    logger.info(f"저장 진행상황: {saved_count}/{len(df_cleaned)} 완료")
+                # 날짜별로 데이터 그룹화
+                if sale_date not in daily_records:
+                    daily_records[sale_date] = []
+                daily_records[sale_date].append(row)
                 
             except Exception as e:
-                logger.error(f"행 {index} 처리 중 오류: {str(e)}")
+                logger.error(f"행 {index} 날짜 파싱 중 오류: {str(e)}")
                 continue
+        
+        # 날짜별로 개별 저장
+        for sale_date, rows in daily_records.items():
+            logger.info(f"날짜별 저장 시작: {sale_date} - {len(rows)}행")
+            
+            # 해당 날짜의 기존 데이터 삭제 (같은 파일에서 온 데이터)
+            deleted_count = ExcelSalesData.objects.filter(
+                tid=tid,
+                sale_date=sale_date,
+                source_file=filename
+            ).delete()[0]
+            if deleted_count > 0:
+                logger.info(f"기존 데이터 삭제: {sale_date} - {deleted_count}개")
+            
+            # 해당 날짜의 통계 데이터도 삭제
+            deleted_stats = SalesStatistics.objects.filter(
+                tid=tid,
+                sale_date=sale_date
+            ).delete()[0]
+            if deleted_stats > 0:
+                logger.info(f"기존 통계 데이터 삭제: {sale_date} - {deleted_stats}개")
+            
+            # 해당 날짜의 모든 행 저장
+            daily_saved_count = 0
+            daily_quantity = 0
+            daily_amount = 0
+            product_counts = {}
+            
+            for row in rows:
+                try:
+                    # 시간 파싱 (안전한 처리)
+                    sale_time_str = str(row['주유시간']).strip()
+                    if pd.isna(row['주유시간']) or sale_time_str == '' or sale_time_str == 'nan':
+                        sale_time = datetime.now().time()
+                    else:
+                        try:
+                            if ' ' in sale_time_str:
+                                time_part = sale_time_str.split(' ')[1]
+                                sale_time = datetime.strptime(time_part, '%H:%M').time()
+                            else:
+                                sale_time = datetime.now().time()
+                        except ValueError:
+                            logger.warning(f"시간 형식 오류 '{sale_time_str}' - 현재 시간 사용")
+                            sale_time = datetime.now().time()
+                    
+                    # 숫자 데이터 처리 (안전한 변환)
+                    def safe_float(value, default=0):
+                        if pd.isna(value):
+                            return default
+                        try:
+                            return float(value)
+                        except (ValueError, TypeError):
+                            return default
+                    
+                    def safe_int(value, default=0):
+                        if pd.isna(value):
+                            return default
+                        try:
+                            return int(float(value))  # float로 먼저 변환 후 int로 변환
+                        except (ValueError, TypeError):
+                            return default
+                    
+                    quantity = safe_float(row['판매수량'])
+                    unit_price = safe_float(row['판매단가'])
+                    total_amount = safe_float(row['판매금액'])
+                    
+                    # 통계 계산을 위한 누적
+                    daily_quantity += quantity
+                    daily_amount += total_amount
+                    
+                    # 제품별 카운트
+                    product_pack = str(row.get('제품/PACK', ''))
+                    if product_pack and product_pack != 'nan':
+                        product_counts[product_pack] = product_counts.get(product_pack, 0) + 1
+                    
+                    # ExcelSalesData 객체 생성 및 저장
+                    excel_data = ExcelSalesData(
+                        tid=tid,
+                        sale_date=sale_date,
+                        sale_time=sale_time,
+                        customer_number=str(row.get('고객번호', '')),
+                        customer_name=str(row.get('고객명', '')),
+                        issue_number=str(row.get('발행번호', '')),
+                        product_type=str(row.get('주류상품종류', '')),
+                        sale_type=str(row.get('판매구분', '')),
+                        payment_type=str(row.get('결제구분', '')),
+                        sale_type2=str(row.get('판매구분2', '')),
+                        nozzle=str(row.get('노즐', '')),
+                        product_code=str(row.get('제품코드', '')),
+                        product_pack=product_pack,
+                        quantity=quantity,
+                        unit_price=unit_price,
+                        total_amount=total_amount,
+                        earned_points=safe_int(row.get('적립포인트', 0)),
+                        points=safe_int(row.get('포인트', 0)),
+                        bonus=safe_int(row.get('보너스', 0)),
+                        pos_id=str(row.get('POS_ID', '')),
+                        pos_code=str(row.get('POS코드', '')),
+                        store=str(row.get('판매점', '')),
+                        receipt=str(row.get('영수증', '')),
+                        approval_number=str(row.get('승인번호', '')),
+                        approval_datetime=datetime.now(),
+                        bonus_card=str(row.get('보너스카드', '')),
+                        customer_card_number=str(row.get('고객카드번호', '')),
+                        data_created_at=datetime.now(),
+                        source_file=filename
+                    )
+                    excel_data.save()
+                    daily_saved_count += 1
+                    saved_count += 1
+                    
+                    # 보너스 카드와 일치하는 고객 찾아 방문 내역 저장
+                    bonus_card = str(row.get('보너스카드', '')).strip()
+                    if bonus_card and bonus_card != 'nan' and bonus_card != '':
+                        try:
+                            # Cust_UserApp의 CustomerVisitHistory 모델 import
+                            from Cust_UserApp.models import CustomerVisitHistory
+                            from Cust_User.models import CustomUser, CustomerProfile
+                            
+                            # 보너스 카드와 일치하는 고객 찾기
+                            customer_profile = CustomerProfile.objects.filter(
+                                membership_card__icontains=bonus_card
+                            ).first()
+                            
+                            if customer_profile:
+                                customer = customer_profile.user
+                                logger.info(f"고객 발견: {customer.username} (보너스카드: {bonus_card})")
+                                
+                                # 주유량 정보 가져오기 (quantity 값)
+                                fuel_quantity = safe_float(row.get('판매수량', 0))
+                                logger.info(f"주유량 추출: {fuel_quantity:.2f}L (원본값: {row.get('판매수량', 0)})")
+                                
+                                # 방문 내역 저장
+                                visit_history = CustomerVisitHistory(
+                                    customer=customer,
+                                    station=request.user,
+                                    tid=tid,
+                                    visit_date=sale_date,
+                                    visit_time=sale_time,
+                                    payment_type=str(row.get('결제구분', '')),
+                                    product_pack=str(row.get('제품/PACK', '')),
+                                    sale_amount=total_amount,
+                                    approval_number=str(row.get('승인번호', ''))
+                                )
+                                visit_history.save()
+                                
+                                # 고객 프로필의 주유량 정보 업데이트
+                                from Cust_User.models import CustomerProfile
+                                
+                                # 기존 주유량 정보
+                                old_total = customer_profile.total_fuel_amount
+                                old_monthly = customer_profile.monthly_fuel_amount
+                                old_last = customer_profile.last_fuel_amount
+                                
+                                # 새로운 주유량 정보 계산
+                                customer_profile.total_fuel_amount += fuel_quantity
+                                customer_profile.monthly_fuel_amount += fuel_quantity
+                                customer_profile.last_fuel_amount = fuel_quantity
+                                customer_profile.last_fuel_date = sale_date
+                                
+                                customer_profile.save()
+                                
+                                # 업데이트된 주유량 정보 로그
+                                logger.info(f"업데이트된 주유량 정보 - 총: {customer_profile.total_fuel_amount:.2f}L, 월: {customer_profile.monthly_fuel_amount:.2f}L, 최근: {customer_profile.last_fuel_amount:.2f}L")
+                                logger.info(f"방문 내역 및 주유량 저장 완료: {customer.username} - {sale_date} {sale_time} (주유량: {fuel_quantity:.2f}L)")
+                            else:
+                                logger.info(f"보너스카드 {bonus_card}와 일치하는 고객을 찾을 수 없음")
+                                
+                        except Exception as e:
+                            logger.error(f"방문 내역 저장 중 오류: {str(e)}")
+                    
+                except Exception as e:
+                    logger.error(f"행 처리 중 오류: {str(e)}")
+                    continue
+            
+            # 해당 날짜의 통계 데이터 저장
+            try:
+                daily_avg_price = daily_amount / daily_quantity if daily_quantity > 0 else 0
+                
+                # 가장 많이 팔린 제품
+                top_product = max(product_counts.items(), key=lambda x: x[1])[0] if product_counts else ''
+                top_product_count = max(product_counts.values()) if product_counts else 0
+                
+                # SalesStatistics 모델에 통계 데이터 저장
+                sales_stat = SalesStatistics(
+                    tid=tid,
+                    sale_date=sale_date,
+                    total_transactions=daily_saved_count,
+                    total_quantity=daily_quantity,
+                    total_amount=daily_amount,
+                    avg_unit_price=daily_avg_price,
+                    top_product=top_product,
+                    top_product_count=top_product_count,
+                    source_file=filename
+                )
+                sales_stat.save()
+                logger.info(f"날짜별 통계 저장 완료: {sale_date} - {daily_saved_count}건, {daily_amount:,.0f}원")
+                
+            except Exception as e:
+                logger.error(f"날짜별 통계 저장 중 오류 ({sale_date}): {str(e)}")
+            
+            # 진행상황 로그
+            logger.info(f"날짜별 저장 완료: {sale_date} - {daily_saved_count}개 데이터 저장")
         
         logger.info(f"=== 분석 완료 ===")
         logger.info(f"총 {saved_count}개 데이터 저장 완료")
@@ -1773,8 +1832,11 @@ def get_sales_details(request):
         # 통계 데이터 가져오기
         from .models import SalesStatistics
         try:
-            stat = SalesStatistics.objects.get(tid=stat_id)
-        except SalesStatistics.DoesNotExist:
+            stat = SalesStatistics.objects.filter(tid=stat_id).first()
+            if not stat:
+                return JsonResponse({'error': '통계 데이터를 찾을 수 없습니다.'}, status=404)
+        except Exception as e:
+            logger.error(f'통계 데이터 조회 중 오류: {str(e)}')
             return JsonResponse({'error': '통계 데이터를 찾을 수 없습니다.'}, status=404)
         
         # 해당 날짜의 상세 데이터 가져오기
