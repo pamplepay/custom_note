@@ -37,4 +37,7 @@ urlpatterns = [
     path('sales/details/', views.get_sales_details, name='get_sales_details'),
     path('sales/statistics-list/', views.get_sales_statistics_list, name='get_sales_statistics_list'),
     path('sales/sales-list/', views.get_sales_list, name='get_sales_list'),
+    
+    # 날짜별 판매 데이터 조회 API
+    path('get-daily-sales-data/', views.get_daily_sales_data, name='get_daily_sales_data'),
 ] 

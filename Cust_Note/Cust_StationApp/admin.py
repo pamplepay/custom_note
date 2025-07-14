@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.contrib import messages
-from .models import PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics
+from .models import PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics, MonthlySalesStatistics
 from Cust_User.models import CustomUser
 
 class StationCardMappingInline(admin.TabularInline):
@@ -276,6 +276,36 @@ class ExcelSalesDataAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).order_by('-sale_date', '-sale_time')
+
+
+@admin.register(MonthlySalesStatistics)
+class MonthlySalesStatisticsAdmin(admin.ModelAdmin):
+    list_display = ('tid', 'year_month', 'total_transactions', 'total_amount', 'avg_unit_price', 'top_product', 'updated_at')
+    list_filter = ('year_month', 'tid', 'updated_at')
+    search_fields = ('tid', 'top_product', 'year_month')
+    readonly_fields = ('updated_at',)
+    list_per_page = 50
+    
+    fieldsets = (
+        ('기본 정보', {
+            'fields': ('tid', 'year_month', 'updated_at')
+        }),
+        ('통계 정보', {
+            'fields': ('total_transactions', 'total_quantity', 'total_amount', 'avg_unit_price')
+        }),
+        ('제품 정보', {
+            'fields': ('top_product', 'top_product_count')
+        }),
+        ('유종별 판매 현황', {
+            'fields': ('product_breakdown',)
+        }),
+        ('제품별 상세 누적 데이터', {
+            'fields': ('product_sales_count', 'product_sales_quantity', 'product_sales_amount')
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).order_by('-year_month', '-updated_at')
 
 @admin.register(StationCardMapping)
 class StationCardMappingAdmin(admin.ModelAdmin):

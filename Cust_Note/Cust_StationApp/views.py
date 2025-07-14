@@ -21,6 +21,186 @@ from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
 logger = logging.getLogger(__name__)
 
+
+def update_monthly_statistics(tid, sale_date, daily_transactions, daily_quantity, daily_amount, daily_avg_price, top_product, top_product_count, product_counts, product_amounts=None):
+    """월별 누적 매출 통계 업데이트"""
+    try:
+        from .models import MonthlySalesStatistics
+        from decimal import Decimal
+        
+        # 년월 형식 생성 (YYYY-MM)
+        year_month = sale_date.strftime('%Y-%m')
+        
+        # 기존 월별 통계 데이터 조회 또는 생성
+        monthly_stat, created = MonthlySalesStatistics.objects.get_or_create(
+            tid=tid,
+            year_month=year_month,
+            defaults={
+                'total_transactions': 0,
+                'total_quantity': Decimal('0'),
+                'total_amount': Decimal('0'),
+                'avg_unit_price': Decimal('0'),
+                'top_product': '',
+                'top_product_count': 0,
+                'product_breakdown': {}
+            }
+        )
+        
+        # 월별 누적 처리 (항상 누적)
+        if not created:  # 기존 월별 통계가 존재하는 경우
+            logger.info(f"=== 기존 월별 통계 발견 - 누적 진행 ===")
+            logger.info(f"TID: {tid}, 년월: {year_month}, 판매일자: {sale_date}")
+            logger.info(f"기존 월별 통계 - 거래건수: {monthly_stat.total_transactions}, 판매수량: {monthly_stat.total_quantity}, 판매금액: {monthly_stat.total_amount:,.0f}")
+            logger.info(f"추가될 값 - 거래건수: {daily_transactions}, 판매수량: {daily_quantity}, 판매금액: {daily_amount:,.0f}")
+        else:
+            logger.info(f"=== 신규 월별 통계 생성 ===")
+            logger.info(f"TID: {tid}, 년월: {year_month}, 판매일자: {sale_date}")
+            logger.info(f"추가될 값 - 거래건수: {daily_transactions}, 판매수량: {daily_quantity}, 판매금액: {daily_amount:,.0f}")
+        
+        # 마이너스 값 처리: 음수도 그대로 유지 (환불/취소 거래 포함)
+        safe_daily_quantity = daily_quantity
+        safe_daily_amount = daily_amount
+        
+        # 업데이트 전 값 로깅
+        logger.info(f"=== 월별 누적 통계 업데이트 시작 ===")
+        logger.info(f"TID: {tid}, 년월: {year_month}, 판매일자: {sale_date}")
+        logger.info(f"업데이트 전 - 거래건수: {monthly_stat.total_transactions}, 판매수량: {monthly_stat.total_quantity}, 판매금액: {monthly_stat.total_amount:,.0f}")
+        
+        # 추가될 값 로깅
+        logger.info(f"추가될 값 - 거래건수: {daily_transactions}, 판매수량: {safe_daily_quantity}, 판매금액: {safe_daily_amount:,.0f}")
+        
+        # 타입 변환하여 누적 데이터 업데이트
+        monthly_stat.total_transactions += int(daily_transactions)
+        monthly_stat.total_quantity += Decimal(str(safe_daily_quantity))
+        monthly_stat.total_amount += Decimal(str(safe_daily_amount))
+        
+        # 업데이트 후 값 로깅
+        logger.info(f"업데이트 후 - 거래건수: {monthly_stat.total_transactions}, 판매수량: {monthly_stat.total_quantity}, 판매금액: {monthly_stat.total_amount:,.0f}")
+        
+        # 평균 단가 재계산
+        if monthly_stat.total_quantity > 0:
+            monthly_stat.avg_unit_price = monthly_stat.total_amount / monthly_stat.total_quantity
+        else:
+            monthly_stat.avg_unit_price = Decimal('0')
+        
+        logger.info(f"평균 단가: {monthly_stat.avg_unit_price:,.0f}")
+        
+        # 제품별 판매 현황 업데이트
+        current_breakdown = monthly_stat.product_breakdown or {}
+        current_sales_count = monthly_stat.product_sales_count or {}
+        current_sales_quantity = monthly_stat.product_sales_quantity or {}
+        current_sales_amount = monthly_stat.product_sales_amount or {}
+        
+        logger.info(f"=== 제품별 상세 업데이트 ===")
+        
+        # 실제 제품별 판매금액이 제공된 경우 사용, 없으면 비율로 추정
+        if product_amounts:
+            # 실제 제품별 판매금액 사용
+            for product, count in product_counts.items():
+                product_amount = product_amounts.get(product, 0)
+                product_quantity = product_amount / daily_avg_price if daily_avg_price > 0 else 0
+                
+                logger.info(f"제품: {product}")
+                logger.info(f"  - 판매횟수: {count}건")
+                logger.info(f"  - 실제 판매금액: {product_amount:,.0f}원")
+                logger.info(f"  - 추정 판매수량: {product_quantity:.2f}L")
+                
+                # product_breakdown 업데이트
+                if product in current_breakdown:
+                    current_breakdown[product]['count'] += count
+                    current_breakdown[product]['quantity'] += float(product_quantity)
+                    current_breakdown[product]['amount'] += float(product_amount)
+                    logger.info(f"  - 누적 후: {current_breakdown[product]['count']}건, {current_breakdown[product]['quantity']:.2f}L, {current_breakdown[product]['amount']:,.0f}원")
+                else:
+                    current_breakdown[product] = {
+                        'count': count,
+                        'quantity': float(product_quantity),
+                        'amount': float(product_amount)
+                    }
+                    logger.info(f"  - 신규 등록: {count}건, {product_quantity:.2f}L, {product_amount:,.0f}원")
+                
+                # 제품별 상세 누적 데이터 업데이트
+                if product in current_sales_count:
+                    current_sales_count[product] += count
+                else:
+                    current_sales_count[product] = count
+                    
+                if product in current_sales_quantity:
+                    current_sales_quantity[product] += float(product_quantity)
+                else:
+                    current_sales_quantity[product] = float(product_quantity)
+                    
+                if product in current_sales_amount:
+                    current_sales_amount[product] += float(product_amount)
+                else:
+                    current_sales_amount[product] = float(product_amount)
+        else:
+            # 기존 방식: 비율로 추정
+            for product, count in product_counts.items():
+                ratio = count / daily_transactions if daily_transactions > 0 else 0
+                product_quantity = safe_daily_quantity * ratio
+                product_amount = safe_daily_amount * ratio
+                
+                logger.info(f"제품: {product}")
+                logger.info(f"  - 판매횟수: {count}건")
+                logger.info(f"  - 비율: {ratio:.2%}")
+                logger.info(f"  - 추정 수량: {product_quantity:.2f}L")
+                logger.info(f"  - 추정 금액: {product_amount:,.0f}원")
+                
+                # product_breakdown 업데이트
+                if product in current_breakdown:
+                    current_breakdown[product]['count'] += count
+                    current_breakdown[product]['quantity'] += float(product_quantity)
+                    current_breakdown[product]['amount'] += float(product_amount)
+                    logger.info(f"  - 누적 후: {current_breakdown[product]['count']}건, {current_breakdown[product]['quantity']:.2f}L, {current_breakdown[product]['amount']:,.0f}원")
+                else:
+                    current_breakdown[product] = {
+                        'count': count,
+                        'quantity': float(product_quantity),
+                        'amount': float(product_amount)
+                    }
+                    logger.info(f"  - 신규 등록: {count}건, {product_quantity:.2f}L, {product_amount:,.0f}원")
+                
+                # 제품별 상세 누적 데이터 업데이트
+                if product in current_sales_count:
+                    current_sales_count[product] += count
+                else:
+                    current_sales_count[product] = count
+                    
+                if product in current_sales_quantity:
+                    current_sales_quantity[product] += float(product_quantity)
+                else:
+                    current_sales_quantity[product] = float(product_quantity)
+                    
+                if product in current_sales_amount:
+                    current_sales_amount[product] += float(product_amount)
+                else:
+                    current_sales_amount[product] = float(product_amount)
+        
+        monthly_stat.product_breakdown = current_breakdown
+        monthly_stat.product_sales_count = current_sales_count
+        monthly_stat.product_sales_quantity = current_sales_quantity
+        monthly_stat.product_sales_amount = current_sales_amount
+        
+        # 최다 판매 제품 업데이트
+        if current_breakdown:
+            top_product_monthly = max(current_breakdown.items(), key=lambda x: x[1]['count'])
+            monthly_stat.top_product = top_product_monthly[0]
+            monthly_stat.top_product_count = top_product_monthly[1]['count']
+            logger.info(f"최다 판매 제품: {monthly_stat.top_product} ({monthly_stat.top_product_count}건)")
+        
+        monthly_stat.save()
+        
+        logger.info(f"=== 월별 누적 데이터 업데이트 완료 ===")
+        logger.info(f"TID: {tid}, 년월: {year_month}")
+        logger.info(f"최종 결과 - 총 {monthly_stat.total_transactions}건, {monthly_stat.total_amount:,.0f}원")
+        logger.info(f"제품별 상세: {list(current_breakdown.keys())}")
+        
+    except Exception as e:
+        logger.error(f"월별 누적 데이터 업데이트 중 오류: {str(e)}")
+        raise
+
+
 @login_required
 def station_main(request):
     """주유소 메인 페이지"""
@@ -33,12 +213,198 @@ def station_main(request):
     active_cards = StationCardMapping.objects.filter(is_active=True, card__is_used=False).count()
     inactive_cards = StationCardMapping.objects.filter(is_active=True, card__is_used=True).count()
     
+    # 월별 매출 통계 데이터 가져오기
+    monthly_stats = None
+    try:
+        from .models import MonthlySalesStatistics
+        from datetime import datetime
+        
+        # TID 가져오기
+        tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
+        if tid:
+            current_month = timezone.now().strftime('%Y-%m')
+            previous_month = (timezone.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
+            
+            # 현재 월 통계
+            current_monthly = MonthlySalesStatistics.objects.filter(
+                tid=tid,
+                year_month=current_month
+            ).first()
+            
+            # 이전 월 통계
+            previous_monthly = MonthlySalesStatistics.objects.filter(
+                tid=tid,
+                year_month=previous_month
+            ).first()
+            
+            # 많이 팔린 상품 3가지 추출 함수 (판매 횟수 기준)
+            def get_top_products(monthly_data, count=3):
+                if not monthly_data or not monthly_data.product_sales_count:
+                    return []
+                
+                # 판매 횟수 기준으로 정렬
+                sorted_products = sorted(
+                    monthly_data.product_sales_count.items(),
+                    key=lambda x: x[1],
+                    reverse=True
+                )
+                return sorted_products[:count]
+            
+            # 많이 팔린 상품 3가지 추출 함수 (판매 금액 기준)
+            def get_top_products_by_amount(monthly_data, count=3):
+                if not monthly_data or not monthly_data.product_sales_amount:
+                    return []
+                
+                # 판매 금액 기준으로 정렬
+                sorted_products = sorted(
+                    monthly_data.product_sales_amount.items(),
+                    key=lambda x: x[1],
+                    reverse=True
+                )
+                return sorted_products[:count]
+            
+            # 전월과 금월의 많이 팔린 상품 3가지 (판매 횟수 기준)
+            previous_top_products = get_top_products(previous_monthly)
+            current_top_products = get_top_products(current_monthly)
+            
+            # 전월과 금월의 많이 팔린 상품 3가지 (판매 금액 기준)
+            previous_top_products_by_amount = get_top_products_by_amount(previous_monthly)
+            current_top_products_by_amount = get_top_products_by_amount(current_monthly)
+            
+            monthly_stats = {
+                'current_month': current_monthly,
+                'previous_month': previous_monthly,
+                'current_month_str': current_month,
+                'previous_month_str': previous_month,
+                'previous_top_products': previous_top_products,
+                'current_top_products': current_top_products,
+                'previous_top_products_by_amount': previous_top_products_by_amount,
+                'current_top_products_by_amount': current_top_products_by_amount
+            }
+    except Exception as e:
+        logger.error(f"월별 통계 데이터 조회 중 오류: {str(e)}")
+    
     context = {
         'total_cards': total_cards,
         'active_cards': active_cards,
         'inactive_cards': inactive_cards,
+        'monthly_stats': monthly_stats,
     }
     return render(request, 'Cust_Station/station_main.html', context)
+
+
+@login_required
+def get_daily_sales_data(request):
+    """날짜별 판매 데이터 조회 (AJAX)"""
+    if not request.user.is_station:
+        return JsonResponse({'error': '주유소 회원만 접근할 수 있습니다.'}, status=403)
+    
+    try:
+        from .models import SalesStatistics, MonthlySalesStatistics
+        from datetime import datetime
+        
+        # TID 가져오기
+        tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
+        if not tid:
+            return JsonResponse({'error': 'TID가 설정되지 않았습니다.'}, status=400)
+        
+        # 요청 파라미터
+        month_str = request.GET.get('month')  # YYYY-MM 형식
+        data_type = request.GET.get('type')  # 'quantity' 또는 'amount'
+        
+        if not month_str or not data_type:
+            return JsonResponse({'error': '필수 파라미터가 누락되었습니다.'}, status=400)
+        
+        # 해당 월의 날짜별 데이터 조회
+        daily_stats = SalesStatistics.objects.filter(
+            tid=tid,
+            sale_date__startswith=month_str
+        ).order_by('sale_date')
+        
+        # 해당 월의 월별 통계 데이터 조회 (상위 제품 정보용)
+        monthly_stat = MonthlySalesStatistics.objects.filter(
+            tid=tid,
+            year_month=month_str
+        ).first()
+        
+        # 데이터 형식화
+        daily_data = []
+        for stat in daily_stats:
+            if data_type == 'quantity':
+                value = stat.total_quantity
+                unit = 'L'
+            else:  # amount
+                value = stat.total_amount
+                unit = '원'
+            
+            daily_data.append({
+                'date': stat.sale_date.strftime('%Y-%m-%d'),
+                'value': float(value),
+                'unit': unit
+            })
+        
+        # 상위 2개 제품 정보 추출
+        top_products = []
+        if monthly_stat and monthly_stat.product_sales_count:
+            # 판매 횟수 기준으로 상위 2개 제품 추출
+            sorted_products = sorted(
+                monthly_stat.product_sales_count.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:2]
+            
+            for product, count in sorted_products:
+                # 해당 제품의 판매 수량 조회
+                quantity = monthly_stat.product_sales_quantity.get(product, 0) if monthly_stat.product_sales_quantity else 0
+                top_products.append({
+                    'product': product,
+                    'count': count,
+                    'quantity': float(quantity)
+                })
+        
+        # 각 날짜별로 상위 제품의 판매 현황 계산
+        daily_product_stats = []
+        if top_products and monthly_stat.product_breakdown:
+            for stat in daily_stats:
+                daily_product_data = {
+                    'date': stat.sale_date.strftime('%Y-%m-%d'),
+                    'products': []
+                }
+                
+                # 해당 날짜의 총 거래건수로 비율 계산
+                total_daily_transactions = stat.total_transactions
+                if total_daily_transactions > 0:
+                    for product_info in top_products:
+                        product_name = product_info['product']
+                        monthly_count = product_info['count']
+                        monthly_quantity = product_info['quantity']
+                        
+                        # 월별 비율을 일별로 적용 (간단한 추정)
+                        # 실제로는 일별 상세 데이터가 없으므로 월별 비율로 추정
+                        daily_ratio = monthly_count / monthly_stat.total_transactions if monthly_stat.total_transactions > 0 else 0
+                        estimated_daily_count = int(monthly_count / len(daily_stats))  # 월별 데이터를 일수로 나눔
+                        estimated_daily_quantity = monthly_quantity / len(daily_stats) if len(daily_stats) > 0 else 0
+                        
+                        daily_product_data['products'].append({
+                            'product': product_name,
+                            'count': estimated_daily_count,
+                            'quantity': float(estimated_daily_quantity)
+                        })
+                
+                daily_product_stats.append(daily_product_data)
+        
+        return JsonResponse({
+            'success': True,
+            'data': daily_data,
+            'month': month_str,
+            'type': data_type,
+            'top_products': top_products,
+            'daily_product_stats': daily_product_stats
+        })
+        
+    except Exception as e:
+        logger.error(f"날짜별 판매 데이터 조회 중 오류: {str(e)}")
+        return JsonResponse({'error': f'데이터 조회 중 오류가 발생했습니다: {str(e)}'}, status=500)
 
 @login_required
 def station_management(request):
@@ -1546,6 +1912,7 @@ def analyze_sales_file(request):
             daily_quantity = 0
             daily_amount = 0
             product_counts = {}
+            product_amounts = {}  # 실제 제품별 판매금액
             
             for row in rows:
                 try:
@@ -1565,34 +1932,69 @@ def analyze_sales_file(request):
                             sale_time = datetime.now().time()
                     
                     # 숫자 데이터 처리 (안전한 변환)
-                    def safe_float(value, default=0):
+                    def safe_float(value, default=0, handle_negative='zero'):
+                        """
+                        안전한 float 변환 함수
+                        handle_negative: 'zero' (음수를 0으로), 'abs' (절댓값), 'keep' (그대로 유지)
+                        """
                         if pd.isna(value):
                             return default
                         try:
-                            return float(value)
+                            result = float(value)
+                            if handle_negative == 'zero' and result < 0:
+                                logger.warning(f"음수 값 발견: {value} -> 0으로 처리")
+                                return 0
+                            elif handle_negative == 'abs' and result < 0:
+                                logger.warning(f"음수 값 발견: {value} -> 절댓값으로 처리")
+                                return abs(result)
+                            elif handle_negative == 'keep' and result < 0:
+                                logger.info(f"음수 값 발견: {value} -> 그대로 유지 (환불/취소 거래)")
+                                return result
+                            return result
                         except (ValueError, TypeError):
                             return default
                     
-                    def safe_int(value, default=0):
+                    def safe_int(value, default=0, handle_negative='zero'):
+                        """
+                        안전한 int 변환 함수
+                        handle_negative: 'zero' (음수를 0으로), 'abs' (절댓값), 'keep' (그대로 유지)
+                        """
                         if pd.isna(value):
                             return default
                         try:
-                            return int(float(value))  # float로 먼저 변환 후 int로 변환
+                            result = int(float(value))  # float로 먼저 변환 후 int로 변환
+                            if handle_negative == 'zero' and result < 0:
+                                logger.warning(f"음수 값 발견: {value} -> 0으로 처리")
+                                return 0
+                            elif handle_negative == 'abs' and result < 0:
+                                logger.warning(f"음수 값 발견: {value} -> 절댓값으로 처리")
+                                return abs(result)
+                            elif handle_negative == 'keep' and result < 0:
+                                logger.info(f"음수 값 발견: {value} -> 그대로 유지 (환불/취소 거래)")
+                                return result
+                            return result
                         except (ValueError, TypeError):
                             return default
                     
-                    quantity = safe_float(row['판매수량'])
-                    unit_price = safe_float(row['판매단가'])
-                    total_amount = safe_float(row['판매금액'])
+                    # 판매수량, 판매금액은 음수도 그대로 유지 (환불/취소 거래 포함)
+                    quantity = safe_float(row['판매수량'], handle_negative='keep')
+                    unit_price = safe_float(row['판매단가'], handle_negative='keep')
+                    total_amount = safe_float(row['판매금액'], handle_negative='keep')
+                    
+                    # 포인트 관련은 절댓값으로 처리 (음수 포인트 사용도 유효한 데이터)
+                    earned_points = safe_int(row.get('적립포인트', 0), handle_negative='abs')
+                    points = safe_int(row.get('포인트', 0), handle_negative='abs')
+                    bonus = safe_int(row.get('보너스', 0), handle_negative='abs')
                     
                     # 통계 계산을 위한 누적
                     daily_quantity += quantity
                     daily_amount += total_amount
                     
-                    # 제품별 카운트
+                    # 제품별 카운트 및 판매금액 누적
                     product_pack = str(row.get('제품/PACK', ''))
                     if product_pack and product_pack != 'nan':
                         product_counts[product_pack] = product_counts.get(product_pack, 0) + 1
+                        product_amounts[product_pack] = product_amounts.get(product_pack, 0) + total_amount
                     
                     # ExcelSalesData 객체 생성 및 저장
                     excel_data = ExcelSalesData(
@@ -1612,9 +2014,9 @@ def analyze_sales_file(request):
                         quantity=quantity,
                         unit_price=unit_price,
                         total_amount=total_amount,
-                        earned_points=safe_int(row.get('적립포인트', 0)),
-                        points=safe_int(row.get('포인트', 0)),
-                        bonus=safe_int(row.get('보너스', 0)),
+                        earned_points=earned_points,
+                        points=points,
+                        bonus=bonus,
                         pos_id=str(row.get('POS_ID', '')),
                         pos_code=str(row.get('POS코드', '')),
                         store=str(row.get('판매점', '')),
@@ -1647,8 +2049,8 @@ def analyze_sales_file(request):
                                 customer = customer_profile.user
                                 logger.info(f"고객 발견: {customer.username} (보너스카드: {bonus_card})")
                                 
-                                # 주유량 정보 가져오기 (quantity 값)
-                                fuel_quantity = safe_float(row.get('판매수량', 0))
+                                # 주유량 정보 가져오기 (quantity 값) - 마이너스 값도 그대로 유지
+                                fuel_quantity = safe_float(row.get('판매수량', 0), handle_negative='keep')
                                 logger.info(f"주유량 추출: {fuel_quantity:.2f}L (원본값: {row.get('판매수량', 0)})")
                                 
                                 # 방문 내역 저장
@@ -1673,7 +2075,7 @@ def analyze_sales_file(request):
                                 old_monthly = customer_profile.monthly_fuel_amount
                                 old_last = customer_profile.last_fuel_amount
                                 
-                                # 새로운 주유량 정보 계산
+                                # 새로운 주유량 정보 계산 (마이너스 값도 그대로 반영)
                                 customer_profile.total_fuel_amount += fuel_quantity
                                 customer_profile.monthly_fuel_amount += fuel_quantity
                                 customer_profile.last_fuel_amount = fuel_quantity
@@ -1696,6 +2098,37 @@ def analyze_sales_file(request):
             
             # 해당 날짜의 통계 데이터 저장
             try:
+                # 날짜별 통계 중복 체크: 이미 해당 날짜의 통계가 있는지 확인
+                existing_daily_stat = SalesStatistics.objects.filter(
+                    tid=tid,
+                    sale_date=sale_date
+                ).first()
+                
+                if existing_daily_stat:
+                    logger.info(f"=== 날짜별 통계 중복 발견 - 통계 저장 건너뛰기 ===")
+                    logger.info(f"날짜: {sale_date}, 기존 파일: {existing_daily_stat.source_file}")
+                    logger.info(f"현재 파일: {filename}")
+                    logger.info(f"중복 방지를 위해 날짜별 통계 저장을 건너뜁니다.")
+                    
+                    # 날짜별 통계는 건너뛰지만 월별 누적은 진행
+                    logger.info(f"월별 누적은 계속 진행합니다.")
+                    
+                    # 월별 누적 데이터 업데이트 (날짜별 통계 없이)
+                    try:
+                        logger.info(f"=== 월별 누적 업데이트 호출 (날짜별 통계 없이) ===")
+                        logger.info(f"파일: {filename}, 날짜: {sale_date}")
+                        logger.info(f"전달할 데이터 - 거래건수: {daily_saved_count}, 수량: {daily_quantity}, 금액: {daily_amount:,.0f}")
+                        logger.info(f"제품별 카운트: {product_counts}")
+                        logger.info(f"제품별 판매금액: {product_amounts}")
+                        
+                        update_monthly_statistics(tid, sale_date, daily_saved_count, daily_quantity, daily_amount, daily_avg_price, top_product, top_product_count, product_counts, product_amounts)
+                        
+                        logger.info(f"월별 누적 업데이트 완료: {sale_date}")
+                    except Exception as e:
+                        logger.error(f"월별 누적 데이터 업데이트 중 오류 ({sale_date}): {str(e)}")
+                    
+                    continue
+                
                 daily_avg_price = daily_amount / daily_quantity if daily_quantity > 0 else 0
                 
                 # 가장 많이 팔린 제품
@@ -1716,6 +2149,20 @@ def analyze_sales_file(request):
                 )
                 sales_stat.save()
                 logger.info(f"날짜별 통계 저장 완료: {sale_date} - {daily_saved_count}건, {daily_amount:,.0f}원")
+                
+                # 월별 누적 데이터 업데이트
+                try:
+                    logger.info(f"=== 월별 누적 업데이트 호출 ===")
+                    logger.info(f"파일: {filename}, 날짜: {sale_date}")
+                    logger.info(f"전달할 데이터 - 거래건수: {daily_saved_count}, 수량: {daily_quantity}, 금액: {daily_amount:,.0f}")
+                    logger.info(f"제품별 카운트: {product_counts}")
+                    logger.info(f"제품별 판매금액: {product_amounts}")
+                    
+                    update_monthly_statistics(tid, sale_date, daily_saved_count, daily_quantity, daily_amount, daily_avg_price, top_product, top_product_count, product_counts, product_amounts)
+                    
+                    logger.info(f"월별 누적 업데이트 완료: {sale_date}")
+                except Exception as e:
+                    logger.error(f"월별 누적 데이터 업데이트 중 오류 ({sale_date}): {str(e)}")
                 
             except Exception as e:
                 logger.error(f"날짜별 통계 저장 중 오류 ({sale_date}): {str(e)}")
@@ -1829,10 +2276,10 @@ def get_sales_details(request):
         if not tid:
             return JsonResponse({'error': '주유소 TID가 등록되어 있지 않습니다.'}, status=400)
         
-        # 통계 데이터 가져오기
+        # 통계 데이터 가져오기 (해당 통계 ID로 조회)
         from .models import SalesStatistics
         try:
-            stat = SalesStatistics.objects.filter(tid=stat_id).first()
+            stat = SalesStatistics.objects.filter(id=stat_id).first()
             if not stat:
                 return JsonResponse({'error': '통계 데이터를 찾을 수 없습니다.'}, status=404)
         except Exception as e:

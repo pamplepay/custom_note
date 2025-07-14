@@ -236,3 +236,32 @@ class SalesStatistics(models.Model):
 
     def __str__(self):
         return f"{self.tid} - {self.sale_date} ({self.total_transactions}건, {self.total_amount:,.0f}원)"
+
+
+class MonthlySalesStatistics(models.Model):
+    """월별 누적 매출 통계 데이터 모델"""
+    tid = models.CharField(max_length=50, blank=True, null=True, verbose_name='주유소 TID')
+    year_month = models.CharField(max_length=7, verbose_name='년월 (YYYY-MM)')
+    total_transactions = models.IntegerField(default=0, verbose_name='총 거래건수')
+    total_quantity = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='총 판매수량')
+    total_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0, verbose_name='총 판매금액')
+    avg_unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='평균 단가')
+    top_product = models.CharField(max_length=100, blank=True, null=True, verbose_name='최다 판매 제품')
+    top_product_count = models.IntegerField(default=0, verbose_name='최다 판매 제품 수량')
+    product_breakdown = models.JSONField(default=dict, verbose_name='유종별 판매 현황')
+    
+    # 제품별 상세 누적 데이터
+    product_sales_count = models.JSONField(default=dict, verbose_name='제품별 판매횟수')
+    product_sales_quantity = models.JSONField(default=dict, verbose_name='제품별 판매수량')
+    product_sales_amount = models.JSONField(default=dict, verbose_name='제품별 판매금액')
+    
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='업데이트일시')
+
+    class Meta:
+        verbose_name = '월별 매출 통계'
+        verbose_name_plural = '6. 월별 매출 통계 목록'
+        ordering = ['-year_month']
+        unique_together = ['tid', 'year_month']
+
+    def __str__(self):
+        return f"{self.tid} - {self.year_month} ({self.total_transactions}건, {self.total_amount:,.0f}원)"

@@ -1,6 +1,7 @@
 from django.shortcuts import render
 import pandas as pd
 from datetime import datetime
+from django.utils import timezone
 from .models import SalesData
 import logging
 import sys
@@ -58,7 +59,7 @@ def process_sample_excel():
 
         # 승인일시 처리
         try:
-            approval_datetime = datetime.now()  # 임시로 현재 시간 사용
+            approval_datetime = timezone.now()  # timezone-aware datetime 사용
             logger.debug(f"승인일시 설정: {approval_datetime}")
         except ValueError as e:
             logger.error(f"승인일시 처리 오류: {e}")
@@ -89,7 +90,7 @@ def process_sample_excel():
                 approval_datetime=approval_datetime,
                 bonus_card=str(first_row.get('보너스카드', '')),
                 customer_card_number=str(first_row.get('고객카드번호', '')),
-                data_created_at=datetime.now()
+                data_created_at=timezone.now()
             )
             
             logger.debug("데이터베이스 레코드 생성 준비 완료")

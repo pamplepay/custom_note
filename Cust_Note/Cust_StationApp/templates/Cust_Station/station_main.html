@@ -1,4 +1,5 @@
 {% extends 'base/base.html' %}
+{% load humanize %}
 
 {% block title %}Oil Note - 주유소 홈{% endblock %}
 
@@ -15,9 +16,112 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div>   
 
     <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-0" style="cursor: pointer;" onclick="showDailyData('{{ monthly_stats.previous_month_str|default:'' }}', 'quantity')">
+                <div class="card-body text-center">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-chart-pie fa-2x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">전월 판매량</h5>
+                    <h3 class="text-primary mb-0">
+                        {% if monthly_stats and monthly_stats.previous_month %}
+                            {{ monthly_stats.previous_month.total_quantity|floatformat:0|intcomma }}L
+                        {% else %}
+                            0L
+                        {% endif %}
+                    </h3>
+                    {% if monthly_stats and monthly_stats.previous_top_products %}
+                        <small class="text-muted d-block mt-2">
+                            {% for product, count in monthly_stats.previous_top_products %}
+                                {{ product }}: {{ count }}회
+                                {% if not forloop.last %}<br>{% endif %}
+                            {% endfor %}
+                        </small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-0" style="cursor: pointer;" onclick="showDailyData('{{ monthly_stats.previous_month_str|default:'' }}', 'amount')">
+                <div class="card-body text-center">
+                    <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-won-sign fa-2x text-success"></i>
+                    </div>
+                    <h5 class="card-title">전월 판매금액</h5>
+                    <h3 class="text-success mb-0">
+                        {% if monthly_stats and monthly_stats.previous_month %}
+                            {{ monthly_stats.previous_month.total_amount|floatformat:0|intcomma }}원
+                        {% else %}
+                            0원
+                        {% endif %}
+                    </h3>
+                    {% if monthly_stats and monthly_stats.previous_top_products_by_amount %}
+                        <small class="text-muted d-block mt-2">
+                            {% for product, amount in monthly_stats.previous_top_products_by_amount %}
+                                {{ product }}: {{ amount|floatformat:0|intcomma }}원
+                                {% if not forloop.last %}<br>{% endif %}
+                            {% endfor %}
+                        </small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-0" style="cursor: pointer;" onclick="showDailyData('{{ monthly_stats.current_month_str|default:'' }}', 'quantity')">
+                <div class="card-body text-center">
+                    <div class="bg-info bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-tint fa-2x text-info"></i>
+                    </div>
+                    <h5 class="card-title">금월 판매량</h5>
+                    <h3 class="text-info mb-0">
+                        {% if monthly_stats and monthly_stats.current_month %}
+                            {{ monthly_stats.current_month.total_quantity|floatformat:0|intcomma }}L
+                        {% else %}
+                            0L
+                        {% endif %}
+                    </h3>
+                    {% if monthly_stats and monthly_stats.current_top_products %}
+                        <small class="text-muted d-block mt-2">
+                            {% for product, count in monthly_stats.current_top_products %}
+                                {{ product }}: {{ count }}회
+                                {% if not forloop.last %}<br>{% endif %}
+                            {% endfor %}
+                        </small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100 border-0" style="cursor: pointer;" onclick="showDailyData('{{ monthly_stats.current_month_str|default:'' }}', 'amount')">
+                <div class="card-body text-center">
+                    <div class="bg-warning bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-won-sign fa-2x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">금월 판매금액</h5>
+                    <h3 class="text-warning mb-0">
+                        {% if monthly_stats and monthly_stats.current_month %}
+                            {{ monthly_stats.current_month.total_amount|floatformat:0|intcomma }}원
+                        {% else %}
+                            0원
+                        {% endif %}
+                    </h3>
+                    {% if monthly_stats and monthly_stats.current_top_products_by_amount %}
+                        <small class="text-muted d-block mt-2">
+                            {% for product, amount in monthly_stats.current_top_products_by_amount %}
+                                {{ product }}: {{ amount|floatformat:0|intcomma }}원
+                                {% if not forloop.last %}<br>{% endif %}
+                            {% endfor %}
+                        </small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+     <!-- <div class="row mb-4">
         <div class="col-md-4 mb-3">
             <div class="card shadow-sm h-100 border-0">
                 <div class="card-body text-center">
@@ -51,7 +155,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> -->
 
     <div class="row mb-4">
         <div class="col-md-3">
@@ -83,7 +187,7 @@
                         <i class="fas fa-credit-card fa-2x text-info"></i>
                     </div>
                     <h5 class="card-title">등록 카드</h5>
-                    <h3 class="text-info mb-0">{{ total_cards }}장</h3>
+                    <h3 class="text-info mb-0">{{ total_cards|intcomma }}장</h3>
                 </div>
             </div>
         </div>
@@ -129,7 +233,7 @@
         </div>
     </div>
 
-    <div class="row">
+    <!-- <div class="row">
         <div class="col-12">
             <div class="card shadow-sm border-0">
                 <div class="card-body">
@@ -146,7 +250,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> -->
 
     <!-- 메뉴 카드 -->
     <div class="row g-4">
@@ -177,4 +281,201 @@
         </div>
     </div>
 </div>
+
+<!-- 날짜별 상세 데이터 모달 -->
+<div class="modal fade" id="dailyDataModal" tabindex="-1" aria-labelledby="dailyDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dailyDataModalLabel">날짜별 상세 데이터</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="dailyDataContent">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">로딩 중...</span>
+                        </div>
+                        <p class="mt-2">데이터를 불러오는 중...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* 모달이 네브바와 겹치지 않도록 상단 여백 추가 */
+.modal-dialog-centered {
+    margin-top: 80px !important;
+}
+
+/* 모달이 화면 상단에 너무 가깝게 붙지 않도록 최소 여백 설정 */
+.modal.show .modal-dialog {
+    margin-top: 80px !important;
+}
+
+/* 모바일에서도 적절한 여백 유지 */
+@media (max-width: 768px) {
+    .modal-dialog-centered {
+        margin-top: 60px !important;
+    }
+    
+    .modal.show .modal-dialog {
+        margin-top: 60px !important;
+    }
+}
+</style>
+
+<script>
+function showDailyData(month, type) {
+    if (!month) {
+        alert('데이터가 없습니다.');
+        return;
+    }
+    
+    // 모달 표시
+    const modal = new bootstrap.Modal(document.getElementById('dailyDataModal'));
+    modal.show();
+    
+    // 로딩 상태 표시
+    document.getElementById('dailyDataContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">로딩 중...</span>
+            </div>
+            <p class="mt-2">데이터를 불러오는 중...</p>
+        </div>
+    `;
+    
+    // AJAX 요청
+    fetch(`{% url 'station:get_daily_sales_data' %}?month=${month}&type=${type}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayDailyData(data);
+            } else {
+                document.getElementById('dailyDataContent').innerHTML = `
+                    <div class="text-center text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <p>데이터를 불러오는 중 오류가 발생했습니다.</p>
+                        <small>${data.error || '알 수 없는 오류'}</small>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('dailyDataContent').innerHTML = `
+                <div class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                    <p>네트워크 오류가 발생했습니다.</p>
+                    <small>잠시 후 다시 시도해주세요.</small>
+                </div>
+            `;
+        });
+}
+
+function displayDailyData(data) {
+    const typeText = data.type === 'quantity' ? '판매량' : '판매금액';
+    const unit = data.type === 'quantity' ? 'L' : '원';
+    
+    let html = `
+        <h6 class="mb-3">${data.month} ${typeText} 상세</h6>
+    `;
+    
+    // 상위 제품 정보 표시 (판매량 조회 시에만)
+    if (data.type === 'quantity' && data.top_products && data.top_products.length > 0) {
+        html += `
+            <div class="alert alert-info mb-3">
+                <h6 class="alert-heading mb-2">
+                    <i class="fas fa-star me-2"></i>상위 판매 제품
+                </h6>
+                <div class="row">
+        `;
+        
+        data.top_products.forEach((product, index) => {
+            html += `
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">${index + 1}. ${product.product}</span>
+                        <div class="text-end">
+                            <div class="small text-muted">판매횟수: ${product.count}회</div>
+                            <div class="small text-muted">판매수량: ${parseFloat(product.quantity).toLocaleString()}L</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    html += `
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>날짜</th>
+                        <th class="text-end">${typeText}</th>
+                        ${data.type === 'quantity' && data.daily_product_stats && data.daily_product_stats.length > 0 ? '<th class="text-center">상위 제품</th>' : ''}
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    if (data.data.length === 0) {
+        html += `
+            <tr>
+                <td colspan="${data.type === 'quantity' && data.daily_product_stats && data.daily_product_stats.length > 0 ? '3' : '2'}" class="text-center text-muted">
+                    <i class="fas fa-info-circle me-2"></i>
+                    해당 월의 데이터가 없습니다.
+                </td>
+            </tr>
+        `;
+    } else {
+        data.data.forEach((item, index) => {
+            const formattedValue = data.type === 'quantity' 
+                ? parseFloat(item.value).toLocaleString() + unit
+                : parseFloat(item.value).toLocaleString() + unit;
+            
+            let productInfo = '';
+            if (data.type === 'quantity' && data.daily_product_stats && data.daily_product_stats[index]) {
+                const dailyStats = data.daily_product_stats[index];
+                if (dailyStats.products && dailyStats.products.length > 0) {
+                    productInfo = dailyStats.products.map(product => 
+                        `<div class="small">
+                            <strong>${product.product}</strong><br>
+                            <span class="text-muted">${product.count}회 / ${parseFloat(product.quantity).toLocaleString()}L</span>
+                        </div>`
+                    ).join('<hr class="my-1">');
+                }
+            }
+            
+            html += `
+                <tr>
+                    <td>${item.date}</td>
+                    <td class="text-end">${formattedValue}</td>
+                    ${data.type === 'quantity' && data.daily_product_stats && data.daily_product_stats.length > 0 ? `<td class="text-center">${productInfo}</td>` : ''}
+                </tr>
+            `;
+        });
+    }
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    document.getElementById('dailyDataContent').innerHTML = html;
+}
+</script>
+
 {% endblock %} 
