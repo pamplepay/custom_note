@@ -1,6 +1,6 @@
 import os
 import logging
-from ftplib import FTP
+from ftplib import FTP, FTP_TLS
 from datetime import datetime
 from django.conf import settings
 from django.utils import timezone
@@ -17,16 +17,74 @@ class FTPDataService:
         self.ftp = None
     
     def connect(self):
-        """FTP 서버에 연결"""
+        """FTP 서버에 연결 (FTPS 지원)"""
         try:
+            # 먼저 일반 FTP로 시도
             self.ftp = FTP()
-            self.ftp.connect(self.server_config.host, self.server_config.port)
-            self.ftp.login(self.server_config.username, self.server_config.password)
+            self.ftp.connect(str(self.server_config.host), int(self.server_config.port), timeout=30)
+            
+            # 패시브 모드 설정
+            self.ftp.set_pasv(True)
+            
+            # 로그인 시도
+            self.ftp.login(str(self.server_config.username), str(self.server_config.password))
+            
+            # 연결 확인
+            self.ftp.voidcmd("NOOP")
+            
             logger.info(f"FTP 연결 성공: {self.server_config.host}")
             return True
+            
         except Exception as e:
-            logger.error(f"FTP 연결 실패: {self.server_config.host} - {str(e)}")
-            return False
+            error_msg = str(e)
+            if "530" in error_msg:
+                logger.error(f"FTP 인증 실패: {self.server_config.host} - 사용자명/비밀번호 확인 필요")
+                return False
+            elif "421" in error_msg:
+                logger.error(f"FTP 서버 연결 거부: {self.server_config.host} - 서버가 연결을 거부했습니다")
+                return False
+            elif "Connection refused" in error_msg:
+                logger.error(f"FTP 서버 연결 실패: {self.server_config.host} - 서버가 실행 중이 아니거나 포트가 잘못되었습니다")
+                return False
+            
+            # 일반 FTP 실패 시 FTPS 시도 (TLS 정책 오류가 아닌 경우에만)
+            if "534" not in error_msg:  # TLS 정책 오류가 아닌 경우에만 FTPS 시도
+                logger.warning(f"일반 FTP 연결 실패, FTPS 시도: {self.server_config.host} - {error_msg}")
+                
+                try:
+                    self.ftp = FTP_TLS()
+                    self.ftp.connect(str(self.server_config.host), int(self.server_config.port), timeout=30)
+                    
+                    # TLS 보안 설정
+                    self.ftp.auth()
+                    
+                    # 패시브 모드 설정
+                    self.ftp.set_pasv(True)
+                    
+                    # 로그인 시도
+                    self.ftp.login(str(self.server_config.username), str(self.server_config.password))
+                    
+                    # 데이터 채널 암호화
+                    self.ftp.prot_p()
+                    
+                    # 연결 확인
+                    self.ftp.voidcmd("NOOP")
+                    
+                    logger.info(f"FTPS 연결 성공: {self.server_config.host}")
+                    return True
+                    
+                except Exception as ftps_error:
+                    ftps_error_msg = str(ftps_error)
+                    if "530" in ftps_error_msg:
+                        logger.error(f"FTPS 인증 실패: {self.server_config.host} - 사용자명/비밀번호 확인 필요")
+                    elif "534" in ftps_error_msg:
+                        logger.error(f"FTPS 정책 오류: {self.server_config.host} - 서버에서 TLS 연결을 허용하지 않습니다")
+                    else:
+                        logger.error(f"FTPS 연결 실패: {self.server_config.host} - {ftps_error_msg}")
+                    return False
+            else:
+                logger.error(f"FTP 연결 실패: {self.server_config.host} - {error_msg}")
+                return False
     
     def disconnect(self):
         """FTP 연결 해제"""
@@ -44,7 +102,7 @@ class FTPDataService:
                 return []
         
         try:
-            path = remote_path or self.server_config.remote_path
+            path = remote_path or str(self.server_config.remote_path)
             files = []
             self.ftp.cwd(path)
             file_list = self.ftp.nlst()
@@ -70,7 +128,7 @@ class FTPDataService:
     def _matches_pattern(self, filename):
         """파일명이 패턴과 일치하는지 확인"""
         import fnmatch
-        return fnmatch.fnmatch(filename, self.server_config.file_pattern)
+        return fnmatch.fnmatch(filename, str(self.server_config.file_pattern))
     
     def download_file(self, remote_filename, local_filename=None):
         """파일 다운로드"""

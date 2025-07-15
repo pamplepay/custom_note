@@ -622,6 +622,42 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // 뒤로 가기 버튼 처리
+    window.addEventListener('popstate', function(event) {
+        // 열린 모달들 확인
+        const openModals = document.querySelectorAll('.modal.show');
+        
+        if (openModals.length > 0) {
+            // 가장 최근에 열린 모달 닫기
+            const lastOpenModal = openModals[openModals.length - 1];
+            const modalInstance = bootstrap.Modal.getInstance(lastOpenModal);
+            
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+            
+            // 브라우저 히스토리에서 뒤로 가기 이벤트 무효화
+            event.preventDefault();
+            history.pushState(null, null, window.location.href);
+        }
+    });
+    
+    // alertModal에 히스토리 관리 추가
+    const alertModal = document.getElementById('alertModal');
+    if (alertModal) {
+        alertModal.addEventListener('show.bs.modal', function() {
+            // 모달이 열릴 때 히스토리에 상태 추가
+            history.pushState({modal: 'alertModal'}, null, window.location.href);
+        });
+        
+        alertModal.addEventListener('hidden.bs.modal', function() {
+            // 모달이 닫힐 때 히스토리에서 상태 제거 (뒤로 가기로 닫힌 경우가 아닌 경우)
+            if (history.state && history.state.modal === 'alertModal') {
+                history.back();
+            }
+        });
+    }
+    
     // 일괄 등록 폼 제출
     const bulkForm = document.getElementById('bulkCardForm');
     if (bulkForm) {

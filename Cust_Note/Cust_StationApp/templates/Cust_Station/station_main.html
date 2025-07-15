@@ -318,12 +318,12 @@
 </div>
 
 <!-- 날짜별 상세 데이터 모달 -->
-<div class="modal fade" id="dailyDataModal" tabindex="-1" aria-labelledby="dailyDataModalLabel" aria-hidden="true">
+<div class="modal fade" id="dailyDataModal" tabindex="-1" aria-labelledby="dailyDataModalLabel">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="dailyDataModalLabel">날짜별 상세 데이터</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기" tabindex="0"></button>
             </div>
             <div class="modal-body">
                 <div id="dailyDataContent">
@@ -367,9 +367,34 @@
 
 <script>
 function showDailyData(month, type) {
+    const modalElement = document.getElementById('dailyDataModal');
+    const modal = new bootstrap.Modal(modalElement);
+    
+    // 모달 이벤트 리스너 추가 (접근성 개선)
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        // 모달이 닫힐 때 포커스를 안전한 곳으로 이동
+        const closeButton = modalElement.querySelector('.btn-close');
+        if (closeButton) {
+            closeButton.blur();
+        }
+        // 모달 내부의 모든 포커스 가능한 요소들의 포커스 제거
+        const focusableElements = modalElement.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        focusableElements.forEach(element => {
+            element.blur();
+        });
+    });
+    
+    // 모달이 열릴 때 포커스 관리
+    modalElement.addEventListener('shown.bs.modal', function () {
+        // 모달이 열린 후 첫 번째 포커스 가능한 요소에 포커스
+        const firstFocusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (firstFocusable) {
+            firstFocusable.focus();
+        }
+    });
+    
     if (!month) {
         // 모달을 열고 데이터가 없다는 메시지 표시
-        const modal = new bootstrap.Modal(document.getElementById('dailyDataModal'));
         modal.show();
         
         document.getElementById('dailyDataContent').innerHTML = `
@@ -383,7 +408,6 @@ function showDailyData(month, type) {
     }
     
     // 모달 표시
-    const modal = new bootstrap.Modal(document.getElementById('dailyDataModal'));
     modal.show();
     
     // 로딩 상태 표시
@@ -398,7 +422,12 @@ function showDailyData(month, type) {
     
     // AJAX 요청
     fetch(`{% url 'station:get_daily_sales_data' %}?month=${month}&type=${type}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 displayDailyData(data);
@@ -546,6 +575,63 @@ function displayDailyData(data) {
     
     document.getElementById('dailyDataContent').innerHTML = html;
 }
+
+// 전역 모달 접근성 개선
+document.addEventListener('DOMContentLoaded', function() {
+    const modalElement = document.getElementById('dailyDataModal');
+    
+    if (modalElement) {
+        // 모달이 닫히기 전에 포커스 제거
+        modalElement.addEventListener('hide.bs.modal', function () {
+            const activeElement = document.activeElement;
+            if (activeElement && modalElement.contains(activeElement)) {
+                activeElement.blur();
+            }
+        });
+        
+        // 모달이 완전히 닫힌 후 포커스 복원
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            // 모달을 열기 전에 포커스했던 요소로 돌아가기
+            const triggerElement = document.querySelector('[data-bs-target="#dailyDataModal"]');
+            if (triggerElement) {
+                triggerElement.focus();
+            }
+        });
+        
+        // 모달이 열릴 때 히스토리에 상태 추가
+        modalElement.addEventListener('show.bs.modal', function() {
+            // 모달이 열릴 때 히스토리에 상태 추가
+            history.pushState({modal: 'dailyDataModal'}, null, window.location.href);
+        });
+        
+        modalElement.addEventListener('hidden.bs.modal', function() {
+            // 모달이 닫힐 때 히스토리에서 상태 제거 (뒤로 가기로 닫힌 경우가 아닌 경우)
+            if (history.state && history.state.modal === 'dailyDataModal') {
+                history.back();
+            }
+        });
+    }
+    
+    // 뒤로 가기 버튼 처리
+    window.addEventListener('popstate', function(event) {
+        // 열린 모달들 확인
+        const openModals = document.querySelectorAll('.modal.show');
+        
+        if (openModals.length > 0) {
+            // 가장 최근에 열린 모달 닫기
+            const lastOpenModal = openModals[openModals.length - 1];
+            const modalInstance = bootstrap.Modal.getInstance(lastOpenModal);
+            
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+            
+            // 브라우저 히스토리에서 뒤로 가기 이벤트 무효화
+            event.preventDefault();
+            history.pushState(null, null, window.location.href);
+        }
+    });
+});
 </script>
 
 {% endblock %} 

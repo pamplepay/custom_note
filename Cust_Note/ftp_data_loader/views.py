@@ -186,24 +186,43 @@ def ftp_test_connection(request, server_id):
     
     try:
         service = FTPDataService(server)
+        
+        # 연결 시도
         if service.connect():
+            # 파일 목록 조회
             files = service.list_files()
             service.disconnect()
             
-            return JsonResponse({
-                'success': True,
-                'message': f'연결 성공! {len(files)}개 파일 발견',
-                'files': files
-            })
+            file_count = len(files)
+            if file_count > 0:
+                file_names = [f['name'] for f in files[:5]]  # 처음 5개 파일명만
+                if file_count > 5:
+                    file_names.append(f"... 외 {file_count - 5}개")
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': f'연결 성공! {file_count}개 파일 발견',
+                    'files': file_names,
+                    'details': f'서버: {server.host}:{server.port}, 사용자: {server.username}'
+                })
+            else:
+                return JsonResponse({
+                    'success': True,
+                    'message': '연결 성공! 하지만 지정된 패턴에 맞는 파일이 없습니다.',
+                    'files': [],
+                    'details': f'서버: {server.host}:{server.port}, 패턴: {server.file_pattern}'
+                })
         else:
             return JsonResponse({
                 'success': False,
-                'message': 'FTP 서버에 연결할 수 없습니다.'
+                'message': 'FTP 서버에 연결할 수 없습니다.',
+                'details': f'서버: {server.host}:{server.port}, 사용자: {server.username}'
             })
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'message': f'연결 테스트 중 오류 발생: {str(e)}'
+            'message': f'연결 테스트 중 오류 발생: {str(e)}',
+            'details': f'서버: {server.host}:{server.port}'
         })
 
 

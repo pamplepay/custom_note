@@ -1,0 +1,248 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if server %}FTP 서버 설정 수정{% else %}FTP 서버 설정 생성{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-server me-2"></i>
+                    {% if server %}FTP 서버 설정 수정{% else %}FTP 서버 설정 생성{% endif %}
+                </h2>
+                <a href="{% url 'ftp_data_loader:server_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>목록으로
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cog me-2"></i>서버 정보
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label">서버 이름 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       value="{{ server.name|default:'' }}" required>
+                                <div class="form-text">서버를 구분하기 위한 이름을 입력하세요.</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="host" class="form-label">호스트 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="host" name="host" 
+                                       value="{{ server.host|default:'' }}" required>
+                                <div class="form-text">FTP 서버의 IP 주소 또는 도메인을 입력하세요.</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="port" class="form-label">포트</label>
+                                <input type="number" class="form-control" id="port" name="port" 
+                                       value="{{ server.port|default:21 }}" min="1" max="65535">
+                                <div class="form-text">기본값: 21</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="username" class="form-label">사용자명 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="username" name="username" 
+                                       value="{{ server.username|default:'' }}" required>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="password" class="form-label">비밀번호 <span class="text-danger">*</span></label>
+                                <input type="password" class="form-control" id="password" name="password" 
+                                       value="{{ server.password|default:'' }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="remote_path" class="form-label">원격 경로</label>
+                                <input type="text" class="form-control" id="remote_path" name="remote_path" 
+                                       value="{{ server.remote_path|default:'/' }}">
+                                <div class="form-text">다운로드할 파일이 있는 원격 디렉토리 경로</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="local_path" class="form-label">로컬 경로 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="local_path" name="local_path" 
+                                       value="{{ server.local_path|default:'' }}" required>
+                                <div class="form-text">다운로드한 파일을 저장할 로컬 디렉토리 경로</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="file_pattern" class="form-label">파일 패턴</label>
+                                <input type="text" class="form-control" id="file_pattern" name="file_pattern" 
+                                       value="{{ server.file_pattern|default:'*.xlsx' }}">
+                                <div class="form-text">다운로드할 파일 패턴 (예: *.xlsx, *.csv)</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="is_active" name="is_active" 
+                                           {% if server.is_active or not server %}checked{% endif %}>
+                                    <label class="form-check-label" for="is_active">
+                                        활성화
+                                    </label>
+                                    <div class="form-text">이 서버에서 자동으로 파일을 다운로드합니다.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'ftp_data_loader:server_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>취소
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>
+                                {% if server %}수정{% else %}생성{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% if server %}
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-tools me-2"></i>서버 테스트
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <button type="button" class="btn btn-outline-info w-100" onclick="testConnection()">
+                                <i class="fas fa-plug me-1"></i>연결 테스트
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <form method="post" action="{% url 'ftp_data_loader:download_files' server.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-success w-100">
+                                    <i class="fas fa-download me-1"></i>파일 다운로드
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <div id="testResult" class="mt-3"></div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 연결 문제 해결 도움말 -->
+            <div class="card shadow-sm border-0 mt-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-question-circle me-2"></i>연결 문제 해결
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="helpAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingOne">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+                                    <i class="fas fa-user-lock me-2"></i>인증 오류 (530 User cannot log in)
+                                </button>
+                            </h2>
+                            <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <ul class="mb-0">
+                                        <li>사용자명과 비밀번호가 정확한지 확인하세요</li>
+                                        <li>대소문자를 구분하여 입력하세요</li>
+                                        <li>특수문자가 포함된 경우 인코딩 문제일 수 있습니다</li>
+                                        <li>FTP 서버 관리자에게 접근 권한을 확인하세요</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingTwo">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                                    <i class="fas fa-network-wired me-2"></i>연결 거부 (Connection refused)
+                                </button>
+                            </h2>
+                            <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <ul class="mb-0">
+                                        <li>FTP 서버가 실행 중인지 확인하세요</li>
+                                        <li>포트 번호가 올바른지 확인하세요 (기본: 21)</li>
+                                        <li>방화벽에서 FTP 포트가 차단되지 않았는지 확인하세요</li>
+                                        <li>서버 주소가 올바른지 확인하세요</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingThree">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+                                    <i class="fas fa-shield-alt me-2"></i>방화벽/네트워크 문제
+                                </button>
+                            </h2>
+                            <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                <div class="accordion-body">
+                                    <ul class="mb-0">
+                                        <li>패시브 모드가 자동으로 설정됩니다</li>
+                                        <li>기업 네트워크에서는 FTP가 차단될 수 있습니다</li>
+                                        <li>SFTP(SSH FTP) 사용을 고려해보세요</li>
+                                        <li>네트워크 관리자에게 문의하세요</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if server %}
+<script>
+function testConnection() {
+    const resultDiv = document.getElementById('testResult');
+    resultDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin me-2"></i>연결 테스트 중...</div>';
+    
+    fetch('{% url "ftp_data_loader:test_connection" server.id %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let html = `<div class="alert alert-success"><i class="fas fa-check me-2"></i>${data.message}</div>`;
+                if (data.details) {
+                    html += `<div class="mt-2"><small class="text-muted">${data.details}</small></div>`;
+                }
+                if (data.files && data.files.length > 0) {
+                    html += `<div class="mt-2"><strong>발견된 파일:</strong><br>`;
+                    html += `<small class="text-muted">${data.files.join(', ')}</small></div>`;
+                }
+                resultDiv.innerHTML = html;
+            } else {
+                let html = `<div class="alert alert-danger"><i class="fas fa-times me-2"></i>${data.message}</div>`;
+                if (data.details) {
+                    html += `<div class="mt-2"><small class="text-muted">${data.details}</small></div>`;
+                }
+                resultDiv.innerHTML = html;
+            }
+        })
+        .catch(error => {
+            resultDiv.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times me-2"></i>테스트 중 오류가 발생했습니다: ${error}</div>`;
+        });
+}
+</script>
+{% endif %}
+{% endblock %} 

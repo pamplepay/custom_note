@@ -97,12 +97,12 @@
 
 <!-- 주유소 상세정보 모달 -->
 {% for station in stations %}
-<div class="modal fade" id="stationModal{{ station.id }}" tabindex="-1" aria-labelledby="stationModalLabel{{ station.id }}" aria-hidden="true">
+<div class="modal fade" id="stationModal{{ station.id }}" tabindex="-1" aria-labelledby="stationModalLabel{{ station.id }}">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="stationModalLabel{{ station.id }}">{{ station.station_name }} 상세정보</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
             </div>
             <div class="modal-body">
                 <dl class="row">
@@ -149,4 +149,72 @@
         overflow: hidden;
     }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 모든 주유소 모달에 접근성 개선 적용
+    const stationModals = document.querySelectorAll('[id^="stationModal"]');
+    
+    stationModals.forEach(modalElement => {
+        // 모달이 닫히기 전에 포커스 제거
+        modalElement.addEventListener('hide.bs.modal', function () {
+            const activeElement = document.activeElement;
+            if (activeElement && modalElement.contains(activeElement)) {
+                activeElement.blur();
+            }
+        });
+        
+        // 모달이 완전히 닫힌 후 포커스 복원
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            // 모달을 열기 전에 포커스했던 요소로 돌아가기
+            const triggerElement = document.querySelector(`[data-bs-target="#${modalElement.id}"]`);
+            if (triggerElement) {
+                triggerElement.focus();
+            }
+        });
+        
+        // 모달이 열린 후 첫 번째 포커스 가능한 요소에 포커스
+        modalElement.addEventListener('shown.bs.modal', function () {
+            const firstFocusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (firstFocusable) {
+                firstFocusable.focus();
+            }
+        });
+        
+        // 모달이 열릴 때 히스토리에 상태 추가
+        modalElement.addEventListener('show.bs.modal', function() {
+            history.pushState({modal: modalElement.id}, null, window.location.href);
+        });
+        
+        modalElement.addEventListener('hidden.bs.modal', function() {
+            // 모달이 닫힐 때 히스토리에서 상태 제거 (뒤로 가기로 닫힌 경우가 아닌 경우)
+            if (history.state && history.state.modal === modalElement.id) {
+                history.back();
+            }
+        });
+    });
+    
+    // 뒤로 가기 버튼 처리
+    window.addEventListener('popstate', function(event) {
+        // 열린 모달들 확인
+        const openModals = document.querySelectorAll('.modal.show');
+        
+        if (openModals.length > 0) {
+            // 가장 최근에 열린 모달 닫기
+            const lastOpenModal = openModals[openModals.length - 1];
+            const modalInstance = bootstrap.Modal.getInstance(lastOpenModal);
+            
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+            
+            // 브라우저 히스토리에서 뒤로 가기 이벤트 무효화
+            event.preventDefault();
+            history.pushState(null, null, window.location.href);
+        }
+    });
+});
+</script>
 {% endblock %} 

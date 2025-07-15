@@ -371,7 +371,10 @@ def get_daily_sales_data(request):
         
     except Exception as e:
         logger.error(f"날짜별 판매 데이터 조회 중 오류: {str(e)}")
-        return JsonResponse({'error': f'데이터 조회 중 오류가 발생했습니다: {str(e)}'}, status=500)
+        return JsonResponse({
+            'success': False,
+            'error': f'데이터 조회 중 오류가 발생했습니다: {str(e)}'
+        }, status=500)
 
 @login_required
 def station_management(request):

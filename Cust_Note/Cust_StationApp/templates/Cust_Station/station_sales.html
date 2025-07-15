@@ -358,12 +358,12 @@
 </div>
 
 <!-- 상세보기 모달 (개별) -->
-<div class="modal fade" id="statisticsModal" tabindex="-1" aria-labelledby="statisticsModalLabel" aria-hidden="true">
+<div class="modal fade" id="statisticsModal" tabindex="-1" aria-labelledby="statisticsModalLabel">
     <div class="modal-dialog modal-lg modal-dialog-centered" style="margin-top: 80px;">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="statisticsModalLabel">매출 상세 정보</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기" tabindex="0"></button>
             </div>
             <div class="modal-body">
                 <div id="statisticsDetails">
@@ -378,12 +378,12 @@
 </div>
 
 <!-- 전체 리스트 상세보기 모달 -->
-<div class="modal fade" id="statisticsListModal" tabindex="-1" aria-labelledby="statisticsListModalLabel" aria-hidden="true">
+<div class="modal fade" id="statisticsListModal" tabindex="-1" aria-labelledby="statisticsListModalLabel">
     <div class="modal-dialog modal-xl modal-dialog-centered" style="margin-top: 80px;">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="statisticsListModalLabel">전체 매출 통계 상세 리스트</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기" tabindex="0"></button>
             </div>
             <div class="modal-body">
                 <div id="statisticsListDetails">
@@ -398,12 +398,12 @@
 </div>
 
 <!-- 매출 리스트 상세보기 모달 -->
-<div class="modal fade" id="salesListModal" tabindex="-1" aria-labelledby="salesListModalLabel" aria-hidden="true">
+<div class="modal fade" id="salesListModal" tabindex="-1" aria-labelledby="salesListModalLabel">
     <div class="modal-dialog modal-xl modal-dialog-centered" style="margin-top: 80px;">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="salesListModalLabel">매출 리스트 상세보기</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기" tabindex="0"></button>
             </div>
             <div class="modal-body">
                 <div id="salesListDetails">
@@ -661,8 +661,34 @@ if (typeof window.salesPageInitialized === 'undefined') {
                         </div>
                     `;
                     
-                    // 모달 표시
-                    const modal = new bootstrap.Modal(document.getElementById('statisticsModal'));
+                    // 모달 표시 (접근성 개선)
+                    const modalElement = document.getElementById('statisticsModal');
+                    const modal = new bootstrap.Modal(modalElement);
+                    
+                    // 모달 접근성 이벤트 리스너 추가
+                    modalElement.addEventListener('hide.bs.modal', function () {
+                        const activeElement = document.activeElement;
+                        if (activeElement && modalElement.contains(activeElement)) {
+                            activeElement.blur();
+                        }
+                    });
+                    
+                    modalElement.addEventListener('hidden.bs.modal', function () {
+                        // 모달을 열기 전에 포커스했던 요소로 돌아가기
+                        const triggerElement = document.querySelector('[data-bs-target="#statisticsModal"]');
+                        if (triggerElement) {
+                            triggerElement.focus();
+                        }
+                    });
+                    
+                    modalElement.addEventListener('shown.bs.modal', function () {
+                        // 모달이 열린 후 첫 번째 포커스 가능한 요소에 포커스
+                        const firstFocusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                        if (firstFocusable) {
+                            firstFocusable.focus();
+                        }
+                    });
+                    
                     modal.show();
                     
                     // 해당 날짜의 상세 데이터 가져오기
@@ -775,8 +801,34 @@ if (typeof window.salesPageInitialized === 'undefined') {
                         </div>
                     `;
                     
-                    // 모달 표시
-                    const modal = new bootstrap.Modal(document.getElementById('salesListModal'));
+                    // 모달 표시 (접근성 개선)
+                    const modalElement = document.getElementById('salesListModal');
+                    const modal = new bootstrap.Modal(modalElement);
+                    
+                    // 모달 접근성 이벤트 리스너 추가
+                    modalElement.addEventListener('hide.bs.modal', function () {
+                        const activeElement = document.activeElement;
+                        if (activeElement && modalElement.contains(activeElement)) {
+                            activeElement.blur();
+                        }
+                    });
+                    
+                    modalElement.addEventListener('hidden.bs.modal', function () {
+                        // 모달을 열기 전에 포커스했던 요소로 돌아가기
+                        const triggerElement = document.querySelector('[data-bs-target="#salesListModal"]');
+                        if (triggerElement) {
+                            triggerElement.focus();
+                        }
+                    });
+                    
+                    modalElement.addEventListener('shown.bs.modal', function () {
+                        // 모달이 열린 후 첫 번째 포커스 가능한 요소에 포커스
+                        const firstFocusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                        if (firstFocusable) {
+                            firstFocusable.focus();
+                        }
+                    });
+                    
                     modal.show();
                     
                     // 해당 날짜의 매출 리스트 데이터 가져오기
@@ -870,8 +922,34 @@ if (typeof window.salesPageInitialized === 'undefined') {
                         <p class="mt-2">전체 리스트를 불러오는 중...</p>
                     </div>
                 `;
-                // 모달 표시
-                const modal = new bootstrap.Modal(document.getElementById('statisticsListModal'));
+                // 모달 표시 (접근성 개선)
+                const modalElement = document.getElementById('statisticsListModal');
+                const modal = new bootstrap.Modal(modalElement);
+                
+                // 모달 접근성 이벤트 리스너 추가
+                modalElement.addEventListener('hide.bs.modal', function () {
+                    const activeElement = document.activeElement;
+                    if (activeElement && modalElement.contains(activeElement)) {
+                        activeElement.blur();
+                    }
+                });
+                
+                modalElement.addEventListener('hidden.bs.modal', function () {
+                    // 모달을 열기 전에 포커스했던 요소로 돌아가기
+                    const triggerElement = document.querySelector('[data-bs-target="#statisticsListModal"]');
+                    if (triggerElement) {
+                        triggerElement.focus();
+                    }
+                });
+                
+                modalElement.addEventListener('shown.bs.modal', function () {
+                    // 모달이 열린 후 첫 번째 포커스 가능한 요소에 포커스
+                    const firstFocusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                    if (firstFocusable) {
+                        firstFocusable.focus();
+                    }
+                });
+                
                 modal.show();
                 // 전체 리스트 데이터 가져오기 (API 필요, 예시 URL)
                 fetch('{% url "station:get_sales_statistics_list" %}')
@@ -898,6 +976,48 @@ if (typeof window.salesPageInitialized === 'undefined') {
                     });
             });
         }
+        
+        // 뒤로 가기 버튼 처리
+        window.addEventListener('popstate', function(event) {
+            // 열린 모달들 확인
+            const openModals = document.querySelectorAll('.modal.show');
+            
+            if (openModals.length > 0) {
+                // 가장 최근에 열린 모달 닫기
+                const lastOpenModal = openModals[openModals.length - 1];
+                const modalInstance = bootstrap.Modal.getInstance(lastOpenModal);
+                
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+                
+                // 브라우저 히스토리에서 뒤로 가기 이벤트 무효화
+                event.preventDefault();
+                history.pushState(null, null, window.location.href);
+            }
+        });
+        
+        // 모달이 열릴 때 히스토리에 상태 추가
+        document.addEventListener('DOMContentLoaded', function() {
+            const modals = ['statisticsModal', 'statisticsListModal', 'salesListModal'];
+            
+            modals.forEach(modalId => {
+                const modalElement = document.getElementById(modalId);
+                if (modalElement) {
+                    modalElement.addEventListener('show.bs.modal', function() {
+                        // 모달이 열릴 때 히스토리에 상태 추가
+                        history.pushState({modal: modalId}, null, window.location.href);
+                    });
+                    
+                    modalElement.addEventListener('hidden.bs.modal', function() {
+                        // 모달이 닫힐 때 히스토리에서 상태 제거 (뒤로 가기로 닫힌 경우가 아닌 경우)
+                        if (history.state && history.state.modal === modalId) {
+                            history.back();
+                        }
+                    });
+                }
+            });
+        });
     })();
 }
 </script>
