@@ -1,0 +1,184 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}FTP 데이터 로더 - 대시보드{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="mb-0">
+                    <i class="fas fa-server me-2"></i>FTP 데이터 로더
+                </h2>
+                <div>
+                    <a href="{% url 'ftp_data_loader:server_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-1"></i>FTP 서버 추가
+                    </a>
+                    <form method="post" action="{% url 'ftp_data_loader:bulk_download' %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success ms-2">
+                            <i class="fas fa-download me-1"></i>일괄 다운로드
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-server fa-2x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">전체 서버</h5>
+                    <h3 class="text-primary mb-0">{{ total_configs }}개</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-check-circle fa-2x text-success"></i>
+                    </div>
+                    <h5 class="card-title">활성 서버</h5>
+                    <h3 class="text-success mb-0">{{ active_configs }}개</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-info bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-download fa-2x text-info"></i>
+                    </div>
+                    <h5 class="card-title">완료된 다운로드</h5>
+                    <h3 class="text-info mb-0">{{ status_stats.completed }}개</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-danger bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                    </div>
+                    <h5 class="card-title">실패한 다운로드</h5>
+                    <h3 class="text-danger mb-0">{{ status_stats.failed }}개</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 최근 다운로드 로그 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history me-2"></i>최근 다운로드 로그
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_logs %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>파일명</th>
+                                        <th>서버</th>
+                                        <th>상태</th>
+                                        <th>파일 크기</th>
+                                        <th>다운로드 시간</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in recent_logs %}
+                                    <tr>
+                                        <td>{{ log.filename }}</td>
+                                        <td>{{ log.server_config.name }}</td>
+                                        <td>
+                                            {% if log.status == 'completed' %}
+                                                <span class="badge bg-success">완료</span>
+                                            {% elif log.status == 'failed' %}
+                                                <span class="badge bg-danger">실패</span>
+                                            {% elif log.status == 'downloading' %}
+                                                <span class="badge bg-warning">다운로드 중</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ log.get_status_display }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if log.file_size %}
+                                                {{ log.file_size|filesizeformat }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ log.downloaded_at|default:"-" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="text-center mt-3">
+                            <a href="{% url 'ftp_data_loader:log_list' %}" class="btn btn-outline-primary">
+                                전체 로그 보기
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">아직 다운로드 로그가 없습니다.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 빠른 액션 -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt me-2"></i>빠른 액션
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'ftp_data_loader:server_list' %}" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-list me-2"></i>서버 목록
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'ftp_data_loader:server_create' %}" class="btn btn-outline-success w-100">
+                                <i class="fas fa-plus me-2"></i>서버 추가
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'ftp_data_loader:log_list' %}" class="btn btn-outline-info w-100">
+                                <i class="fas fa-history me-2"></i>로그 보기
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <form method="post" action="{% url 'ftp_data_loader:bulk_download' %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-warning w-100">
+                                    <i class="fas fa-download me-2"></i>일괄 다운로드
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

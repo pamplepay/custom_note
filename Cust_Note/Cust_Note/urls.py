@@ -39,6 +39,7 @@ urlpatterns = [
     path('station/', include('Cust_StationApp.urls')),
     path('user/', include('Cust_User.urls')),
     path('customer/', include('Cust_UserApp.urls')),
+    path('ftp/', include('ftp_data_loader.urls')),
     
     # Favicon
     path('favicon.ico', serve, {

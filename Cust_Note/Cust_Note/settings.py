@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "Cust_UserApp",
     "Cust_StationApp",
     'excel_sample.apps.ExcelSampleConfig',  # 엑셀 샘플 앱 추가
+    'ftp_data_loader',  # FTP 데이터 로더 앱 추가
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',

@@ -127,6 +127,8 @@ def station_main(request):
     current_month_amount = current_month_visits.aggregate(
         total_amount=Sum('sale_amount')
     )['total_amount'] or 0
+    # 소수점 이하 제거
+    current_month_amount = int(current_month_amount) if current_month_amount else 0
     
     # 전월 방문횟수 및 주유금액
     previous_month_visits = CustomerVisitHistory.objects.filter(
@@ -138,6 +140,8 @@ def station_main(request):
     previous_month_amount = previous_month_visits.aggregate(
         total_amount=Sum('sale_amount')
     )['total_amount'] or 0
+    # 소수점 이하 제거
+    previous_month_amount = int(previous_month_amount) if previous_month_amount else 0
     
     # 월별 매출 통계 데이터 가져오기
     monthly_stats = None
@@ -200,8 +204,8 @@ def station_main(request):
             monthly_stats = {
                 'current_month': current_monthly,
                 'previous_month': previous_monthly,
-                'current_month_str': current_month,
-                'previous_month_str': previous_month,
+                'current_month_str': current_month_str,
+                'previous_month_str': previous_month_str,
                 'previous_top_products': previous_top_products,
                 'current_top_products': current_top_products,
                 'previous_top_products_by_amount': previous_top_products_by_amount,
@@ -231,7 +235,7 @@ def get_daily_sales_data(request):
         return JsonResponse({'error': '주유소 회원만 접근할 수 있습니다.'}, status=403)
     
     try:
-        from .models import SalesStatistics, MonthlySalesStatistics
+        from .models import SalesStatistics, MonthlySalesStatistics, ExcelSalesData
         from datetime import datetime
         
         # TID 가져오기
@@ -313,7 +317,6 @@ def get_daily_sales_data(request):
                     })
         
         # 각 날짜별로 상위 2개 제품의 실제 판매 현황 계산
-        from .models import ExcelSalesData
         daily_product_stats = []
         for stat in daily_stats:
             # 해당 날짜의 모든 ExcelSalesData 조회
