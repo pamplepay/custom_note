@@ -37,6 +37,9 @@
                                     {% endfor %}
                                 </select>
                             </div>
+                            <div class="col-auto align-self-center">
+                                <span class="fw-bold">({{ year }}년 {{ month }}월 총 주유금액: {{ monthly_total_amount|floatformat:0|intcomma }}원)</span>
+                            </div>
                         </div>
                     </form>
                     <!-- PC: 테이블 -->

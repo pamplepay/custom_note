@@ -113,6 +113,21 @@
         background-color: #0b5ed7;
         border-color: #0a58ca;
     }
+    
+    /* 화살표 버튼 호버 효과 */
+    .toggle-accordion:hover {
+        background-color: rgba(0, 123, 255, 0.1) !important;
+        transform: scale(1.1);
+    }
+    
+    .toggle-accordion:hover i {
+        color: #0d6efd !important;
+    }
+    
+    /* 카드 헤더 호버 효과 */
+    .customer-card-header:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
 </style>
 {% endblock %}
 
@@ -153,7 +168,7 @@
                                 </div>
                                 <div>
                                     <h6 class="text-muted mb-1">이번 달 방문</h6>
-                                    <h3 class="mb-0">0명</h3>
+                                    <h3 class="mb-0">{{ this_month_visitors }}명</h3>
                                 </div>
                             </div>
                         </div>                        
@@ -174,20 +189,24 @@
                         <div class="card border-0 shadow-sm mb-3">
                             <div class="card-body p-0">
                                 <div class="accordion-item border-0">
-                                    <div class="d-flex justify-content-between align-items-center p-3">
+                                    <div class="d-flex justify-content-between align-items-center p-3 customer-card-header" 
+                                         style="cursor: pointer;" 
+                                         data-customer-id="{{ customer.id }}">
                                         <div class="d-flex align-items-center">
                                             <i class="fas fa-user-circle text-primary me-3 fs-4"></i>
-                                            <div>
+                                            <div class="flex-grow-1">
                                                 <h6 class="mb-0">{{ customer.phone|default:'-' }}</h6>
                                                 <small class="text-muted">카드: {{ customer.card_number|default:'-' }}</small>
                                             </div>
                                         </div>
-                                        <div class="d-flex align-items-center">
-                                            <button class="btn btn-link text-decoration-none p-0 toggle-accordion" 
+                                        <div class="d-flex align-items-center ms-3">
+                                            <button class="btn btn-link text-decoration-none p-2 toggle-accordion" 
                                                     type="button" 
                                                     data-customer-id="{{ customer.id }}"
-                                                    aria-expanded="false">
-                                                <i class="fas fa-chevron-down"></i>
+                                                    aria-expanded="false"
+                                                    onclick="event.stopPropagation();"
+                                                    style="border-radius: 50%; transition: all 0.2s ease;">
+                                                <i class="fas fa-chevron-down text-muted"></i>
                                             </button>
                                         </div>
                                     </div>
@@ -202,16 +221,22 @@
                                                             <span>{{ customer.membership_card|default:'-' }}</span>
                                                         </div>
                                                     </div> -->
-                                                    <div class="col-12">
+                                                    <!-- <div class="col-12">
                                                         <div class="d-flex justify-content-between align-items-center">
                                                             <span class="text-muted">최근 방문</span>
                                                             <span>{{ customer.last_visit|default:'-' }}</span>
                                                         </div>
-                                                    </div>
+                                                    </div> -->
                                                     <div class="col-12">
                                                         <div class="d-flex justify-content-between align-items-center">
                                                             <span class="text-muted">총 방문 횟수</span>
-                                                            <span>{{ customer.visit_count|default:'0' }}회</span>
+                                                            <span>{{ customer.total_visit_count|default:'0' }}회</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <span class="text-muted">총 주유 금액</span>
+                                                            <span>{{ customer.total_fuel_amount|default:'0'|floatformat:0 }}원</span>
                                                         </div>
                                                     </div>
                                                     <div class="col-12 mt-3">
@@ -1469,37 +1494,53 @@ document.getElementById('refresh-cards-btn').addEventListener('click', refreshUn
 
 // 아코디언 토글 기능
 document.addEventListener('DOMContentLoaded', function() {
-    const accordionToggles = document.querySelectorAll('.toggle-accordion');
-    
-    accordionToggles.forEach(toggle => {
-        toggle.addEventListener('click', function() {
-            const customerId = this.dataset.customerId;
-            const collapseElement = document.getElementById(`customerCollapse-${customerId}`);
-            const icon = this.querySelector('i');
-            const isExpanded = this.getAttribute('aria-expanded') === 'true';
-            
-            // 다른 모든 아코디언 닫기
-            document.querySelectorAll('.accordion-collapse').forEach(collapse => {
-                if (collapse.id !== `customerCollapse-${customerId}`) {
-                    collapse.classList.remove('show');
-                    const otherToggle = document.querySelector(`[data-customer-id="${collapse.id.split('-')[1]}"]`);
-                    if (otherToggle) {
-                        otherToggle.setAttribute('aria-expanded', 'false');
-                        otherToggle.querySelector('i').className = 'fas fa-chevron-down';
-                    }
+    // 아코디언 토글 함수
+    function toggleAccordion(customerId) {
+        const collapseElement = document.getElementById(`customerCollapse-${customerId}`);
+        const toggleButton = document.querySelector(`.toggle-accordion[data-customer-id="${customerId}"]`);
+        const icon = toggleButton.querySelector('i');
+        const isExpanded = toggleButton.getAttribute('aria-expanded') === 'true';
+        
+        // 다른 모든 아코디언 닫기
+        document.querySelectorAll('.accordion-collapse').forEach(collapse => {
+            if (collapse.id !== `customerCollapse-${customerId}`) {
+                collapse.classList.remove('show');
+                const otherToggle = document.querySelector(`.toggle-accordion[data-customer-id="${collapse.id.split('-')[1]}"]`);
+                if (otherToggle) {
+                    otherToggle.setAttribute('aria-expanded', 'false');
+                    otherToggle.querySelector('i').className = 'fas fa-chevron-down text-muted';
                 }
-            });
-            
-            // 현재 아코디언 토글
-            if (isExpanded) {
-                collapseElement.classList.remove('show');
-                this.setAttribute('aria-expanded', 'false');
-                icon.className = 'fas fa-chevron-down';
-            } else {
-                collapseElement.classList.add('show');
-                this.setAttribute('aria-expanded', 'true');
-                icon.className = 'fas fa-chevron-up';
             }
+        });
+        
+        // 현재 아코디언 토글
+        if (isExpanded) {
+            collapseElement.classList.remove('show');
+            toggleButton.setAttribute('aria-expanded', 'false');
+            icon.className = 'fas fa-chevron-down text-muted';
+        } else {
+            collapseElement.classList.add('show');
+            toggleButton.setAttribute('aria-expanded', 'true');
+            icon.className = 'fas fa-chevron-up text-muted';
+        }
+    }
+    
+    // 화살표 버튼 클릭 이벤트
+    const accordionToggles = document.querySelectorAll('.toggle-accordion');
+    accordionToggles.forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation(); // 이벤트 전파 방지
+            const customerId = this.dataset.customerId;
+            toggleAccordion(customerId);
+        });
+    });
+    
+    // 카드 헤더 클릭 이벤트
+    const customerCardHeaders = document.querySelectorAll('.customer-card-header');
+    customerCardHeaders.forEach(header => {
+        header.addEventListener('click', function() {
+            const customerId = this.dataset.customerId;
+            toggleAccordion(customerId);
         });
     });
 });

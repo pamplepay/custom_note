@@ -101,6 +101,36 @@ def station_main(request):
     # VIP 고객수 (현재 주유소에 등록된 고객수)
     total_customers = CustomerStationRelation.objects.filter(station=request.user, is_active=True).count()
     
+    # 전월/금월 방문횟수 계산
+    from datetime import datetime
+    from django.utils import timezone
+    from Cust_UserApp.models import CustomerVisitHistory
+    
+    current_month = timezone.now().month
+    current_year = timezone.now().year
+    
+    # 이전 월 계산
+    if current_month == 1:
+        previous_month = 12
+        previous_year = current_year - 1
+    else:
+        previous_month = current_month - 1
+        previous_year = current_year
+    
+    # 금월 방문횟수
+    current_month_visitors = CustomerVisitHistory.objects.filter(
+        station=request.user,
+        visit_date__year=current_year,
+        visit_date__month=current_month
+    ).count()
+    
+    # 전월 방문횟수
+    previous_month_visitors = CustomerVisitHistory.objects.filter(
+        station=request.user,
+        visit_date__year=previous_year,
+        visit_date__month=previous_month
+    ).count()
+    
     # 월별 매출 통계 데이터 가져오기
     monthly_stats = None
     try:
@@ -110,19 +140,19 @@ def station_main(request):
         # TID 가져오기
         tid = getattr(getattr(request.user, 'station_profile', None), 'tid', None)
         if tid:
-            current_month = timezone.now().strftime('%Y-%m')
-            previous_month = (timezone.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
+            current_month_str = timezone.now().strftime('%Y-%m')
+            previous_month_str = (timezone.now().replace(day=1) - timedelta(days=1)).strftime('%Y-%m')
             
             # 현재 월 통계
             current_monthly = MonthlySalesStatistics.objects.filter(
                 tid=tid,
-                year_month=current_month
+                year_month=current_month_str
             ).first()
             
             # 이전 월 통계
             previous_monthly = MonthlySalesStatistics.objects.filter(
                 tid=tid,
-                year_month=previous_month
+                year_month=previous_month_str
             ).first()
             
             # 많이 팔린 상품 3가지 추출 함수 (판매 횟수 기준)
@@ -178,6 +208,8 @@ def station_main(request):
         'inactive_cards': inactive_cards,
         'total_customers': total_customers,
         'monthly_stats': monthly_stats,
+        'current_month_visitors': current_month_visitors,
+        'previous_month_visitors': previous_month_visitors,
     }
     return render(request, 'Cust_Station/station_main.html', context)
 
@@ -495,18 +527,52 @@ def station_usermanage(request):
         min(paginator.num_pages + 1, current_page.number + 3)
     )
     
+    # 이번달 방문 고객 수 계산
+    from datetime import datetime
+    from django.utils import timezone
+    current_month = timezone.now().month
+    current_year = timezone.now().year
+    
+    from Cust_UserApp.models import CustomerVisitHistory
+    this_month_visitors = CustomerVisitHistory.objects.filter(
+        station=request.user,
+        visit_date__year=current_year,
+        visit_date__month=current_month
+    ).values('customer').distinct().count()
+    
     # 고객 데이터 가공
     customers = []
     for relation in current_page:
         customer = relation.customer
         profile = customer.customer_profile
         
+        # 고객 방문 기록 조회
+        visit_history = CustomerVisitHistory.objects.filter(
+            customer=customer,
+            station=request.user
+        ).order_by('-visit_date', '-visit_time')
+        
+        # 총 방문 횟수
+        total_visit_count = visit_history.count()
+        
+        # 최근 방문 날짜
+        last_visit = None
+        if visit_history.exists():
+            latest_visit = visit_history.first()
+            last_visit = f"{latest_visit.visit_date.strftime('%Y-%m-%d')} {latest_visit.visit_time.strftime('%H:%M')}"
+        
+        # 총 주유 금액 계산 (방문 기록에서 실제 주유 금액 합산)
+        total_fuel_amount = 0
+        if visit_history.exists():
+            total_fuel_amount = sum(visit.sale_amount for visit in visit_history if visit.sale_amount)
+        
         customers.append({
             'id': customer.id,
             'phone': profile.customer_phone,
             'card_number': profile.membership_card,
-            'last_visit': None,  # TODO: 방문 기록 추가
-            'visit_count': 0,    # TODO: 방문 횟수 추가
+            'last_visit': last_visit,
+            'total_visit_count': total_visit_count,
+            'total_fuel_amount': total_fuel_amount,
             'created_at': relation.created_at
         })
     
@@ -516,7 +582,8 @@ def station_usermanage(request):
         'total_pages': paginator.num_pages,
         'page_range': page_range,
         'search_query': search_query,
-        'station_tid': request.user.station_profile.tid if hasattr(request.user, 'station_profile') else None
+        'station_tid': request.user.station_profile.tid if hasattr(request.user, 'station_profile') else None,
+        'this_month_visitors': this_month_visitors
     }
     
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':

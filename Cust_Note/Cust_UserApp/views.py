@@ -35,8 +35,25 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
         context['primary_station'] = context['registered_stations'].filter(
             is_primary=True
         ).first()
+
+        # 주유소 선택 파라미터
+        station_id = self.request.GET.get('station_id')
+        if not station_id:
+            station_id = 'all'
+        selected_station = None
+        selected_station_name = '전체'
+        if station_id != 'all':
+            try:
+                selected_station = None
+                for relation in context['registered_stations']:
+                    if str(relation.station.id) == str(station_id):
+                        selected_station = relation.station
+                        selected_station_name = relation.station.station_profile.station_name
+                        break
+            except Exception:
+                selected_station = None
+                selected_station_name = '전체'
         
-        # 이번달 주유 통계 계산
         from .models import CustomerVisitHistory
         from datetime import datetime, date
         from django.db.models import Sum, Count
@@ -45,12 +62,15 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
         current_month = current_date.month
         current_year = current_date.year
         
-        # 이번달 방문 기록 조회
-        monthly_visits = CustomerVisitHistory.objects.filter(
-            customer=self.request.user,
-            visit_date__year=current_year,
-            visit_date__month=current_month
-        )
+        # 이번달 방문 기록 조회 (주유소별 or 전체)
+        visit_filter = {
+            'customer': self.request.user,
+            'visit_date__year': current_year,
+            'visit_date__month': current_month
+        }
+        if selected_station:
+            visit_filter['station'] = selected_station
+        monthly_visits = CustomerVisitHistory.objects.filter(**visit_filter)
         
         # 통계 계산
         monthly_visit_count = monthly_visits.count()
@@ -66,6 +86,9 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
             'monthly_total_amount': monthly_total_amount,
             'monthly_total_fuel': monthly_total_fuel,
             'monthly_visits': monthly_visits[:5],  # 최근 5개 기록만
+            'selected_station_id': station_id or 'all',
+            'selected_station': selected_station,
+            'selected_station_name': selected_station_name,
         })
         
         return context
@@ -107,6 +130,10 @@ class CustomerRecordsView(LoginRequiredMixin, TemplateView):
             visit_date__month=month
         ).select_related('station').order_by('-visit_date', '-visit_time')
 
+        # 해당 월의 총 주유금액
+        from django.db.models import Sum
+        monthly_total_amount = visit_records.aggregate(total=Sum('sale_amount'))['total'] or 0
+
         # 사용자가 기록한 월 목록(최신순)
         month_list = CustomerVisitHistory.objects.filter(
             customer=self.request.user
@@ -119,6 +146,7 @@ class CustomerRecordsView(LoginRequiredMixin, TemplateView):
         context['year'] = year
         context['month'] = month
         context['month_list'] = month_list
+        context['monthly_total_amount'] = monthly_total_amount
         return context
 
 @method_decorator(csrf_exempt, name='dispatch')

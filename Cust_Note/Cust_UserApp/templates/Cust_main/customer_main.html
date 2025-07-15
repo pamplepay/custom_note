@@ -27,9 +27,14 @@
                         <h5 class="mb-0">
                             <i class="fas fa-gas-pump me-2 text-primary"></i>연결된 주유소
                         </h5>
-                        <!-- <a href="{% url 'customer:station_list' %}" class="btn btn-sm btn-outline-primary">
-                            <i class="fas fa-plus me-1"></i>주유소 추가
-                        </a> -->
+                        <form method="get" id="station-select-form" class="d-inline-block ms-2">
+                            <select name="station_id" class="form-select form-select-sm" style="width:auto;display:inline-block;" onchange="document.getElementById('station-select-form').submit();">
+                                <option value="all" {% if selected_station_id == 'all' %}selected{% endif %}>전체</option>
+                                {% for relation in registered_stations %}
+                                    <option value="{{ relation.station.id }}" {% if selected_station_id|stringformat:'s' == relation.station.id|stringformat:'s' %}selected{% endif %}>{{ relation.station.station_profile.station_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </form>
                     </div>
                 </div>
                 <div class="card-body p-0">
