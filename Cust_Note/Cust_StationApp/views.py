@@ -101,7 +101,7 @@ def station_main(request):
     # VIP 고객수 (현재 주유소에 등록된 고객수)
     total_customers = CustomerStationRelation.objects.filter(station=request.user, is_active=True).count()
     
-    # 전월/금월 방문횟수 계산
+    # 전월/금월 방문횟수 및 주유금액 계산
     from datetime import datetime
     from django.utils import timezone
     from Cust_UserApp.models import CustomerVisitHistory
@@ -117,19 +117,27 @@ def station_main(request):
         previous_month = current_month - 1
         previous_year = current_year
     
-    # 금월 방문횟수
-    current_month_visitors = CustomerVisitHistory.objects.filter(
+    # 금월 방문횟수 및 주유금액
+    current_month_visits = CustomerVisitHistory.objects.filter(
         station=request.user,
         visit_date__year=current_year,
         visit_date__month=current_month
-    ).count()
+    )
+    current_month_visitors = current_month_visits.count()
+    current_month_amount = current_month_visits.aggregate(
+        total_amount=Sum('sale_amount')
+    )['total_amount'] or 0
     
-    # 전월 방문횟수
-    previous_month_visitors = CustomerVisitHistory.objects.filter(
+    # 전월 방문횟수 및 주유금액
+    previous_month_visits = CustomerVisitHistory.objects.filter(
         station=request.user,
         visit_date__year=previous_year,
         visit_date__month=previous_month
-    ).count()
+    )
+    previous_month_visitors = previous_month_visits.count()
+    previous_month_amount = previous_month_visits.aggregate(
+        total_amount=Sum('sale_amount')
+    )['total_amount'] or 0
     
     # 월별 매출 통계 데이터 가져오기
     monthly_stats = None
@@ -210,6 +218,8 @@ def station_main(request):
         'monthly_stats': monthly_stats,
         'current_month_visitors': current_month_visitors,
         'previous_month_visitors': previous_month_visitors,
+        'current_month_amount': current_month_amount,
+        'previous_month_amount': previous_month_amount,
     }
     return render(request, 'Cust_Station/station_main.html', context)
 
