@@ -347,6 +347,25 @@
                         </div>
                     </div>
 
+                    <!-- 고객 그룹 선택 (비활성화) -->
+                    <!-- 
+                    <div class="mb-4">
+                        <label class="h6 mb-3">고객 그룹</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <div class="bg-light rounded p-2" style="width: 45px; height: 45px;">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <select class="form-control flex-grow-1" id="customer_group" name="group" style="height: 45px;">
+                                <option value="">그룹 선택 (선택사항)</option>-->
+                                <!-- 그룹 옵션들이 여기에 동적으로 로드됩니다 -->
+                            <!-- </select>
+                        </div>
+                        <div class="form-text text-muted mt-2">
+                            <i class="fas fa-info-circle me-1"></i>고객을 분류하기 위한 그룹을 선택해주세요
+                        </div>
+                    </div>
+                    -->
+
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-user-plus me-1"></i>고객 등록
@@ -539,6 +558,9 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 console.log('[DEBUG] 카드 선택에서 돌아온 경우 폼 초기화 건너뜀');
             }
+            
+            // 그룹 목록 로드
+            // loadGroupsForCustomer();
         });
 
         // 모달이 닫힐 때 정리
@@ -967,6 +989,47 @@ async function checkDuplicate(type) {
     }
 }
 
+// 그룹 목록 로드 (고객 등록용) - 비활성화
+/*
+function loadGroupsForCustomer() {
+    console.log('[DEBUG] 고객 등록용 그룹 목록 로드 시작');
+    
+    fetch('/station/get-groups/', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const groupSelect = document.getElementById('customer_group');
+            if (groupSelect) {
+                // 기존 옵션 제거 (첫 번째 옵션 제외)
+                while (groupSelect.children.length > 1) {
+                    groupSelect.removeChild(groupSelect.lastChild);
+                }
+                
+                // 새 그룹 옵션 추가
+                data.groups.forEach(group => {
+                    const option = document.createElement('option');
+                    option.value = group.name;
+                    option.textContent = group.name;
+                    groupSelect.appendChild(option);
+                });
+                
+                console.log('[DEBUG] 그룹 목록 로드 완료:', data.groups.length, '개');
+            }
+        } else {
+            console.error('그룹 목록 로드 실패:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('그룹 목록 로드 중 오류:', error);
+    });
+}
+*/
+
 // 고객 등록 함수
 function registerCustomer(e) {
     e.preventDefault();
@@ -987,11 +1050,13 @@ function registerCustomer(e) {
     
     const phone = document.getElementById('phone').value;
     const cardNumber = document.getElementById('card_number').value;
+    // const group = document.getElementById('customer_group').value; // 그룹 기능 비활성화
     
     // 로깅 추가
     console.log('[DEBUG] 고객 등록 시도');
     console.log('[DEBUG] 전화번호:', phone);
     console.log('[DEBUG] 카드번호:', cardNumber);
+    // console.log('[DEBUG] 그룹:', group); // 그룹 기능 비활성화
     
     // 전화번호 유효성 검사
     const cleanPhone = phone.replace(/[\s\-]/g, '');
@@ -1043,6 +1108,7 @@ function registerCustomer(e) {
     const data = {
         phone: cleanPhone,
         card_number: cardNumber
+        // group: group // 그룹 기능 비활성화
     };
     
     console.log('[DEBUG] 서버로 전송할 데이터:', data);

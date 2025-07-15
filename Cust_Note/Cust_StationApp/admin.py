@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.contrib import messages
-from .models import PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics, MonthlySalesStatistics
+from .models import PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics, MonthlySalesStatistics, Group
 from Cust_User.models import CustomUser
 
 class StationCardMappingInline(admin.TabularInline):
@@ -320,3 +320,32 @@ class StationCardMappingAdmin(admin.ModelAdmin):
             'fields': ('card', 'tid', 'is_active', 'registered_at')
         }),
     )
+
+@admin.register(Group)
+class GroupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'station', 'customer_count', 'created_at')
+    list_filter = ('created_at', 'station')
+    search_fields = ('name', 'station__username', 'station__station_profile__station_name')
+    readonly_fields = ('created_at', 'customer_count')
+    list_per_page = 50
+    
+    fieldsets = (
+        ('그룹 정보', {
+            'fields': ('name', 'station', 'created_at')
+        }),
+        ('고객 현황', {
+            'fields': ('customer_count',)
+        }),
+    )
+    
+    def customer_count(self, obj):
+        """이 그룹에 속한 고객 수 반환"""
+        count = obj.get_customer_count()
+        return format_html(
+            '<span style="color: #2980b9; font-weight: bold;">{}</span>명',
+            count
+        )
+    customer_count.short_description = '고객 수'
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('station', 'station__station_profile')

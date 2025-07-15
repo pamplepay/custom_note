@@ -12,6 +12,7 @@
                 </div>
                 <div class="card-body">
                     <form method="post">
+                        {% csrf_token %}
                         <div class="mb-3">
                             <label for="name" class="form-label">이름</label>
                             <input type="text" class="form-control" id="name" name="name" value="{{ name }}">
@@ -28,6 +29,18 @@
                             <label for="membership_card" class="form-label">멤버십 카드</label>
                             <input type="text" class="form-control" id="membership_card" name="membership_card" value="{{ membership_card }}">
                         </div>
+                        <div class="mb-3">
+                            <label for="group" class="form-label">그룹 설정</label>
+                            <select class="form-control" id="group" name="group">
+                                <option value="">그룹 선택 안함</option>
+                                {% for group in available_groups %}
+                                <option value="{{ group.name }}" {% if current_group == group.name %}selected{% endif %}>
+                                    {{ group.name }} ({{ group.station.station_profile.station_name }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">등록된 주유소의 고객 그룹 중에서 선택할 수 있습니다.</div>
+                        </div>
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary">저장</button>
                             <a href="{% url 'users:password_change' %}" class="btn btn-outline-secondary">비밀번호 변경</a>
@@ -38,4 +51,52 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 그룹 목록 동적 로드
+    loadGroups();
+    
+    function loadGroups() {
+        fetch('{% url "customer:get_groups" %}', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                updateGroupSelect(data.groups);
+            } else {
+                console.error('그룹 목록 로드 실패:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('그룹 목록 로드 중 오류:', error);
+        });
+    }
+    
+    function updateGroupSelect(groups) {
+        const groupSelect = document.getElementById('group');
+        const currentValue = groupSelect.value;
+        
+        // 기존 옵션 제거 (첫 번째 옵션 제외)
+        while (groupSelect.children.length > 1) {
+            groupSelect.removeChild(groupSelect.lastChild);
+        }
+        
+        // 새 그룹 옵션 추가
+        groups.forEach(group => {
+            const option = document.createElement('option');
+            option.value = group.name;
+            option.textContent = `${group.name} (${group.station_name})`;
+            if (currentValue === group.name) {
+                option.selected = true;
+            }
+            groupSelect.appendChild(option);
+        });
+    }
+});
+</script>
 {% endblock %} 

@@ -4,7 +4,7 @@ from django.http import JsonResponse, FileResponse
 from django.contrib import messages
 from django.db.models import Q, Sum
 from Cust_User.models import CustomUser, CustomerProfile, CustomerStationRelation
-from .models import PointCard, StationCardMapping, SalesData, ExcelSalesData, MonthlySalesStatistics, SalesStatistics
+from .models import PointCard, StationCardMapping, SalesData, ExcelSalesData, MonthlySalesStatistics, SalesStatistics, Group
 from datetime import datetime, timedelta
 import json
 import logging
@@ -1254,8 +1254,10 @@ def register_customer(request):
             
             phone = data.get('phone', '').strip()
             card_number = data.get('card_number', '').strip()
+            # group = data.get('group', '').strip()  # 그룹 기능 비활성화
             
             logger.info(f"입력값 확인 - 전화번호: {phone}, 카드번호: {card_number}")
+            # logger.info(f"그룹: {group}")  # 그룹 기능 비활성화
             
             # 입력값 검증
             if not phone or not card_number:
@@ -2508,3 +2510,269 @@ def get_sales_list(request):
     except Exception as e:
         logger.error(f'매출 리스트 조회 중 오류: {str(e)}')
         return JsonResponse({'error': '매출 리스트를 불러오는 중 오류가 발생했습니다.'}, status=500)
+
+# 그룹 관리 관련 함수들
+@login_required
+def group_management(request):
+    """그룹 관리 페이지"""
+    logger.info("=== 그룹 관리 페이지 접근 ===")
+    logger.info(f"요청 사용자: {request.user.username}")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 그룹 관리 접근 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    # 현재 주유소의 그룹 목록 조회
+    from .models import Group
+    groups = Group.objects.filter(station=request.user).order_by('-created_at')
+    
+    context = {
+        'groups': groups,
+        'total_groups': groups.count()
+    }
+    
+    return render(request, 'Cust_Station/station_groupmanage.html', context)
+
+@login_required
+def create_group(request):
+    """그룹 생성"""
+    logger.info("=== 그룹 생성 요청 ===")
+    logger.info(f"요청 사용자: {request.user.username}")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 그룹 생성 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            group_name = data.get('name', '').strip()
+            
+            logger.info(f"그룹 생성 시도: {group_name}")
+            
+            # 입력값 검증
+            if not group_name:
+                logger.warning("그룹명이 입력되지 않음")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '그룹명을 입력해주세요.'
+                }, status=400)
+            
+            if len(group_name) > 100:
+                logger.warning(f"그룹명이 너무 김: {len(group_name)}자")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '그룹명은 100자 이하여야 합니다.'
+                }, status=400)
+            
+            # 중복 체크
+            from .models import Group
+            if Group.objects.filter(station=request.user, name=group_name).exists():
+                logger.warning(f"중복된 그룹명: {group_name}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '이미 존재하는 그룹명입니다.'
+                }, status=400)
+            
+            # 그룹 생성
+            new_group = Group.objects.create(
+                name=group_name,
+                station=request.user
+            )
+            logger.info(f"그룹 생성 완료: {new_group.name}")
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': '그룹이 성공적으로 생성되었습니다.',
+                'group': {
+                    'id': new_group.id,
+                    'name': new_group.name,
+                    'created_at': new_group.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                }
+            })
+            
+        except json.JSONDecodeError:
+            logger.error("잘못된 JSON 형식")
+            return JsonResponse({
+                'status': 'error',
+                'message': '잘못된 요청 형식입니다.'
+            }, status=400)
+        except Exception as e:
+            logger.error(f"그룹 생성 중 오류 발생: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': '그룹 생성 중 오류가 발생했습니다.'
+            }, status=500)
+    
+    return JsonResponse({'status': 'error', 'message': '잘못된 요청 방식입니다.'}, status=405)
+
+@login_required
+def update_group(request, group_id):
+    """그룹 수정"""
+    logger.info(f"=== 그룹 수정 요청 (그룹 ID: {group_id}) ===")
+    logger.info(f"요청 사용자: {request.user.username}")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 그룹 수정 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    from .models import Group
+    try:
+        group = Group.objects.get(id=group_id, station=request.user)
+    except Group.DoesNotExist:
+        logger.warning(f"존재하지 않는 그룹: {group_id}")
+        return JsonResponse({
+            'status': 'error',
+            'message': '존재하지 않는 그룹입니다.'
+        }, status=404)
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            new_name = data.get('name', '').strip()
+            
+            logger.info(f"그룹 수정 시도: {group.name} -> {new_name}")
+            
+            # 입력값 검증
+            if not new_name:
+                logger.warning("새 그룹명이 입력되지 않음")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '그룹명을 입력해주세요.'
+                }, status=400)
+            
+            if len(new_name) > 100:
+                logger.warning(f"그룹명이 너무 김: {len(new_name)}자")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '그룹명은 100자 이하여야 합니다.'
+                }, status=400)
+            
+            # 중복 체크 (자신 제외)
+            if Group.objects.filter(station=request.user, name=new_name).exclude(id=group_id).exists():
+                logger.warning(f"중복된 그룹명: {new_name}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '이미 존재하는 그룹명입니다.'
+                }, status=400)
+            
+            # 그룹명 업데이트
+            old_name = group.name
+            group.name = new_name
+            group.save()
+            
+            # 해당 그룹의 고객들의 그룹명도 업데이트
+            from Cust_User.models import CustomerProfile
+            CustomerProfile.objects.filter(group=old_name).update(group=new_name)
+            
+            logger.info(f"그룹 수정 완료: {old_name} -> {new_name}")
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': '그룹이 성공적으로 수정되었습니다.',
+                'group': {
+                    'id': group.id,
+                    'name': group.name,
+                    'created_at': group.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                }
+            })
+            
+        except json.JSONDecodeError:
+            logger.error("잘못된 JSON 형식")
+            return JsonResponse({
+                'status': 'error',
+                'message': '잘못된 요청 형식입니다.'
+            }, status=400)
+        except Exception as e:
+            logger.error(f"그룹 수정 중 오류 발생: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': '그룹 수정 중 오류가 발생했습니다.'
+            }, status=500)
+    
+    return JsonResponse({'status': 'error', 'message': '잘못된 요청 방식입니다.'}, status=405)
+
+@login_required
+def delete_group(request, group_id):
+    """그룹 삭제"""
+    logger.info(f"=== 그룹 삭제 요청 (그룹 ID: {group_id}) ===")
+    logger.info(f"요청 사용자: {request.user.username}")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 그룹 삭제 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    from .models import Group
+    try:
+        group = Group.objects.get(id=group_id, station=request.user)
+    except Group.DoesNotExist:
+        logger.warning(f"존재하지 않는 그룹: {group_id}")
+        return JsonResponse({
+            'status': 'error',
+            'message': '존재하지 않는 그룹입니다.'
+        }, status=404)
+    
+    if request.method == 'POST':
+        try:
+            group_name = group.name
+            logger.info(f"그룹 삭제 시도: {group_name}")
+            
+            # 해당 그룹의 고객들의 그룹명을 None으로 설정
+            from Cust_User.models import CustomerProfile
+            CustomerProfile.objects.filter(group=group_name).update(group=None)
+            
+            # 그룹 삭제
+            group.delete()
+            
+            logger.info(f"그룹 삭제 완료: {group_name}")
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': '그룹이 성공적으로 삭제되었습니다.'
+            })
+            
+        except Exception as e:
+            logger.error(f"그룹 삭제 중 오류 발생: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': '그룹 삭제 중 오류가 발생했습니다.'
+            }, status=500)
+    
+    return JsonResponse({'status': 'error', 'message': '잘못된 요청 방식입니다.'}, status=405)
+
+@login_required
+def get_groups(request):
+    """그룹 목록 조회 (AJAX)"""
+    logger.info("=== 그룹 목록 조회 요청 ===")
+    logger.info(f"요청 사용자: {request.user.username}")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 그룹 목록 조회 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import Group
+        groups = Group.objects.filter(station=request.user).order_by('-created_at')
+        
+        groups_list = []
+        for group in groups:
+            groups_list.append({
+                'id': group.id,
+                'name': group.name,
+                'customer_count': group.get_customer_count(),
+                'created_at': group.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+        
+        logger.info(f"그룹 목록 조회 완료: {len(groups_list)}개")
+        
+        return JsonResponse({
+            'status': 'success',
+            'groups': groups_list
+        })
+        
+    except Exception as e:
+        logger.error(f"그룹 목록 조회 중 오류 발생: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'status': 'error',
+            'message': '그룹 목록을 불러오는 중 오류가 발생했습니다.'
+        }, status=500)

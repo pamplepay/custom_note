@@ -41,6 +41,7 @@ class CustomerProfileInline(admin.StackedInline):
     can_delete = False
     verbose_name_plural = '4. 고객 프로필'
     extra = 0
+    fields = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'membership_card', 'group')
 
 class StationProfileInline(admin.StackedInline):
     model = StationProfile
@@ -178,15 +179,16 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(CustomerProfile)
 class CustomerProfileAdmin(admin.ModelAdmin):
-    list_display = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'total_fuel_amount', 'monthly_fuel_amount', 'last_fuel_amount', 'created_at')
-    list_filter = ('fuel_type', 'created_at')
-    search_fields = ('name', 'customer_phone', 'car_number', 'car_model')
+    list_display = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'group', 'total_fuel_amount', 'monthly_fuel_amount', 'last_fuel_amount', 'created_at')
+    list_filter = ('fuel_type', 'group', 'created_at')
+    search_fields = ('name', 'customer_phone', 'car_number', 'car_model', 'group')
     readonly_fields = ('created_at', 'updated_at')
     
     fieldsets = (
         ('기본 정보', {'fields': ('user', 'name', 'customer_phone')}),
         ('차량 정보', {'fields': ('car_number', 'car_model', 'fuel_type')}),
         ('멤버십 정보', {'fields': ('membership_card',)}),
+        ('고객 그룹', {'fields': ('group',)}),
         ('주유량 정보', {
             'fields': ('total_fuel_amount', 'monthly_fuel_amount', 'last_fuel_amount', 'last_fuel_date'),
             'classes': ('collapse',)

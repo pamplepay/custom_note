@@ -10,6 +10,8 @@ from django.utils.decorators import method_decorator
 from Cust_User.models import CustomerStationRelation, CustomUser, StationProfile
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
+from django.http import JsonResponse
+import json
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomerMainView(LoginRequiredMixin, TemplateView):
@@ -184,11 +186,22 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
                 user=self.request.user
             )
         
+        # 연결된 주유소들의 그룹 목록 가져오기
+        from Cust_StationApp.models import Group
+        connected_stations = CustomerStationRelation.objects.filter(
+            customer=self.request.user,
+            is_active=True
+        ).values_list('station_id', flat=True)
+        
+        groups = Group.objects.filter(station_id__in=connected_stations).order_by('name')
+        
         context.update({
             'name': customer_profile.name or self.request.user.first_name or '',
             'phone': customer_profile.customer_phone or '',
             'email': self.request.user.email or '',
             'membership_card': customer_profile.membership_card or '',
+            'current_group': customer_profile.group or '',
+            'available_groups': groups,
         })
         return context
         
@@ -212,6 +225,7 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
             phone = request.POST.get('phone', '').strip()
             email = request.POST.get('email', '').strip()
             membership_card = request.POST.get('membership_card', '').strip()
+            group = request.POST.get('group', '').strip()
             
             # 이름 업데이트
             if name:
@@ -229,6 +243,12 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
             # 멤버십카드 업데이트
             if membership_card:
                 customer_profile.membership_card = membership_card
+            
+            # 그룹 업데이트
+            if group:
+                customer_profile.group = group
+            else:
+                customer_profile.group = None
             
             # 변경사항 저장
             user.save()
@@ -317,3 +337,39 @@ def register_station(request, station_id):
     
     messages.success(request, '주유소가 등록되었습니다.')
     return redirect('customer:station_list') 
+
+@csrf_exempt
+@login_required
+def get_customer_groups(request):
+    """고객이 속한 주유소들의 그룹 목록 조회 (AJAX)"""
+    if request.user.user_type != 'CUSTOMER':
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        # 연결된 주유소들의 그룹 목록 가져오기
+        from Cust_StationApp.models import Group
+        connected_stations = CustomerStationRelation.objects.filter(
+            customer=request.user,
+            is_active=True
+        ).values_list('station_id', flat=True)
+        
+        groups = Group.objects.filter(station_id__in=connected_stations).order_by('name')
+        
+        groups_list = []
+        for group in groups:
+            groups_list.append({
+                'id': group.id,
+                'name': group.name,
+                'station_name': group.station.station_profile.station_name if hasattr(group.station, 'station_profile') else group.station.username
+            })
+        
+        return JsonResponse({
+            'status': 'success',
+            'groups': groups_list
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': '그룹 목록을 불러오는 중 오류가 발생했습니다.'
+        }, status=500) 

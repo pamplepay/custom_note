@@ -11,6 +11,26 @@ logger = logging.getLogger(__name__)
 
 # Create your models here.
 
+class Group(models.Model):
+    """고객 그룹 모델"""
+    name = models.CharField(max_length=100, verbose_name='그룹명', help_text="고객 그룹 이름")
+    station = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, verbose_name='주유소', help_text="그룹을 생성한 주유소")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시')
+
+    class Meta:
+        verbose_name = '고객 그룹'
+        verbose_name_plural = '0. 고객 그룹 목록'
+        ordering = ['-created_at']
+        unique_together = ['name', 'station']  # 같은 주유소 내에서 그룹명 중복 방지
+
+    def __str__(self):
+        return f"{self.station.username} - {self.name}"
+
+    def get_customer_count(self):
+        """이 그룹에 속한 고객 수 반환"""
+        from Cust_User.models import CustomerProfile
+        return CustomerProfile.objects.filter(group=self.name).count()
+
 class PointCard(models.Model):
     """멤버십 카드 모델"""
     number = models.CharField(max_length=16, unique=True, help_text="16자리 카드번호")

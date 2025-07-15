@@ -86,6 +86,14 @@ class CustomerProfile(models.Model):
         null=True, 
         verbose_name='최근 주유일'
     )
+    # 고객 그룹 필드 추가
+    group = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name='고객 그룹',
+        help_text='고객을 분류하기 위한 그룹'
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='가입일')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일')
 
