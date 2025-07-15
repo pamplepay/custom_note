@@ -1160,9 +1160,13 @@ def register_card(request):
 
         # 요청 데이터 파싱
         data = json.loads(request.body)
+        logger.debug(f"수신된 전체 데이터: {json.dumps(data, ensure_ascii=False)}")
+        
         card_number = data.get('card_number', '').strip()
         tid = data.get('tid', '').strip()  # TID 값 추가
         logger.debug(f"입력된 카드번호: {card_number}, TID: {tid}")
+        logger.debug(f"카드번호 길이: {len(card_number) if card_number else 0}")
+        logger.debug(f"카드번호가 숫자인지: {card_number.isdigit() if card_number else False}")
         
         # 입력값 검증
         if not card_number or len(card_number) != 16 or not card_number.isdigit():
@@ -1179,32 +1183,35 @@ def register_card(request):
                 'message': 'TID는 필수 입력값입니다.'
             })
         
-        # 카드번호 중복 체크
-        if PointCard.objects.filter(number=card_number).exists():
-            logger.warning(f"중복된 카드번호: {card_number}")
-            return JsonResponse({
-                'status': 'error',
-                'message': '이미 등록된 카드번호입니다'
-            })
-        
-        # 새 카드 생성
-        new_card = PointCard.objects.create(
-            number=card_number,
-            oil_company_code=oil_company_code,
-            agency_code=agency_code,
-            tids=[tid],
-            created_at=timezone.now()
-        )
-        logger.info(f"새 카드 등록 완료: {new_card.number}, TID: {tid}")
-        
-        # 주유소-카드 매핑 생성
-        StationCardMapping.objects.create(
-            tid=tid,
-            card=new_card,
-            registered_at=timezone.now(),
-            is_active=True
-        )
-        logger.info(f"카드 매핑 생성 완료: {new_card.number}, TID: {tid}")
+        # 트랜잭션을 사용하여 중복 요청 방지
+        with transaction.atomic():
+            # 카드번호 중복 체크 (락 설정)
+            existing_card = PointCard.objects.select_for_update().filter(number=card_number).first()
+            if existing_card:
+                logger.warning(f"중복된 카드번호: {card_number}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '이미 등록된 카드번호입니다'
+                })
+            
+            # 새 카드 생성
+            new_card = PointCard.objects.create(
+                number=card_number,
+                oil_company_code=oil_company_code,
+                agency_code=agency_code,
+                tids=[tid],
+                created_at=timezone.now()
+            )
+            logger.info(f"새 카드 등록 완료: {new_card.number}, TID: {tid}")
+            
+            # 주유소-카드 매핑 생성
+            StationCardMapping.objects.create(
+                tid=tid,
+                card=new_card,
+                registered_at=timezone.now(),
+                is_active=True
+            )
+            logger.info(f"카드 매핑 생성 완료: {new_card.number}, TID: {tid}")
         
         return JsonResponse({
             'status': 'success',
