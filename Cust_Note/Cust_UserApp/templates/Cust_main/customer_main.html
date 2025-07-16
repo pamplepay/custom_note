@@ -127,6 +127,59 @@
         </div>
     </div>
 
+    <!-- 쿠폰 섹션 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-ticket-alt me-2 text-warning"></i>내 쿠폰
+                        </h5>
+                        <a href="{% url 'customer:coupons' %}" class="btn btn-sm btn-outline-warning">
+                            <i class="fas fa-arrow-right me-1"></i>전체 보기
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-body text-center p-3">
+                                    <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px;">
+                                        <i class="fas fa-car fa-lg text-success"></i>
+                                    </div>
+                                    <h6 class="card-title mb-2">세차 쿠폰</h6>
+                                    <h4 class="text-success mb-2">{{ car_wash_coupon_count|default:0 }}개</h4>
+                                    <small class="text-muted">사용 가능한 세차 쿠폰</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-body text-center p-3">
+                                    <div class="bg-info bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px;">
+                                        <i class="fas fa-gift fa-lg text-info"></i>
+                                    </div>
+                                    <h6 class="card-title mb-2">상품 쿠폰</h6>
+                                    <h4 class="text-info mb-2">{{ product_coupon_count|default:0 }}개</h4>
+                                    <small class="text-muted">사용 가능한 상품 쿠폰</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% if car_wash_coupon_count == 0 and product_coupon_count == 0 %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-ticket-alt fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0 small">보유한 쿠폰이 없습니다.</p>
+                            <small class="text-muted">주유소에서 주유 시 쿠폰을 받을 수 있습니다.</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-12 mb-4">
             <div class="card shadow-sm h-100 border-0">

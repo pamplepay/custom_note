@@ -1,0 +1,307 @@
+{% extends 'base/base.html' %}
+{% load humanize %}
+
+{% block title %}Oil Note - 쿠폰{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- 헤더 섹션 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 bg-gradient-primary text-white">
+                <div class="card-body">
+                    <h1 class="card-title h3 mb-3">
+                        <i class="fas fa-ticket-alt me-2"></i>내 쿠폰
+                    </h1>
+                    <p class="card-text mb-0">{{ user.username }}님이 보유한 쿠폰을 확인하세요.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 쿠폰 통계 -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-ticket-alt fa-2x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">전체 쿠폰</h5>
+                    <h3 class="text-primary mb-0">{{ total_coupons|default:0 }}개</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-car fa-2x text-success"></i>
+                    </div>
+                    <h5 class="card-title">세차 쿠폰</h5>
+                    <h3 class="text-success mb-0">{{ car_wash_coupons|default:0 }}개</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-gift fa-2x text-info"></i>
+                    </div>
+                    <h5 class="card-title">상품 쿠폰</h5>
+                    <h3 class="text-info mb-0">{{ product_coupons|default:0 }}개</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 세차 쿠폰 섹션 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-car me-2 text-success"></i>세차 쿠폰
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if car_wash_coupon_list %}
+                        <div class="row">
+                            {% for coupon in car_wash_coupon_list %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card h-100 border-0 shadow-sm coupon-card">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div class="coupon-type-badge bg-success text-white px-2 py-1 rounded">
+                                                <small><i class="fas fa-car me-1"></i>세차</small>
+                                            </div>
+                                            {% if coupon.is_expired %}
+                                                <span class="badge bg-danger">만료됨</span>
+                                            {% elif coupon.is_used %}
+                                                <span class="badge bg-secondary">사용완료</span>
+                                            {% else %}
+                                                <span class="badge bg-success">사용가능</span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <h6 class="card-title mb-2">{{ coupon.title|default:"세차 서비스" }}</h6>
+                                        <p class="card-text text-muted small mb-2">{{ coupon.description|default:"세차 서비스를 이용할 수 있는 쿠폰입니다." }}</p>
+                                        
+                                        <div class="coupon-details mb-3">
+                                            <div class="row text-center">
+                                                <div class="col-6">
+                                                    <div class="discount-amount text-success fw-bold">
+                                                        {% if coupon.discount_type == 'PERCENT' %}
+                                                            {{ coupon.discount_value }}%
+                                                        {% else %}
+                                                            {{ coupon.discount_value|floatformat:0|intcomma }}원
+                                                        {% endif %}
+                                                    </div>
+                                                    <small class="text-muted">할인</small>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="min-amount text-muted">
+                                                        {% if coupon.min_amount %}
+                                                            {{ coupon.min_amount|floatformat:0|intcomma }}원
+                                                        {% else %}
+                                                            -
+                                                        {% endif %}
+                                                    </div>
+                                                    <small class="text-muted">최소금액</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="coupon-footer">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-calendar me-1"></i>
+                                                    {{ coupon.expiry_date|date:"Y.m.d" }}까지
+                                                </small>
+                                                {% if not coupon.is_expired and not coupon.is_used %}
+                                                    <button class="btn btn-sm btn-success">
+                                                        <i class="fas fa-check me-1"></i>사용하기
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-car fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-3">보유한 세차 쿠폰이 없습니다.</p>
+                            <small class="text-muted">주유소에서 주유 시 세차 쿠폰을 받을 수 있습니다.</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 상품 쿠폰 섹션 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-gift me-2 text-info"></i>상품 쿠폰
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if product_coupon_list %}
+                        <div class="row">
+                            {% for coupon in product_coupon_list %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card h-100 border-0 shadow-sm coupon-card">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div class="coupon-type-badge bg-info text-white px-2 py-1 rounded">
+                                                <small><i class="fas fa-gift me-1"></i>상품</small>
+                                            </div>
+                                            {% if coupon.is_expired %}
+                                                <span class="badge bg-danger">만료됨</span>
+                                            {% elif coupon.is_used %}
+                                                <span class="badge bg-secondary">사용완료</span>
+                                            {% else %}
+                                                <span class="badge bg-info">사용가능</span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <h6 class="card-title mb-2">{{ coupon.title|default:"상품 할인" }}</h6>
+                                        <p class="card-text text-muted small mb-2">{{ coupon.description|default:"상품 구매 시 사용할 수 있는 쿠폰입니다." }}</p>
+                                        
+                                        <div class="coupon-details mb-3">
+                                            <div class="row text-center">
+                                                <div class="col-6">
+                                                    <div class="discount-amount text-info fw-bold">
+                                                        {% if coupon.discount_type == 'PERCENT' %}
+                                                            {{ coupon.discount_value }}%
+                                                        {% else %}
+                                                            {{ coupon.discount_value|floatformat:0|intcomma }}원
+                                                        {% endif %}
+                                                    </div>
+                                                    <small class="text-muted">할인</small>
+                                                </div>
+                                                <div class="col-6">
+                                                    <div class="min-amount text-muted">
+                                                        {% if coupon.min_amount %}
+                                                            {{ coupon.min_amount|floatformat:0|intcomma }}원
+                                                        {% else %}
+                                                            -
+                                                        {% endif %}
+                                                    </div>
+                                                    <small class="text-muted">최소금액</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="coupon-footer">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-calendar me-1"></i>
+                                                    {{ coupon.expiry_date|date:"Y.m.d" }}까지
+                                                </small>
+                                                {% if not coupon.is_expired and not coupon.is_used %}
+                                                    <button class="btn btn-sm btn-info">
+                                                        <i class="fas fa-check me-1"></i>사용하기
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-gift fa-3x text-muted mb-3"></i>
+                            <p class="text-muted mb-3">보유한 상품 쿠폰이 없습니다.</p>
+                            <small class="text-muted">주유소에서 주유 시 상품 쿠폰을 받을 수 있습니다.</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 쿠폰 사용 가이드 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2 text-warning"></i>쿠폰 사용 안내
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-success"><i class="fas fa-car me-2"></i>세차 쿠폰</h6>
+                            <ul class="list-unstyled small text-muted">
+                                <li><i class="fas fa-check me-2 text-success"></i>주유소 세차장에서 사용 가능</li>
+                                <li><i class="fas fa-check me-2 text-success"></i>1회 사용 후 소멸</li>
+                                <li><i class="fas fa-check me-2 text-success"></i>만료일까지 사용 가능</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="text-info"><i class="fas fa-gift me-2"></i>상품 쿠폰</h6>
+                            <ul class="list-unstyled small text-muted">
+                                <li><i class="fas fa-check me-2 text-info"></i>주유소 편의점에서 사용 가능</li>
+                                <li><i class="fas fa-check me-2 text-info"></i>1회 사용 후 소멸</li>
+                                <li><i class="fas fa-check me-2 text-info"></i>만료일까지 사용 가능</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+}
+
+.coupon-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    border-radius: 12px;
+}
+
+.coupon-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+
+.coupon-type-badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.discount-amount {
+    font-size: 1.25rem;
+}
+
+.min-amount {
+    font-size: 0.9rem;
+}
+
+.coupon-footer {
+    border-top: 1px solid #e9ecef;
+    padding-top: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+@media (max-width: 768px) {
+    .coupon-card {
+        margin-bottom: 1rem;
+    }
+}
+</style>
+{% endblock %} 

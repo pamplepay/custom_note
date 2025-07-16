@@ -91,6 +91,9 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
             'selected_station_id': station_id or 'all',
             'selected_station': selected_station,
             'selected_station_name': selected_station_name,
+            # 쿠폰 관련 컨텍스트 (임시 데이터)
+            'car_wash_coupon_count': 2,  # 실제 구현 시에는 데이터베이스에서 계산
+            'product_coupon_count': 1,    # 실제 구현 시에는 데이터베이스에서 계산
         })
         
         return context
@@ -151,16 +154,7 @@ class CustomerRecordsView(LoginRequiredMixin, TemplateView):
         context['monthly_total_amount'] = monthly_total_amount
         return context
 
-@method_decorator(csrf_exempt, name='dispatch')
-class CustomerStatsView(LoginRequiredMixin, TemplateView):
-    template_name = 'Cust_main/stats.html'
-    login_url = 'users:login'
-    
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.user_type != 'CUSTOMER':
-            messages.error(request, '고객 계정으로만 접근할 수 있습니다.')
-            return redirect('users:login')
-        return super().dispatch(request, *args, **kwargs)
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomerProfileView(LoginRequiredMixin, TemplateView):
@@ -372,4 +366,82 @@ def get_customer_groups(request):
         return JsonResponse({
             'status': 'error',
             'message': '그룹 목록을 불러오는 중 오류가 발생했습니다.'
-        }, status=500) 
+        }, status=500)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class CustomerCouponsView(LoginRequiredMixin, TemplateView):
+    template_name = 'Cust_main/coupons.html'
+    login_url = 'users:login'
+    
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.user_type != 'CUSTOMER':
+            messages.error(request, '고객 계정으로만 접근할 수 있습니다.')
+            return redirect('users:login')
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # 임시 쿠폰 데이터 (실제 구현 시에는 데이터베이스에서 가져와야 함)
+        # 세차 쿠폰 예시 데이터
+        car_wash_coupon_list = [
+            {
+                'title': '세차 서비스 50% 할인',
+                'description': '주유소 세차장에서 사용 가능한 할인 쿠폰입니다.',
+                'discount_type': 'PERCENT',
+                'discount_value': 50,
+                'min_amount': 10000,
+                'expiry_date': '2024-12-31',
+                'is_expired': False,
+                'is_used': False,
+            },
+            {
+                'title': '세차 서비스 2000원 할인',
+                'description': '주유소 세차장에서 사용 가능한 할인 쿠폰입니다.',
+                'discount_type': 'AMOUNT',
+                'discount_value': 2000,
+                'min_amount': 5000,
+                'expiry_date': '2024-11-30',
+                'is_expired': False,
+                'is_used': True,
+            },
+        ]
+        
+        # 상품 쿠폰 예시 데이터
+        product_coupon_list = [
+            {
+                'title': '편의점 상품 30% 할인',
+                'description': '주유소 편의점에서 사용 가능한 할인 쿠폰입니다.',
+                'discount_type': 'PERCENT',
+                'discount_value': 30,
+                'min_amount': 5000,
+                'expiry_date': '2024-12-31',
+                'is_expired': False,
+                'is_used': False,
+            },
+            {
+                'title': '편의점 상품 1000원 할인',
+                'description': '주유소 편의점에서 사용 가능한 할인 쿠폰입니다.',
+                'discount_type': 'AMOUNT',
+                'discount_value': 1000,
+                'min_amount': 3000,
+                'expiry_date': '2024-10-31',
+                'is_expired': True,
+                'is_used': False,
+            },
+        ]
+        
+        # 통계 계산
+        total_coupons = len(car_wash_coupon_list) + len(product_coupon_list)
+        car_wash_coupons = len([c for c in car_wash_coupon_list if not c['is_expired'] and not c['is_used']])
+        product_coupons = len([c for c in product_coupon_list if not c['is_expired'] and not c['is_used']])
+        
+        context.update({
+            'car_wash_coupon_list': car_wash_coupon_list,
+            'product_coupon_list': product_coupon_list,
+            'total_coupons': total_coupons,
+            'car_wash_coupons': car_wash_coupons,
+            'product_coupons': product_coupons,
+        })
+        
+        return context 
