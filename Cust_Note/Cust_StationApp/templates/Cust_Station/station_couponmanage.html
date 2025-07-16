@@ -18,43 +18,6 @@
         </div>
     </div>
 
-    <!-- 쿠폰 통계 -->
-    <div class="row mb-4">
-        <div class="col-md-4 mb-3">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-body text-center">
-                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                        <i class="fas fa-ticket-alt fa-2x text-primary"></i>
-                    </div>
-                    <h5 class="card-title">전체 쿠폰</h5>
-                    <h3 class="text-primary mb-0">{{ total_coupons|default:0 }}장</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-body text-center">
-                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                        <i class="fas fa-check-circle fa-2x text-success"></i>
-                    </div>
-                    <h5 class="card-title">사용된 쿠폰</h5>
-                    <h3 class="text-success mb-0">{{ used_coupons|default:0 }}장</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-body text-center">
-                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                        <i class="fas fa-clock fa-2x text-warning"></i>
-                    </div>
-                    <h5 class="card-title">미사용 쿠폰</h5>
-                    <h3 class="text-warning mb-0">{{ unused_coupons|default:0 }}장</h3>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- 쿠폰 관리 카드들 -->
     <div class="row">
         <!-- 쿠폰 생성 카드 -->
@@ -68,7 +31,7 @@
                     <p class="card-text text-muted mb-4">
                         새로운 쿠폰을 생성하고 할인 조건을 설정합니다.
                     </p>
-                    <button class="btn btn-primary btn-lg w-100">
+                    <button class="btn btn-primary btn-lg w-100" onclick="showCouponCreation()">
                         <i class="fas fa-plus me-2"></i>쿠폰 생성하기
                     </button>
                 </div>
@@ -86,7 +49,7 @@
                     <p class="card-text text-muted mb-4">
                         생성된 쿠폰을 고객에게 발행하고 관리합니다.
                     </p>
-                    <button class="btn btn-success btn-lg w-100">
+                    <button class="btn btn-success btn-lg w-100" onclick="showCouponIssuance()">
                         <i class="fas fa-gift me-2"></i>쿠폰 발행하기
                     </button>
                 </div>
@@ -104,7 +67,7 @@
                     <p class="card-text text-muted mb-4">
                         발행된 쿠폰의 상태를 확인하고 관리합니다.
                     </p>
-                    <button class="btn btn-info btn-lg w-100">
+                    <button class="btn btn-info btn-lg w-100" onclick="showCouponManagement()">
                         <i class="fas fa-cog me-2"></i>쿠폰 관리하기
                     </button>
                 </div>
@@ -112,20 +75,242 @@
         </div>
     </div>
 
-    <!-- 최근 쿠폰 활동 -->
-    <div class="row mt-4">
+    <!-- 쿠폰 생성 섹션 (기본적으로 숨김) -->
+    <div id="couponCreationSection" class="row mt-4" style="display: none;">
         <div class="col-12">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white border-0">
-                    <h5 class="mb-0">
-                        <i class="fas fa-history me-2 text-secondary"></i>최근 쿠폰 활동
-                    </h5>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-plus me-2 text-primary"></i>쿠폰 생성
+                        </h5>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="hideCouponCreation()">
+                            <i class="fas fa-times me-1"></i>닫기
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <div class="text-center py-5">
-                        <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
-                        <p class="text-muted mb-3">아직 쿠폰 활동이 없습니다.</p>
-                        <small class="text-muted">쿠폰을 생성하고 발행하면 여기에 활동 내역이 표시됩니다.</small>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <form>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="couponType" class="form-label">쿠폰 유형</label>
+                                        <select class="form-select" id="couponType">
+                                            <option value="">쿠폰 유형을 선택하세요</option>
+                                            <option value="car_wash">세차 쿠폰</option>
+                                            <option value="product">상품 쿠폰</option>
+                                            <option value="fuel">주유 쿠폰</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="couponName" class="form-label">쿠폰명</label>
+                                        <input type="text" class="form-control" id="couponName" placeholder="쿠폰명을 입력하세요">
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="discountType" class="form-label">할인 유형</label>
+                                        <select class="form-select" id="discountType">
+                                            <option value="">할인 유형을 선택하세요</option>
+                                            <option value="percent">퍼센트 할인</option>
+                                            <option value="amount">금액 할인</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="discountValue" class="form-label">할인 값</label>
+                                        <input type="number" class="form-control" id="discountValue" placeholder="할인 값을 입력하세요">
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="minAmount" class="form-label">최소 사용 금액</label>
+                                        <input type="number" class="form-control" id="minAmount" placeholder="최소 사용 금액을 입력하세요">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="expiryDate" class="form-label">만료일</label>
+                                        <input type="date" class="form-control" id="expiryDate">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="couponDescription" class="form-label">쿠폰 설명</label>
+                                    <textarea class="form-control" id="couponDescription" rows="3" placeholder="쿠폰에 대한 설명을 입력하세요"></textarea>
+                                </div>
+                                <div class="text-end">
+                                    <button type="button" class="btn btn-secondary me-2" onclick="hideCouponCreation()">취소</button>
+                                    <button type="submit" class="btn btn-primary">쿠폰 생성</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">생성된 쿠폰 목록</h6>
+                                    <div class="text-center py-4">
+                                        <i class="fas fa-ticket-alt fa-2x text-muted mb-2"></i>
+                                        <p class="text-muted mb-0">생성된 쿠폰이 없습니다.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 쿠폰 발행 섹션 (기본적으로 숨김) -->
+    <div id="couponIssuanceSection" class="row mt-4" style="display: none;">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-gift me-2 text-success"></i>쿠폰 발행
+                        </h5>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="hideCouponIssuance()">
+                            <i class="fas fa-times me-1"></i>닫기
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <form>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="selectCoupon" class="form-label">발행할 쿠폰</label>
+                                        <select class="form-select" id="selectCoupon">
+                                            <option value="">발행할 쿠폰을 선택하세요</option>
+                                            <option value="coupon1">세차 서비스 50% 할인</option>
+                                            <option value="coupon2">편의점 상품 30% 할인</option>
+                                            <option value="coupon3">주유 1000원 할인</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="customerSelect" class="form-label">발행 대상 고객</label>
+                                        <select class="form-select" id="customerSelect">
+                                            <option value="">발행할 고객을 선택하세요</option>
+                                            <option value="all">전체 고객</option>
+                                            <option value="vip">VIP 고객</option>
+                                            <option value="group1">그룹 1</option>
+                                            <option value="group2">그룹 2</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="issuanceDate" class="form-label">발행일</label>
+                                        <input type="date" class="form-control" id="issuanceDate">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="quantity" class="form-label">발행 수량</label>
+                                        <input type="number" class="form-control" id="quantity" placeholder="발행할 쿠폰 수량">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="issuanceMessage" class="form-label">발행 메시지</label>
+                                    <textarea class="form-control" id="issuanceMessage" rows="3" placeholder="고객에게 전달할 메시지를 입력하세요"></textarea>
+                                </div>
+                                <div class="text-end">
+                                    <button type="button" class="btn btn-secondary me-2" onclick="hideCouponIssuance()">취소</button>
+                                    <button type="submit" class="btn btn-success">쿠폰 발행</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">발행 현황</h6>
+                                    <div class="row text-center">
+                                        <div class="col-6">
+                                            <h4 class="text-primary mb-0">0</h4>
+                                            <small class="text-muted">오늘 발행</small>
+                                        </div>
+                                        <div class="col-6">
+                                            <h4 class="text-success mb-0">0</h4>
+                                            <small class="text-muted">이번 주 발행</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 쿠폰 관리 상세 섹션 (기본적으로 숨김) -->
+    <div id="couponManagementSection" class="row mt-4" style="display: none;">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cog me-2 text-info"></i>쿠폰 관리
+                        </h5>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="hideCouponManagement()">
+                            <i class="fas fa-times me-1"></i>닫기
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- 쿠폰 통계 -->
+                    <div class="row mb-4">
+                        <div class="col-md-4 mb-3">
+                            <div class="card shadow-sm h-100 border-0">
+                                <div class="card-body text-center">
+                                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                                        <i class="fas fa-ticket-alt fa-2x text-primary"></i>
+                                    </div>
+                                    <h5 class="card-title">전체 쿠폰</h5>
+                                    <h3 class="text-primary mb-0">{{ total_coupons|default:0 }}장</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card shadow-sm h-100 border-0">
+                                <div class="card-body text-center">
+                                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                                        <i class="fas fa-check-circle fa-2x text-success"></i>
+                                    </div>
+                                    <h5 class="card-title">사용된 쿠폰</h5>
+                                    <h3 class="text-success mb-0">{{ used_coupons|default:0 }}장</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card shadow-sm h-100 border-0">
+                                <div class="card-body text-center">
+                                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                                        <i class="fas fa-clock fa-2x text-warning"></i>
+                                    </div>
+                                    <h5 class="card-title">미사용 쿠폰</h5>
+                                    <h3 class="text-warning mb-0">{{ unused_coupons|default:0 }}장</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 최근 쿠폰 활동 -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card shadow-sm border-0">
+                                <div class="card-header bg-white border-0">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-history me-2 text-secondary"></i>최근 쿠폰 활동
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="text-center py-5">
+                                        <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                                        <p class="text-muted mb-3">아직 쿠폰 활동이 없습니다.</p>
+                                        <small class="text-muted">쿠폰을 생성하고 발행하면 여기에 활동 내역이 표시됩니다.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -160,4 +345,48 @@
     }
 }
 </style>
+
+<script>
+function showCouponCreation() {
+    hideAllSections();
+    document.getElementById('couponCreationSection').style.display = 'block';
+    document.getElementById('couponCreationSection').scrollIntoView({ 
+        behavior: 'smooth' 
+    });
+}
+
+function hideCouponCreation() {
+    document.getElementById('couponCreationSection').style.display = 'none';
+}
+
+function showCouponIssuance() {
+    hideAllSections();
+    document.getElementById('couponIssuanceSection').style.display = 'block';
+    document.getElementById('couponIssuanceSection').scrollIntoView({ 
+        behavior: 'smooth' 
+    });
+}
+
+function hideCouponIssuance() {
+    document.getElementById('couponIssuanceSection').style.display = 'none';
+}
+
+function showCouponManagement() {
+    hideAllSections();
+    document.getElementById('couponManagementSection').style.display = 'block';
+    document.getElementById('couponManagementSection').scrollIntoView({ 
+        behavior: 'smooth' 
+    });
+}
+
+function hideCouponManagement() {
+    document.getElementById('couponManagementSection').style.display = 'none';
+}
+
+function hideAllSections() {
+    document.getElementById('couponCreationSection').style.display = 'none';
+    document.getElementById('couponIssuanceSection').style.display = 'none';
+    document.getElementById('couponManagementSection').style.display = 'none';
+}
+</script>
 {% endblock %} 
