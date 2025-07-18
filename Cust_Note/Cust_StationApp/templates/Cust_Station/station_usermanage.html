@@ -1,5 +1,6 @@
 {% extends 'base/base.html' %}
 {% load static %}
+{% load phone_filters %}
 
 {% block title %}Oil Note - 고객 관리{% endblock %}
 
@@ -114,19 +115,61 @@
         border-color: #0a58ca;
     }
     
-    /* 화살표 버튼 호버 효과 */
+    /* 모던한 점 3개 버튼 스타일 */
+    .toggle-accordion {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: none;
+        background: transparent;
+    }
+    
     .toggle-accordion:hover {
-        background-color: rgba(0, 123, 255, 0.1) !important;
-        transform: scale(1.1);
+        background-color: rgba(108, 117, 125, 0.1) !important;
+        transform: scale(1.05);
     }
     
     .toggle-accordion:hover i {
-        color: #0d6efd !important;
+        color: #6c757d !important;
+    }
+    
+    .toggle-accordion i {
+        font-size: 14px;
+        transition: all 0.3s ease;
     }
     
     /* 카드 헤더 호버 효과 */
     .customer-card-header:hover {
         background-color: rgba(0, 0, 0, 0.02);
+    }
+    
+    /* 모던한 페이지네이션 스타일 */
+    .pagination .page-link {
+        border: none;
+        color: #6c757d;
+        padding: 0.5rem 0.75rem;
+        transition: all 0.3s ease;
+    }
+    
+    .pagination .page-link:hover {
+        background-color: rgba(108, 117, 125, 0.1);
+        color: #495057;
+        transform: translateY(-1px);
+    }
+    
+    .pagination .page-item.active .page-link {
+        background-color: #6c757d;
+        border-color: #6c757d;
+        color: white;
+    }
+    
+    .pagination .page-item.disabled .page-link {
+        color: #adb5bd;
+        background-color: transparent;
     }
 </style>
 {% endblock %}
@@ -222,8 +265,10 @@
                                             <div class="d-flex align-items-center">
                                                 <i class="fas fa-user-check text-success me-3 fs-4"></i>
                                                 <div class="flex-grow-1">
-                                                    <h6 class="mb-0">{{ customer.phone|default:'-' }}</h6>
-                                                    <small class="text-muted">카드: {{ customer.card_number|default:'-' }}</small>
+                                                    <h6 class="mb-0">ID: {{ customer.customer.username|default:'-' }} </h6>
+                                                    <small class="text-muted">                                                         
+                                                        카드: {{ customer.card_number|default:'-' }}
+                                                    </small>
                                                 </div>
                                             </div>
                                             <div class="d-flex align-items-center ms-3">
@@ -234,7 +279,7 @@
                                                         aria-expanded="false"
                                                         onclick="event.stopPropagation();"
                                                         style="border-radius: 50%; transition: all 0.2s ease;">
-                                                    <i class="fas fa-chevron-down text-muted"></i>
+                                                    <i class="fas fa-ellipsis-h text-muted"></i>
                                                 </button>
                                             </div>
                                         </div>
@@ -243,6 +288,18 @@
                                             <div class="accordion-body px-3 pb-3 pt-0">
                                                 <div class="border-top pt-3">
                                                     <div class="row g-3">
+                                                        <div class="col-12">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <span class="text-muted">고객 ID</span>
+                                                                <span>{{ customer.customer.username|default:'-' }}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <span class="text-muted">전화번호</span>
+                                                                <span>{{ customer.phone|mask_phone }}</span>
+                                                            </div>
+                                                        </div>
                                                         <div class="col-12">
                                                             <div class="d-flex justify-content-between align-items-center">
                                                                 <span class="text-muted">최근 방문</span>
@@ -313,7 +370,7 @@
                                                         aria-expanded="false"
                                                         onclick="event.stopPropagation();"
                                                         style="border-radius: 50%; transition: all 0.2s ease;">
-                                                    <i class="fas fa-chevron-down text-muted"></i>
+                                                    <i class="fas fa-ellipsis-h text-muted"></i>
                                                 </button>
                                             </div>
                                         </div>
@@ -322,6 +379,12 @@
                                             <div class="accordion-body px-3 pb-3 pt-0">
                                                 <div class="border-top pt-3">
                                                     <div class="row g-3">
+                                                        <div class="col-12">
+                                                            <div class="d-flex justify-content-between align-items-center">
+                                                                <span class="text-muted">전화번호</span>
+                                                                <span>{{ customer.phone|mask_phone }}</span>
+                                                            </div>
+                                                        </div>
                                                         <div class="col-12">
                                                             <div class="d-flex justify-content-between align-items-center">
                                                                 <span class="text-muted">등록일</span>
@@ -1930,7 +1993,7 @@ function updatePagination(data) {
     paginationHtml += `
         <li class="page-item ${data.current_page <= 1 ? 'disabled' : ''}">
             <a class="page-link" href="?page=${data.current_page - 1}" ${data.current_page <= 1 ? 'tabindex="-1"' : ''}>
-                <i class="fas fa-chevron-left"></i>
+                <i class="fas fa-angle-left"></i>
             </a>
         </li>
     `;
@@ -1948,7 +2011,7 @@ function updatePagination(data) {
     paginationHtml += `
         <li class="page-item ${data.current_page >= data.total_pages ? 'disabled' : ''}">
             <a class="page-link" href="?page=${data.current_page + 1}" ${data.current_page >= data.total_pages ? 'tabindex="-1"' : ''}>
-                <i class="fas fa-chevron-right"></i>
+                <i class="fas fa-angle-right"></i>
             </a>
         </li>
     `;
@@ -2037,7 +2100,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const otherToggle = document.querySelector(`.toggle-accordion[data-customer-id="${collapse.id.split('-')[1]}"]`);
                 if (otherToggle) {
                     otherToggle.setAttribute('aria-expanded', 'false');
-                    otherToggle.querySelector('i').className = 'fas fa-chevron-down text-muted';
+                    otherToggle.querySelector('i').className = 'fas fa-ellipsis-h text-muted';
                 }
             }
         });
@@ -2046,11 +2109,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isExpanded) {
             collapseElement.classList.remove('show');
             toggleButton.setAttribute('aria-expanded', 'false');
-            icon.className = 'fas fa-chevron-down text-muted';
+            icon.className = 'fas fa-ellipsis-h text-muted';
         } else {
             collapseElement.classList.add('show');
             toggleButton.setAttribute('aria-expanded', 'true');
-            icon.className = 'fas fa-chevron-up text-muted';
+            icon.className = 'fas fa-ellipsis-h text-muted';
         }
     }
     

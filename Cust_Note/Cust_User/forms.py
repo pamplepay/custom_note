@@ -86,6 +86,12 @@ class CustomerSignUpForm(CustomUserCreationForm):
         label='고객 전화번호',
         help_text='주유소에서 등록한 전화번호를 입력하면 멤버십카드가 자동으로 연동됩니다.'
     )
+    car_number = forms.CharField(
+        max_length=20,
+        label='차량 번호',
+        required=False,
+        help_text='차량 번호를 입력해주세요 (예: 12가3456)'
+    )
     
     class Meta(CustomUserCreationForm.Meta):
         fields = CustomUserCreationForm.Meta.fields + ('customer_phone', 'car_number',)
@@ -99,6 +105,11 @@ class CustomerSignUpForm(CustomUserCreationForm):
         self.fields['customer_phone'].widget.attrs.update({
             'pattern': '[0-9]{10,11}',
             'placeholder': '01012345678 (숫자만 입력)'
+        })
+        
+        # 차량번호 필드에 패턴 추가
+        self.fields['car_number'].widget.attrs.update({
+            'placeholder': '12가3456'
         })
 
     def clean_customer_phone(self):
@@ -124,95 +135,128 @@ class CustomerSignUpForm(CustomUserCreationForm):
 
     def save(self, commit=True):
         import logging
+        from django.db.models.signals import post_save
+        from .signals import save_user_profile
         logger = logging.getLogger(__name__)
         
         user = super().save(commit=False)
         
         if commit:
-            user.save()
-            logger.info(f"고객 사용자 생성 완료: {user.username}")
-            
-            # 고객 프로필 생성 (중복 방지)
-            from .models import CustomerProfile
-            phone = self.cleaned_data.get('customer_phone', '')
-            logger.info(f"전화번호 정보: {phone}")
+            # 시그널을 임시로 비활성화
+            from .signals import create_user_profile, save_user_profile
+            post_save.disconnect(create_user_profile, sender=CustomUser)
+            post_save.disconnect(save_user_profile, sender=CustomUser)
             
             try:
-                customer_profile = CustomerProfile.objects.get(user=user)
-                # 이미 존재하는 경우 전화번호만 업데이트
+                user.save()
+                logger.info(f"고객 사용자 생성 완료: {user.username}")
+                
+                # 고객 프로필 생성 (중복 방지)
+                from .models import CustomerProfile
+                phone = self.cleaned_data.get('customer_phone', '')
+                car_number = self.cleaned_data.get('car_number', '')
+                logger.info(f"전화번호 정보: {phone}")
+                logger.info(f"차량번호 정보: {car_number}")
+                
+                # 고객 프로필 생성 또는 업데이트
+                customer_profile, created = CustomerProfile.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        'customer_phone': phone,
+                        'car_number': car_number
+                    }
+                )
+                
+                # 전화번호와 차량번호 업데이트 (항상 저장)
                 if phone:
                     customer_profile.customer_phone = phone
-                    customer_profile.save()
-                    logger.info(f"기존 프로필 전화번호 업데이트: {phone}")
-            except CustomerProfile.DoesNotExist:
-                # 존재하지 않는 경우 새로 생성
-                customer_profile = CustomerProfile.objects.create(
-                    user=user,
-                    customer_phone=phone
-                )
-                logger.info(f"새 프로필 생성 완료: {phone}")
-            
-            # 폰번호가 입력된 경우 멤버십카드 연동 시도
-            if phone:
-                try:
-                    from Cust_StationApp.models import PhoneCardMapping
-                    # 폰번호로 모든 연동 정보 찾기
-                    phone_mappings = PhoneCardMapping.find_all_by_phone(phone)
-                    logger.info(f"전화번호 {phone}로 찾은 매핑 수: {phone_mappings.count()}")
-                    
-                    linked_cards = []
-                    linked_stations = []
-                    
-                    for phone_mapping in phone_mappings:
-                        logger.info(f"매핑 확인: 카드={phone_mapping.membership_card.full_number}, 사용여부={phone_mapping.is_used}, 연동사용자={phone_mapping.linked_user.username if phone_mapping.linked_user else '없음'}")
+                if car_number:
+                    customer_profile.car_number = car_number
+                
+                # 항상 저장 (시그널에서 덮어쓰지 않도록)
+                customer_profile.save()
+                
+                if created:
+                    logger.info(f"새 프로필 생성 완료: 전화번호={phone}, 차량번호={car_number}")
+                else:
+                    logger.info(f"기존 프로필 업데이트: 전화번호={phone}, 차량번호={car_number}")
+                
+                # 저장 후 확인
+                customer_profile.refresh_from_db()
+                logger.info(f"저장 후 확인 - 전화번호: {customer_profile.customer_phone}, 차량번호: {customer_profile.car_number}")
+                
+                # 폰번호가 입력된 경우 멤버십카드 연동 시도
+                if phone:
+                    try:
+                        from Cust_StationApp.models import PhoneCardMapping
+                        # 폰번호로 모든 연동 정보 찾기
+                        phone_mappings = PhoneCardMapping.find_all_by_phone(phone)
+                        logger.info(f"전화번호 {phone}로 찾은 매핑 수: {phone_mappings.count()}")
                         
-                        # 연동 가능한 조건:
-                        # 1. is_used=False (미사용 상태)
-                        # 2. is_used=True이지만 linked_user가 None (사용 중이지만 연동된 사용자가 없음)
-                        can_link = (not phone_mapping.is_used) or (phone_mapping.is_used and not phone_mapping.linked_user)
+                        linked_cards = []
+                        linked_stations = []
                         
-                        if can_link:
-                            try:
-                                # 연동 정보가 있고 연동 가능한 경우
-                                phone_mapping.link_to_user(user)
-                                logger.info(f"카드 연동 완료: {phone_mapping.membership_card.full_number}")
-                                
-                                # 연동된 카드와 주유소 정보 수집
-                                linked_cards.append(phone_mapping.membership_card.full_number)
-                                linked_stations.append(phone_mapping.station)
-                                
-                                # 주유소와 고객 관계 생성
-                                from .models import CustomerStationRelation
-                                CustomerStationRelation.objects.get_or_create(
-                                    customer=user,
-                                    station=phone_mapping.station,
-                                    defaults={'is_active': True}
-                                )
-                                logger.info(f"주유소-고객 관계 생성: {phone_mapping.station.username}")
-                            except Exception as e:
-                                logger.error(f"카드 연동 실패: {phone_mapping.membership_card.full_number}, 오류: {str(e)}")
+                        for phone_mapping in phone_mappings:
+                            logger.info(f"매핑 확인: 카드={phone_mapping.membership_card.full_number}, 사용여부={phone_mapping.is_used}, 연동사용자={phone_mapping.linked_user.username if phone_mapping.linked_user else '없음'}")
+                            
+                            # 연동 가능한 조건:
+                            # 1. is_used=False (미사용 상태)
+                            # 2. is_used=True이지만 linked_user가 None (사용 중이지만 연동된 사용자가 없음)
+                            can_link = (not phone_mapping.is_used) or (phone_mapping.is_used and not phone_mapping.linked_user)
+                            
+                            if can_link:
+                                try:
+                                    # 연동 정보가 있고 연동 가능한 경우
+                                    phone_mapping.link_to_user(user)
+                                    logger.info(f"카드 연동 완료: {phone_mapping.membership_card.full_number}")
+                                    
+                                    # 연동된 카드와 주유소 정보 수집
+                                    linked_cards.append(phone_mapping.membership_card.full_number)
+                                    linked_stations.append(phone_mapping.station)
+                                    
+                                    # 주유소와 고객 관계 생성
+                                    from .models import CustomerStationRelation
+                                    CustomerStationRelation.objects.get_or_create(
+                                        customer=user,
+                                        station=phone_mapping.station,
+                                        defaults={'is_active': True}
+                                    )
+                                    logger.info(f"주유소-고객 관계 생성: {phone_mapping.station.username}")
+                                except Exception as e:
+                                    logger.error(f"카드 연동 실패: {phone_mapping.membership_card.full_number}, 오류: {str(e)}")
+                            else:
+                                logger.info(f"카드 연동 불가: {phone_mapping.membership_card.full_number} (이미 다른 사용자와 연동됨)")
+                        
+                        # 고객 프로필에 멤버십카드 정보 업데이트 (여러 카드 지원)
+                        if linked_cards:
+                            customer_profile.membership_card = ','.join(linked_cards)
+                            # 폰번호와 차량번호가 유지되도록 명시적으로 다시 설정
+                            if phone:
+                                customer_profile.customer_phone = phone
+                            if car_number:
+                                customer_profile.car_number = car_number
+                            customer_profile.save()
+                            logger.info(f"멤버십카드 정보 업데이트: {customer_profile.membership_card}")
+                            logger.info(f"폰번호 유지 확인: {customer_profile.customer_phone}")
+                            logger.info(f"차량번호 유지 확인: {customer_profile.car_number}")
+                            
+                            station_names = [station.station_profile.station_name for station in linked_stations if hasattr(station, 'station_profile')]
+                            if station_names:
+                                logger.info(f"연동된 주유소: {', '.join(station_names)}")
+                            else:
+                                logger.info("연동된 주유소 정보 없음")
                         else:
-                            logger.info(f"카드 연동 불가: {phone_mapping.membership_card.full_number} (이미 다른 사용자와 연동됨)")
-                    
-                    # 고객 프로필에 멤버십카드 정보 업데이트 (여러 카드 지원)
-                    if linked_cards:
-                        customer_profile.membership_card = ','.join(linked_cards)
-                        customer_profile.save()
-                        logger.info(f"멤버십카드 정보 업데이트: {customer_profile.membership_card}")
-                        
-                        station_names = [station.station_profile.station_name for station in linked_stations if hasattr(station, 'station_profile')]
-                        if station_names:
-                            logger.info(f"연동된 주유소: {', '.join(station_names)}")
-                        else:
-                            logger.info("연동된 주유소 정보 없음")
-                    else:
-                        logger.info("연동된 멤버십카드 없음")
-                        
-                except Exception as e:
-                    # 연동 실패 시에도 회원가입은 계속 진행
-                    logger.error(f"폰번호 {phone} 멤버십카드 연동 실패: {str(e)}")
-                    import traceback
-                    logger.error(traceback.format_exc())
+                            logger.info("연동된 멤버십카드 없음")
+                            
+                    except Exception as e:
+                        # 연동 실패 시에도 회원가입은 계속 진행
+                        logger.error(f"폰번호 {phone} 멤버십카드 연동 실패: {str(e)}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+            finally:
+                # 시그널 다시 연결
+                post_save.connect(create_user_profile, sender=CustomUser)
+                post_save.connect(save_user_profile, sender=CustomUser)
         
         return user
 

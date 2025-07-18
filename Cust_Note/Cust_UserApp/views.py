@@ -193,6 +193,7 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
             'username': self.request.user.username,
             'name': customer_profile.name or self.request.user.first_name or '',
             'phone': customer_profile.customer_phone or '',
+            'car_number': customer_profile.car_number or '',
             'email': self.request.user.email or '',
             'membership_card': customer_profile.membership_card or '',
             'current_group': customer_profile.group or '',
@@ -218,6 +219,7 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
             # 프로필 정보 업데이트
             name = request.POST.get('name', '').strip()
             phone = request.POST.get('phone', '').strip()
+            car_number = request.POST.get('car_number', '').strip()
             email = request.POST.get('email', '').strip()
             membership_card = request.POST.get('membership_card', '').strip()
             group = request.POST.get('group', '').strip()
@@ -226,6 +228,10 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
             if name:
                 customer_profile.name = name
                 user.first_name = name
+            
+            # 차량 번호 업데이트
+            if car_number:
+                customer_profile.car_number = car_number
             
             # 전화번호 업데이트 및 멤버십카드 연동
             phone_changed = False

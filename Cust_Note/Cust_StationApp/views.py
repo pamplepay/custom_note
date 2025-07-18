@@ -605,6 +605,7 @@ def station_usermanage(request):
         
         registered_customers_data.append({
             'id': customer.id,
+            'customer': customer,  # 고객 객체 추가
             'phone': profile.customer_phone,
             'card_number': profile.membership_card,
             'last_visit': last_visit,
