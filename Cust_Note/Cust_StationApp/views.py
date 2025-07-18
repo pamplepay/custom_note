@@ -201,6 +201,10 @@ def station_main(request):
             previous_top_products_by_amount = get_top_products_by_amount(previous_monthly)
             current_top_products_by_amount = get_top_products_by_amount(current_monthly)
             
+            # DM 값 계산 (200리터 = 1DM)
+            current_month_dm = float(current_monthly.total_quantity) / 200 if current_monthly else 0
+            previous_month_dm = float(previous_monthly.total_quantity) / 200 if previous_monthly else 0
+            
             monthly_stats = {
                 'current_month': current_monthly,
                 'previous_month': previous_monthly,
@@ -209,7 +213,9 @@ def station_main(request):
                 'previous_top_products': previous_top_products,
                 'current_top_products': current_top_products,
                 'previous_top_products_by_amount': previous_top_products_by_amount,
-                'current_top_products_by_amount': current_top_products_by_amount
+                'current_top_products_by_amount': current_top_products_by_amount,
+                'current_month_dm': current_month_dm,
+                'previous_month_dm': previous_month_dm
             }
     except Exception as e:
         logger.error(f"월별 통계 데이터 조회 중 오류: {str(e)}")
@@ -250,11 +256,11 @@ def get_daily_sales_data(request):
         if not month_str or not data_type:
             return JsonResponse({'error': '필수 파라미터가 누락되었습니다.'}, status=400)
         
-        # 해당 월의 날짜별 데이터 조회
+        # 해당 월의 날짜별 데이터 조회 (최근 날짜부터 정렬)
         daily_stats = SalesStatistics.objects.filter(
             tid=tid,
             sale_date__startswith=month_str
-        ).order_by('sale_date')
+        ).order_by('-sale_date')
         
         # 해당 월의 월별 통계 데이터 조회 (상위 제품 정보용)
         monthly_stat = MonthlySalesStatistics.objects.filter(
