@@ -137,59 +137,74 @@
 
     <div class="row mb-4">
         <div class="col-md-4 mb-3">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-body text-center">
-                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                        <i class="fas fa-users fa-2x text-primary"></i>
+            <a href="{% url 'station:usermanage' %}" class="text-decoration-none">
+                <div class="card shadow-sm h-100 border-0 hover-card" style="cursor: pointer;">
+                    <div class="card-body text-center">
+                        <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                            <i class="fas fa-users fa-2x text-primary"></i>
+                        </div>
+                        <h5 class="card-title">VIP 고객수</h5>
+                        <h3 class="text-primary mb-0">{{ total_customers|intcomma }}명</h3>
+                        <small class="text-muted d-block mt-2">
+                            <i class="fas fa-info-circle me-1"></i>클릭하여 고객 노트로 이동
+                        </small>
                     </div>
-                    <h5 class="card-title">VIP 고객수</h5>
-                    <h3 class="text-primary mb-0">{{ total_customers|intcomma }}명</h3>
                 </div>
-            </div>
+            </a>
         </div>
         <div class="col-md-4 mb-3">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-body text-center">
-                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                        <i class="fas fa-calendar-alt fa-2x text-success"></i>
-                    </div>
-                    <h5 class="card-title">전월 방문 횟수 & 주유금액</h5>
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted fs-6">방문 횟수</span>
-                            <span class="text-success fw-bold fs-5">{{ previous_month_visitors|default:0 }}회</span>
+            <a href="{% url 'station:usermanage' %}" class="text-decoration-none">
+                <div class="card shadow-sm h-100 border-0 hover-card" style="cursor: pointer;">
+                    <div class="card-body text-center">
+                        <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                            <i class="fas fa-calendar-alt fa-2x text-success"></i>
                         </div>
-                    </div>
-                    <div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted fs-6">주유 금액</span>
-                            <span class="text-success fw-bold fs-5">{{ previous_month_amount|default:0|intcomma }}원</span>
+                        <h5 class="card-title">전월 방문 횟수 & 주유금액</h5>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted fs-6">방문 횟수</span>
+                                <span class="text-success fw-bold fs-5">{{ previous_month_visitors|default:0 }}회</span>
+                            </div>
                         </div>
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted fs-6">주유 금액</span>
+                                <span class="text-success fw-bold fs-5">{{ previous_month_amount|default:0|intcomma }}원</span>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-2">
+                            <i class="fas fa-info-circle me-1"></i>클릭하여 고객 노트로 이동
+                        </small>
                     </div>
                 </div>
-            </div>
+            </a>
         </div>
         <div class="col-md-4 mb-3">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-body text-center">
-                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                        <i class="fas fa-calendar-check fa-2x text-info"></i>
-                    </div>
-                    <h5 class="card-title">금월 방문 횟수 & 주유금액</h5>
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted fs-6">방문 횟수</span>
-                            <span class="text-info fw-bold fs-5">{{ current_month_visitors|default:0 }}회</span>
+            <a href="{% url 'station:usermanage' %}" class="text-decoration-none">
+                <div class="card shadow-sm h-100 border-0 hover-card" style="cursor: pointer;">
+                    <div class="card-body text-center">
+                        <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                            <i class="fas fa-calendar-check fa-2x text-info"></i>
                         </div>
-                    </div>
-                    <div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="text-muted fs-6">주유 금액</span>
-                            <span class="text-info fw-bold fs-5">{{ current_month_amount|default:0|intcomma }}원</span>
+                        <h5 class="card-title">금월 방문 횟수 & 주유금액</h5>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted fs-6">방문 횟수</span>
+                                <span class="text-info fw-bold fs-5">{{ current_month_visitors|default:0 }}회</span>
+                            </div>
                         </div>
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted fs-6">주유 금액</span>
+                                <span class="text-info fw-bold fs-5">{{ current_month_amount|default:0|intcomma }}원</span>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-2">
+                            <i class="fas fa-info-circle me-1"></i>클릭하여 고객 노트로 이동
+                        </small>
                     </div>
                 </div>
-            </div>
+            </a>
         </div>
 
     </div>
@@ -343,18 +358,17 @@
             <div class="modal-body">
                 <!-- 단위 토글 버튼 (판매량 모달에서만 표시) -->
                 <div id="unitToggleContainer" class="mb-3" style="display: none;">
-                    <div class="d-flex justify-content-center">
-                        <div class="btn-group" role="group" aria-label="단위 선택">
-                            <input type="radio" class="btn-check" name="unitToggle" id="unitLiter" value="liter" checked>
-                            <label class="btn btn-outline-primary" for="unitLiter">
-                                <i class="fas fa-tint me-1"></i>리터(L)
-                            </label>
-                            
-                            <input type="radio" class="btn-check" name="unitToggle" id="unitDrum" value="drum">
-                            <label class="btn btn-outline-primary" for="unitDrum">
-                                <i class="fas fa-drum me-1"></i>드럼(DM)
-                            </label>
+                    <div class="d-flex justify-content-center align-items-center">
+                        <span class="me-3 text-muted">
+                            <i class="fas fa-tint me-1"></i>리터(L)
+                        </span>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="unitToggle" style="width: 3rem; height: 1.5rem;">
+                            <label class="form-check-label" for="unitToggle"></label>
                         </div>
+                        <span class="ms-3 text-muted">
+                            <i class="fas fa-drum me-1"></i>드럼(DM)
+                        </span>
                     </div>
                 </div>
                 
@@ -405,6 +419,33 @@
     transform: translateY(-5px);
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
 }
+
+/* 단위 토글 스위치 커스터마이징 */
+.form-check-input {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.form-check-input:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* 토글 스위치 라벨 스타일 */
+#unitToggleContainer .text-muted {
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+#unitToggleContainer .form-check-input:checked ~ .text-muted:last-of-type,
+#unitToggleContainer .form-check-input:not(:checked) ~ .text-muted:first-of-type {
+    color: #0d6efd !important;
+    font-weight: 600;
+}
 </style>
 
 <script>
@@ -416,8 +457,8 @@ function showDailyData(month, type) {
     const unitToggleContainer = document.getElementById('unitToggleContainer');
     if (type === 'quantity') {
         unitToggleContainer.style.display = 'block';
-        // 기본값을 리터로 설정
-        document.getElementById('unitLiter').checked = true;
+        // 기본값을 리터로 설정 (체크박스 해제 상태)
+        document.getElementById('unitToggle').checked = false;
     } else {
         unitToggleContainer.style.display = 'none';
     }
@@ -513,6 +554,9 @@ function displayDailyData(data) {
         <h6 class="mb-3">${data.month} ${typeText} 상세</h6>
     `;
     
+    // 데이터를 전역 변수로 저장하여 토글 시 사용
+    window.currentModalData = data;
+    
     // 상위 제품 정보 표시
     if (data.top_products && data.top_products.length > 0) {
         html += `
@@ -606,6 +650,120 @@ function displayDailyData(data) {
                             </div>`
                         ).join('<hr class="my-1">');
                     }
+                }
+            }
+            
+            html += `
+                <tr>
+                    <td>${item.date}</td>
+                    <td class="text-end">${formattedValue}</td>
+                    ${data.daily_product_stats && data.daily_product_stats.length > 0 ? `<td class="text-center">${productInfo}</td>` : ''}
+                </tr>
+            `;
+        });
+    }
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    document.getElementById('dailyDataContent').innerHTML = html;
+    
+    // 단위 토글 이벤트 리스너 추가
+    if (data.type === 'quantity') {
+        document.getElementById('unitToggle').addEventListener('change', function() {
+            const selectedUnit = this.checked ? 'drum' : 'liter';
+            updateUnitDisplay(selectedUnit);
+        });
+    }
+}
+
+// 단위 변환 함수
+function updateUnitDisplay(selectedUnit) {
+    if (!window.currentModalData || window.currentModalData.type !== 'quantity') {
+        return;
+    }
+    
+    const data = window.currentModalData;
+    const typeText = '판매량';
+    const unit = selectedUnit === 'drum' ? 'DM' : 'L';
+    const conversionFactor = selectedUnit === 'drum' ? 200 : 1; // 200리터 = 1드럼
+    
+    let html = `
+        <h6 class="mb-3">${data.month} ${typeText} 상세</h6>
+    `;
+    
+    // 상위 제품 정보 표시 (단위 변환 적용)
+    if (data.top_products && data.top_products.length > 0) {
+        html += `
+            <div class="alert alert-info mb-3">
+                <h6 class="alert-heading mb-2">
+                    <i class="fas fa-star me-2"></i>상위 판매 제품
+                </h6>
+                <div class="row">
+        `;
+        
+        data.top_products.forEach((product, index) => {
+            const convertedQuantity = parseFloat(product.quantity) / conversionFactor;
+            html += `
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">${index + 1}. ${product.product}</span>
+                        <div class="text-end">
+                            <div class="small text-muted">판매횟수: ${product.count}회</div>
+                            <div class="small text-muted">판매수량: ${convertedQuantity.toLocaleString()}${unit}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    html += `
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>날짜</th>
+                        <th class="text-end">${typeText}</th>
+                        ${data.daily_product_stats && data.daily_product_stats.length > 0 ? '<th class="text-center">상위 제품</th>' : ''}
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    if (data.data.length === 0) {
+        html += `
+            <tr>
+                <td colspan="${data.daily_product_stats && data.daily_product_stats.length > 0 ? '3' : '2'}" class="text-center text-muted">
+                    <i class="fas fa-info-circle me-2"></i>
+                    해당 월의 데이터가 없습니다.
+                </td>
+            </tr>
+        `;
+    } else {
+        data.data.forEach((item, index) => {
+            const convertedValue = parseFloat(item.value) / conversionFactor;
+            const formattedValue = convertedValue.toLocaleString() + unit;
+            
+            let productInfo = '';
+            if (data.daily_product_stats && data.daily_product_stats[index]) {
+                const dailyStats = data.daily_product_stats[index];
+                if (dailyStats.products && dailyStats.products.length > 0) {
+                    productInfo = dailyStats.products.map(product => {
+                        const convertedQuantity = parseFloat(product.quantity) / conversionFactor;
+                        return `<div class="small">
+                            <strong>${product.product}</strong><br>
+                            <span class="text-muted">${product.count}회 / ${convertedQuantity.toLocaleString()}${unit}</span>
+                        </div>`;
+                    }).join('<hr class="my-1">');
                 }
             }
             
