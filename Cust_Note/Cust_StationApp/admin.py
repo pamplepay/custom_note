@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.contrib import messages
-from .models import PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics, MonthlySalesStatistics, Group
+from .models import PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics, MonthlySalesStatistics, Group, PhoneCardMapping
 from Cust_User.models import CustomUser
 
 class StationCardMappingInline(admin.TabularInline):
@@ -224,7 +224,8 @@ class PointCardAdmin(admin.ModelAdmin):
 
 @admin.register(SalesStatistics)
 class SalesStatisticsAdmin(admin.ModelAdmin):
-    list_display = ('tid', 'sale_date', 'total_transactions', 'total_amount', 'avg_unit_price', 'top_product', 'source_file', 'created_at')
+    change_list_template = 'admin/sales_statistics_change_list.html'
+    list_display = ('tid', 'get_station_name', 'sale_date', 'total_transactions', 'total_amount', 'avg_unit_price', 'top_product', 'source_file', 'created_at')
     list_filter = ('sale_date', 'source_file', 'created_at')
     search_fields = ('tid', 'top_product', 'source_file')
     readonly_fields = ('created_at',)
@@ -242,12 +243,115 @@ class SalesStatisticsAdmin(admin.ModelAdmin):
         }),
     )
     
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'station-filter/',
+                self.admin_site.admin_view(self.station_filter_view),
+                name='sales-statistics-station-filter',
+            ),
+        ]
+        return custom_urls + urls
+    
+    def changelist_view(self, request, extra_context=None):
+        """주유소 목록을 템플릿에 전달"""
+        from Cust_User.models import StationProfile
+        
+        # 모든 주유소 프로필 가져오기 (TID가 있는 것만)
+        stations = StationProfile.objects.filter(
+            tid__isnull=False
+        ).exclude(tid='').select_related('user').order_by('station_name')
+        
+        extra_context = extra_context or {}
+        extra_context['stations'] = stations
+        
+        return super().changelist_view(request, extra_context)
+    
     def get_queryset(self, request):
-        return super().get_queryset(request).order_by('-sale_date', '-created_at')
+        queryset = super().get_queryset(request).order_by('-sale_date', '-created_at')
+        
+        # 주유소 필터 적용
+        station_filter = request.GET.get('station_filter')
+        if station_filter and station_filter != 'all':
+            # TID로 주유소 찾기
+            from Cust_User.models import StationProfile
+            station_profiles = StationProfile.objects.filter(tid=station_filter)
+            if station_profiles.exists():
+                queryset = queryset.filter(tid=station_filter)
+        
+        return queryset
+    
+    def get_search_results(self, request, queryset, search_term):
+        """검색 기능 개선 - 주유소명으로도 검색 가능"""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        
+        if search_term:
+            from Cust_User.models import StationProfile
+            
+            # 주유소명으로 검색
+            station_profiles = StationProfile.objects.filter(
+                station_name__icontains=search_term,
+                tid__isnull=False
+            ).exclude(tid='')
+            
+            if station_profiles.exists():
+                station_tids = [profile.tid for profile in station_profiles]
+                queryset |= self.model.objects.filter(tid__in=station_tids)
+        
+        return queryset, use_distinct
+
+    def get_station_name(self, obj):
+        """TID로 주유소명 가져오기"""
+        if obj.tid:
+            from Cust_User.models import StationProfile
+            try:
+                station_profile = StationProfile.objects.get(tid=obj.tid)
+                return station_profile.station_name
+            except StationProfile.DoesNotExist:
+                return f"TID: {obj.tid} (주유소 정보 없음)"
+        return "-"
+    get_station_name.short_description = '주유소명'
+    get_station_name.admin_order_field = 'tid'
+    
+    def station_filter_view(self, request):
+        """주유소 필터 뷰"""
+        from Cust_User.models import StationProfile
+        
+        # 모든 주유소 프로필 가져오기 (TID가 있는 것만)
+        stations = StationProfile.objects.filter(
+            tid__isnull=False
+        ).exclude(tid='').select_related('user').order_by('station_name')
+        
+        # 현재 선택된 주유소
+        selected_station = request.GET.get('station_filter', 'all')
+        
+        # 필터링된 데이터
+        if selected_station and selected_station != 'all':
+            queryset = self.get_queryset(request).filter(tid=selected_station)
+        else:
+            queryset = self.get_queryset(request)
+        
+        context = {
+            **self.admin_site.each_context(request),
+            'title': '매출 통계 - 주유소별 필터',
+            'stations': stations,
+            'selected_station': selected_station,
+            'queryset': queryset,
+            'opts': self.model._meta,
+            'has_change_permission': self.has_change_permission(request),
+        }
+        
+        return TemplateResponse(
+            request,
+            'admin/sales_statistics_station_filter.html',
+            context,
+        )
 
 @admin.register(ExcelSalesData)
 class ExcelSalesDataAdmin(admin.ModelAdmin):
-    list_display = ('tid', 'sale_date', 'sale_time', 'customer_name', 'product_pack', 'quantity', 'total_amount', 'source_file')
+    change_list_template = 'admin/excel_sales_data_change_list.html'
+    list_display = ('tid', 'get_station_name', 'sale_date', 'sale_time', 'customer_name', 'product_pack', 'quantity', 'total_amount', 'source_file')
     list_filter = ('sale_date', 'product_pack', 'tid', 'source_file')
     search_fields = ('customer_name', 'product_pack', 'tid', 'source_file')
     readonly_fields = ('data_created_at',)
@@ -274,13 +378,112 @@ class ExcelSalesDataAdmin(admin.ModelAdmin):
         }),
     )
     
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'station-filter/',
+                self.admin_site.admin_view(self.station_filter_view),
+                name='excel-sales-data-station-filter',
+            ),
+        ]
+        return custom_urls + urls
+    
+    def changelist_view(self, request, extra_context=None):
+        """주유소 목록을 템플릿에 전달"""
+        from Cust_User.models import StationProfile
+        
+        # 모든 주유소 프로필 가져오기 (TID가 있는 것만)
+        stations = StationProfile.objects.filter(
+            tid__isnull=False
+        ).exclude(tid='').select_related('user').order_by('station_name')
+        
+        extra_context = extra_context or {}
+        extra_context['stations'] = stations
+        
+        return super().changelist_view(request, extra_context)
+    
     def get_queryset(self, request):
-        return super().get_queryset(request).order_by('-sale_date', '-sale_time')
+        queryset = super().get_queryset(request).order_by('-sale_date', '-sale_time')
+        
+        # 주유소 필터 적용
+        station_filter = request.GET.get('station_filter')
+        if station_filter and station_filter != 'all':
+            queryset = queryset.filter(tid=station_filter)
+        
+        return queryset
+    
+    def get_search_results(self, request, queryset, search_term):
+        """검색 기능 개선 - 주유소명으로도 검색 가능"""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        
+        if search_term:
+            from Cust_User.models import StationProfile
+            
+            # 주유소명으로 검색
+            station_profiles = StationProfile.objects.filter(
+                station_name__icontains=search_term,
+                tid__isnull=False
+            ).exclude(tid='')
+            
+            if station_profiles.exists():
+                station_tids = [profile.tid for profile in station_profiles]
+                queryset |= self.model.objects.filter(tid__in=station_tids)
+        
+        return queryset, use_distinct
+    
+    def get_station_name(self, obj):
+        """TID로 주유소명 가져오기"""
+        if obj.tid:
+            from Cust_User.models import StationProfile
+            try:
+                station_profile = StationProfile.objects.get(tid=obj.tid)
+                return station_profile.station_name
+            except StationProfile.DoesNotExist:
+                return f"TID: {obj.tid} (주유소 정보 없음)"
+        return "-"
+    get_station_name.short_description = '주유소명'
+    get_station_name.admin_order_field = 'tid'
+    
+    def station_filter_view(self, request):
+        """주유소 필터 뷰"""
+        from Cust_User.models import StationProfile
+        
+        # 모든 주유소 프로필 가져오기 (TID가 있는 것만)
+        stations = StationProfile.objects.filter(
+            tid__isnull=False
+        ).exclude(tid='').select_related('user').order_by('station_name')
+        
+        # 현재 선택된 주유소
+        selected_station = request.GET.get('station_filter', 'all')
+        
+        # 필터링된 데이터
+        if selected_station and selected_station != 'all':
+            queryset = self.get_queryset(request).filter(tid=selected_station)
+        else:
+            queryset = self.get_queryset(request)
+        
+        context = {
+            **self.admin_site.each_context(request),
+            'title': '엑셀 매출 데이터 - 주유소별 필터',
+            'stations': stations,
+            'selected_station': selected_station,
+            'queryset': queryset,
+            'opts': self.model._meta,
+            'has_change_permission': self.has_change_permission(request),
+        }
+        
+        return TemplateResponse(
+            request,
+            'admin/excel_sales_data_station_filter.html',
+            context,
+        )
 
 
 @admin.register(MonthlySalesStatistics)
 class MonthlySalesStatisticsAdmin(admin.ModelAdmin):
-    list_display = ('tid', 'year_month', 'total_transactions', 'total_amount', 'avg_unit_price', 'top_product', 'updated_at')
+    change_list_template = 'admin/monthly_sales_statistics_change_list.html'
+    list_display = ('tid', 'get_station_name', 'year_month', 'total_transactions', 'total_amount', 'avg_unit_price', 'top_product', 'updated_at')
     list_filter = ('year_month', 'tid', 'updated_at')
     search_fields = ('tid', 'top_product', 'year_month')
     readonly_fields = ('updated_at',)
@@ -304,8 +507,106 @@ class MonthlySalesStatisticsAdmin(admin.ModelAdmin):
         }),
     )
     
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'station-filter/',
+                self.admin_site.admin_view(self.station_filter_view),
+                name='monthly-sales-statistics-station-filter',
+            ),
+        ]
+        return custom_urls + urls
+    
+    def changelist_view(self, request, extra_context=None):
+        """주유소 목록을 템플릿에 전달"""
+        from Cust_User.models import StationProfile
+        
+        # 모든 주유소 프로필 가져오기 (TID가 있는 것만)
+        stations = StationProfile.objects.filter(
+            tid__isnull=False
+        ).exclude(tid='').select_related('user').order_by('station_name')
+        
+        extra_context = extra_context or {}
+        extra_context['stations'] = stations
+        
+        return super().changelist_view(request, extra_context)
+    
     def get_queryset(self, request):
-        return super().get_queryset(request).order_by('-year_month', '-updated_at')
+        queryset = super().get_queryset(request).order_by('-year_month', '-updated_at')
+        
+        # 주유소 필터 적용
+        station_filter = request.GET.get('station_filter')
+        if station_filter and station_filter != 'all':
+            queryset = queryset.filter(tid=station_filter)
+        
+        return queryset
+    
+    def get_search_results(self, request, queryset, search_term):
+        """검색 기능 개선 - 주유소명으로도 검색 가능"""
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+        
+        if search_term:
+            from Cust_User.models import StationProfile
+            
+            # 주유소명으로 검색
+            station_profiles = StationProfile.objects.filter(
+                station_name__icontains=search_term,
+                tid__isnull=False
+            ).exclude(tid='')
+            
+            if station_profiles.exists():
+                station_tids = [profile.tid for profile in station_profiles]
+                queryset |= self.model.objects.filter(tid__in=station_tids)
+        
+        return queryset, use_distinct
+    
+    def get_station_name(self, obj):
+        """TID로 주유소명 가져오기"""
+        if obj.tid:
+            from Cust_User.models import StationProfile
+            try:
+                station_profile = StationProfile.objects.get(tid=obj.tid)
+                return station_profile.station_name
+            except StationProfile.DoesNotExist:
+                return f"TID: {obj.tid} (주유소 정보 없음)"
+        return "-"
+    get_station_name.short_description = '주유소명'
+    get_station_name.admin_order_field = 'tid'
+    
+    def station_filter_view(self, request):
+        """주유소 필터 뷰"""
+        from Cust_User.models import StationProfile
+        
+        # 모든 주유소 프로필 가져오기 (TID가 있는 것만)
+        stations = StationProfile.objects.filter(
+            tid__isnull=False
+        ).exclude(tid='').select_related('user').order_by('station_name')
+        
+        # 현재 선택된 주유소
+        selected_station = request.GET.get('station_filter', 'all')
+        
+        # 필터링된 데이터
+        if selected_station and selected_station != 'all':
+            queryset = self.get_queryset(request).filter(tid=selected_station)
+        else:
+            queryset = self.get_queryset(request)
+        
+        context = {
+            **self.admin_site.each_context(request),
+            'title': '월별 매출 통계 - 주유소별 필터',
+            'stations': stations,
+            'selected_station': selected_station,
+            'queryset': queryset,
+            'opts': self.model._meta,
+            'has_change_permission': self.has_change_permission(request),
+        }
+        
+        return TemplateResponse(
+            request,
+            'admin/monthly_sales_statistics_station_filter.html',
+            context,
+        )
 
 @admin.register(StationCardMapping)
 class StationCardMappingAdmin(admin.ModelAdmin):
@@ -349,3 +650,59 @@ class GroupAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('station', 'station__station_profile')
+
+@admin.register(PhoneCardMapping)
+class PhoneCardMappingAdmin(admin.ModelAdmin):
+    list_display = ('phone_number', 'membership_card', 'station', 'is_used', 'linked_user', 'created_at')
+    list_filter = ('is_used', 'created_at', 'station')
+    search_fields = ('phone_number', 'membership_card__number', 'station__username', 'linked_user__username')
+    readonly_fields = ('created_at', 'updated_at')
+    raw_id_fields = ('membership_card', 'station', 'linked_user')
+    list_per_page = 50
+    
+    fieldsets = (
+        ('기본 정보', {
+            'fields': ('phone_number', 'membership_card', 'station')
+        }),
+        ('연동 정보', {
+            'fields': ('is_used', 'linked_user')
+        }),
+        ('시간 정보', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'membership_card', 'station', 'linked_user'
+        )
+    
+    def get_readonly_fields(self, request, obj=None):
+        if obj and obj.is_used:  # 이미 연동된 경우
+            return self.readonly_fields + ('phone_number', 'membership_card', 'station')
+        return self.readonly_fields
+    
+    actions = ['unlink_users', 'bulk_delete_unused']
+    
+    def unlink_users(self, request, queryset):
+        """선택된 연동 정보에서 사용자 연동 해제"""
+        count = 0
+        for mapping in queryset.filter(is_used=True):
+            mapping.unlink_user()
+            count += 1
+        
+        if count > 0:
+            self.message_user(request, f'{count}개의 연동 정보에서 사용자 연동이 해제되었습니다.')
+        else:
+            self.message_user(request, '연동 해제할 항목이 없습니다.')
+    unlink_users.short_description = '사용자 연동 해제'
+    
+    def bulk_delete_unused(self, request, queryset):
+        """미사용 연동 정보 일괄 삭제"""
+        unused_mappings = queryset.filter(is_used=False)
+        count = unused_mappings.count()
+        unused_mappings.delete()
+        
+        self.message_user(request, f'{count}개의 미사용 연동 정보가 삭제되었습니다.')
+    bulk_delete_unused.short_description = '미사용 연동 정보 일괄 삭제'

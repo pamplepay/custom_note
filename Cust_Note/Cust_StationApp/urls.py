@@ -24,6 +24,9 @@ urlpatterns = [
     path('check-customer/', views.check_customer_exists, name='check_customer'),
     path('search-customer/', views.search_customer, name='search_customer'),
     
+    # 폰번호-카드 연동 관련 URL
+    path('check-phone-mapping/', views.check_phone_mapping, name='check_phone_mapping'),
+    
     # 멤버십 카드 관리 관련 URL
     path('register-card/', views.register_card, name='register_card'),
     path('get-unused-cards/', views.get_unused_cards, name='get_unused_cards'),

@@ -36,7 +36,38 @@ class CustomerSignUpView(CreateView):
     def form_valid(self, form):
         user = form.save()
         login(self.request, user)
-        messages.success(self.request, '회원가입이 완료되었습니다.')
+        
+        # 멤버십카드 연동 여부 확인
+        phone = form.cleaned_data.get('customer_phone', '')
+        if phone:
+            try:
+                from Cust_StationApp.models import PhoneCardMapping
+                from .models import CustomerProfile
+                
+                # 연동된 카드 정보 확인
+                phone_mappings = PhoneCardMapping.find_all_by_phone(phone)
+                linked_cards = []
+                linked_stations = []
+                
+                for phone_mapping in phone_mappings:
+                    if phone_mapping.linked_user == user:
+                        linked_cards.append(phone_mapping.membership_card.full_number)
+                        linked_stations.append(phone_mapping.station)
+                
+                if linked_cards:
+                    station_names = [station.station_profile.station_name for station in linked_stations if hasattr(station, 'station_profile')]
+                    if station_names:
+                        messages.success(self.request, f'회원가입이 완료되었습니다. 전화번호 {phone}로 {len(linked_cards)}개의 멤버십카드가 연동되었습니다. (주유소: {", ".join(station_names)})')
+                    else:
+                        messages.success(self.request, f'회원가입이 완료되었습니다. 전화번호 {phone}로 {len(linked_cards)}개의 멤버십카드가 연동되었습니다.')
+                else:
+                    messages.success(self.request, f'회원가입이 완료되었습니다. 전화번호 {phone}에 해당하는 미사용 멤버십카드 정보를 찾을 수 없습니다.')
+            except Exception as e:
+                messages.success(self.request, '회원가입이 완료되었습니다.')
+                messages.warning(self.request, f'멤버십카드 연동 중 오류가 발생했습니다: {str(e)}')
+        else:
+            messages.success(self.request, '회원가입이 완료되었습니다.')
+        
         return redirect('customer:main')
 
 class StationSignUpView(CreateView):

@@ -4,7 +4,7 @@ from django.http import JsonResponse, FileResponse
 from django.contrib import messages
 from django.db.models import Q, Sum
 from Cust_User.models import CustomUser, CustomerProfile, CustomerStationRelation
-from .models import PointCard, StationCardMapping, SalesData, ExcelSalesData, MonthlySalesStatistics, SalesStatistics, Group
+from .models import PointCard, StationCardMapping, SalesData, ExcelSalesData, MonthlySalesStatistics, SalesStatistics, Group, PhoneCardMapping
 from datetime import datetime, timedelta
 import json
 import logging
@@ -517,24 +517,39 @@ def station_usermanage(request):
     page = request.GET.get('page', 1)
     search_query = request.GET.get('search', '')
     
-    # 고객 목록 조회
-    customer_relations = CustomerStationRelation.objects.filter(
+    # 회원가입 여부에 따른 고객 분류
+    # 1. 회원가입한 고객 (CustomerStationRelation에서 조회)
+    registered_customers = CustomerStationRelation.objects.filter(
         station=request.user
     ).select_related(
         'customer',
         'customer__customer_profile'
     ).order_by('-created_at')
     
+    # 2. 미회원가입 고객 (PhoneCardMapping에서 조회)
+    from .models import PhoneCardMapping
+    unregistered_mappings = PhoneCardMapping.objects.filter(
+        station=request.user,
+        is_used=False  # 회원가입하지 않은 고객
+    ).select_related('membership_card').order_by('-created_at')
+    
     # 검색 필터링
     if search_query:
-        customer_relations = customer_relations.filter(
+        # 회원가입한 고객 검색
+        registered_customers = registered_customers.filter(
             Q(customer__username__icontains=search_query) |
             Q(customer__customer_profile__customer_phone__icontains=search_query) |
             Q(customer__customer_profile__membership_card__icontains=search_query)
         )
+        
+        # 미회원가입 고객 검색
+        unregistered_mappings = unregistered_mappings.filter(
+            Q(phone_number__icontains=search_query) |
+            Q(membership_card__number__icontains=search_query)
+        )
     
-    # 페이지네이터 설정
-    paginator = Paginator(customer_relations, 10)  # 페이지당 10개
+    # 페이지네이터 설정 (회원가입한 고객만 페이지네이션 적용)
+    paginator = Paginator(registered_customers, 10)  # 페이지당 10개
     
     try:
         current_page = paginator.page(page)
@@ -562,8 +577,8 @@ def station_usermanage(request):
         visit_date__month=current_month
     ).values('customer').distinct().count()
     
-    # 고객 데이터 가공
-    customers = []
+    # 회원가입한 고객 데이터 가공
+    registered_customers_data = []
     for relation in current_page:
         customer = relation.customer
         profile = customer.customer_profile
@@ -588,24 +603,42 @@ def station_usermanage(request):
         if visit_history.exists():
             total_fuel_amount = sum(visit.sale_amount for visit in visit_history if visit.sale_amount)
         
-        customers.append({
+        registered_customers_data.append({
             'id': customer.id,
             'phone': profile.customer_phone,
             'card_number': profile.membership_card,
             'last_visit': last_visit,
             'total_visit_count': total_visit_count,
             'total_fuel_amount': total_fuel_amount,
-            'created_at': relation.created_at
+            'created_at': relation.created_at,
+            'is_registered': True
+        })
+    
+    # 미회원가입 고객 데이터 가공
+    unregistered_customers_data = []
+    for mapping in unregistered_mappings:
+        unregistered_customers_data.append({
+            'id': None,
+            'phone': mapping.phone_number,
+            'card_number': mapping.membership_card.full_number,
+            'last_visit': None,
+            'total_visit_count': 0,
+            'total_fuel_amount': 0,
+            'created_at': mapping.created_at,
+            'is_registered': False
         })
     
     context = {
-        'customers': customers,
+        'registered_customers': registered_customers_data,
+        'unregistered_customers': unregistered_customers_data,
         'current_page': int(page),
         'total_pages': paginator.num_pages,
         'page_range': page_range,
         'search_query': search_query,
         'station_tid': request.user.station_profile.tid if hasattr(request.user, 'station_profile') else None,
-        'this_month_visitors': this_month_visitors
+        'this_month_visitors': this_month_visitors,
+        'total_registered_count': registered_customers.count(),
+        'total_unregistered_count': unregistered_mappings.count()
     }
     
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1244,7 +1277,7 @@ def register_card(request):
 
 @login_required
 def register_customer(request):
-    """신규 고객 등록"""
+    """신규 고객 등록 - 폰번호와 멤버십카드 연동"""
     logger.info("=== 고객 등록 프로세스 시작 ===")
     logger.info(f"요청 사용자: {request.user.username}")
     
@@ -1260,10 +1293,8 @@ def register_customer(request):
             
             phone = data.get('phone', '').strip()
             card_number = data.get('card_number', '').strip()
-            # group = data.get('group', '').strip()  # 그룹 기능 비활성화
             
             logger.info(f"입력값 확인 - 전화번호: {phone}, 카드번호: {card_number}")
-            # logger.info(f"그룹: {group}")  # 그룹 기능 비활성화
             
             # 입력값 검증
             if not phone or not card_number:
@@ -1314,71 +1345,30 @@ def register_customer(request):
                             'message': '이미 사용 중인 카드입니다.'
                         }, status=400)
 
-                    # 기존 사용자 확인 (락 설정)
-                    existing_user = CustomUser.objects.select_for_update().filter(username=phone).first()
+                    # 기존 폰번호-카드 연동 확인 (같은 폰번호와 카드 조합만 중복 방지)
+                    existing_mapping = PhoneCardMapping.objects.filter(
+                        phone_number=phone,
+                        membership_card=card,
+                        station=request.user
+                    ).first()
                     
-                    if existing_user:
-                        logger.info(f"기존 고객 발견: {phone} - 멤버십 카드만 연결")
-                        
-                        # 이미 이 주유소에 등록된 고객인지 확인
-                        customer_relation = CustomerStationRelation.objects.filter(
-                            customer=existing_user, 
-                            station=request.user
-                        ).first()
+                    if existing_mapping:
+                        logger.warning(f"이미 등록된 폰번호-카드 조합: {phone} - {card_number}")
+                        return JsonResponse({
+                            'status': 'error',
+                            'message': '이 전화번호와 카드 조합은 이미 등록되어 있습니다.'
+                        }, status=400)
 
-                        if not customer_relation:
-                            # 주유소와 고객 관계 생성
-                            CustomerStationRelation.objects.create(
-                                customer=existing_user,
-                                station=request.user
-                            )
-                            logger.info(f"주유소-고객 관계 생성 완료 - 고객: {existing_user.id}, 주유소: {request.user.username}")
-
-                        # 고객 프로필 업데이트 - 멤버십 카드 추가
-                        customer_profile = CustomerProfile.objects.get(user=existing_user)
-                        if customer_profile.membership_card:
-                            # 기존 카드 번호가 있으면 새 카드 번호를 추가 (쉼표로 구분)
-                            existing_cards = set(customer_profile.membership_card.split(','))
-                            existing_cards.add(card_number)
-                            customer_profile.membership_card = ','.join(existing_cards)
-                        else:
-                            customer_profile.membership_card = card_number
-                        customer_profile.save()
-                        logger.info(f"고객 프로필 업데이트 완료 - 사용자: {existing_user.id}")
-                        
-                    else:
-                        logger.info(f"신규 고객 등록 시작: {phone}")
-                        # 신규 사용자 생성
-                        new_user = CustomUser.objects.create_user(
-                            username=phone,
-                            password=card_number,
-                            user_type='CUSTOMER',
-                            pw_back=card_number  # 실제 카드번호를 백업 패스워드로 저장
-                        )
-                        logger.info(f"신규 사용자 생성 완료 - ID: {new_user.id}, 전화번호: {phone}")
-                        
-                        # 고객 프로필 생성
-                        customer_profile, created = CustomerProfile.objects.get_or_create(
-                            user=new_user,
-                            defaults={
-                                'customer_phone': phone,
-                                'membership_card': card_number
-                            }
-                        )
-                        if not created:
-                            customer_profile.customer_phone = phone
-                            customer_profile.membership_card = card_number
-                            customer_profile.save()
-                        logger.info(f"고객 프로필 생성 완료 - 사용자: {new_user.id}")
-                        
-                        # 주유소와 고객 관계 생성
-                        CustomerStationRelation.objects.create(
-                            customer=new_user,
-                            station=request.user
-                        )
-                        logger.info(f"주유소-고객 관계 생성 완료 - 고객: {new_user.id}, 주유소: {request.user.username}")
+                    # 폰번호-카드 연동 생성
+                    phone_card_mapping = PhoneCardMapping.objects.create(
+                        phone_number=phone,
+                        membership_card=card,
+                        station=request.user,
+                        is_used=False
+                    )
+                    logger.info(f"폰번호-카드 연동 생성 완료: {phone} - {card_number}")
                     
-                    # 카드 상태 업데이트
+                    # 카드 상태 업데이트 (사용 중으로 변경)
                     card.is_used = True
                     card.save()
                     logger.info(f"카드 상태 업데이트 완료 - 카드번호: {card_number}")
@@ -1386,7 +1376,7 @@ def register_customer(request):
                     logger.info("=== 고객 등록 프로세스 완료 ===")
                     return JsonResponse({
                         'status': 'success',
-                        'message': '고객이 성공적으로 등록되었습니다.'
+                        'message': '폰번호와 멤버십카드가 성공적으로 연동되었습니다. 고객이 회원가입 시 자동으로 연동됩니다.'
                     })
                     
             except IntegrityError as e:
@@ -2782,3 +2772,59 @@ def get_groups(request):
             'status': 'error',
             'message': '그룹 목록을 불러오는 중 오류가 발생했습니다.'
         }, status=500)
+
+@login_required
+def check_phone_mapping(request):
+    """폰번호로 연동 정보 조회"""
+    logger.info("=== 폰번호 연동 정보 조회 시작 ===")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 접근 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    if request.method == 'GET':
+        phone = request.GET.get('phone', '').strip()
+        
+        if not phone:
+            return JsonResponse({
+                'status': 'error',
+                'message': '전화번호를 입력해주세요.'
+            }, status=400)
+        
+        # 전화번호 형식 정리
+        phone = re.sub(r'[^0-9]', '', phone)
+        
+        try:
+            # 폰번호로 연동 정보 찾기
+            phone_mapping = PhoneCardMapping.find_by_phone(phone, station=request.user)
+            
+            if phone_mapping:
+                return JsonResponse({
+                    'status': 'success',
+                    'exists': True,
+                    'data': {
+                        'phone_number': phone_mapping.phone_number,
+                        'card_number': phone_mapping.membership_card.full_number,
+                        'is_used': phone_mapping.is_used,
+                        'linked_user': phone_mapping.linked_user.username if phone_mapping.linked_user else None,
+                        'created_at': phone_mapping.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                })
+            else:
+                return JsonResponse({
+                    'status': 'success',
+                    'exists': False,
+                    'message': '해당 전화번호로 등록된 연동 정보가 없습니다.'
+                })
+                
+        except Exception as e:
+            logger.error(f"폰번호 연동 정보 조회 중 오류: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': '연동 정보 조회 중 오류가 발생했습니다.'
+            }, status=500)
+    
+    return JsonResponse({
+        'status': 'error',
+        'message': '잘못된 요청 방식입니다.'
+    }, status=405)

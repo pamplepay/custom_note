@@ -190,6 +190,7 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
         groups = Group.objects.filter(station_id__in=connected_stations).order_by('name')
         
         context.update({
+            'username': self.request.user.username,
             'name': customer_profile.name or self.request.user.first_name or '',
             'phone': customer_profile.customer_phone or '',
             'email': self.request.user.email or '',
@@ -226,16 +227,82 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
                 customer_profile.name = name
                 user.first_name = name
             
-            # 전화번호 업데이트
-            if phone:
+            # 전화번호 업데이트 및 멤버십카드 연동
+            phone_changed = False
+            if phone and phone != customer_profile.customer_phone:
                 customer_profile.customer_phone = phone
+                phone_changed = True
+                
+                # 전화번호로 멤버십카드 연동 시도
+                try:
+                    from Cust_StationApp.models import PhoneCardMapping
+                    # 폰번호로 모든 연동 정보 찾기
+                    phone_mappings = PhoneCardMapping.find_all_by_phone(phone)
+                    
+                    linked_cards = []
+                    linked_stations = []
+                    
+                    for phone_mapping in phone_mappings:
+                        # 연동 가능한 조건:
+                        # 1. is_used=False (미사용 상태)
+                        # 2. is_used=True이지만 linked_user가 None (사용 중이지만 연동된 사용자가 없음)
+                        can_link = (not phone_mapping.is_used) or (phone_mapping.is_used and not phone_mapping.linked_user)
+                        
+                        if can_link:
+                            try:
+                                # 연동 정보가 있고 연동 가능한 경우
+                                phone_mapping.link_to_user(user)
+                                
+                                # 연동된 카드와 주유소 정보 수집
+                                linked_cards.append(phone_mapping.membership_card.full_number)
+                                linked_stations.append(phone_mapping.station)
+                                
+                                # 주유소와 고객 관계 생성
+                                from .models import CustomerStationRelation
+                                CustomerStationRelation.objects.get_or_create(
+                                    customer=user,
+                                    station=phone_mapping.station,
+                                    defaults={'is_active': True}
+                                )
+                            except Exception as e:
+                                # 연동 실패 시에도 계속 진행
+                                pass
+                    
+                    # 고객 프로필에 멤버십카드 정보 업데이트 (여러 카드 지원)
+                    if linked_cards:
+                        # 기존 카드가 있으면 추가, 없으면 새로 설정
+                        current_cards = customer_profile.membership_card or ''
+                        if current_cards:
+                            existing_cards = current_cards.split(',')
+                            for card in linked_cards:
+                                if card not in existing_cards:
+                                    existing_cards.append(card)
+                            customer_profile.membership_card = ','.join(existing_cards)
+                        else:
+                            customer_profile.membership_card = ','.join(linked_cards)
+                        customer_profile.save()
+                        
+                        station_names = [station.station_profile.station_name for station in linked_stations if hasattr(station, 'station_profile')]
+                        if station_names:
+                            messages.success(request, f'전화번호 {phone}로 {len(linked_cards)}개의 멤버십카드가 연동되었습니다. (주유소: {", ".join(station_names)})')
+                        else:
+                            messages.success(request, f'전화번호 {phone}로 {len(linked_cards)}개의 멤버십카드가 연동되었습니다.')
+                    else:
+                        messages.info(request, f'전화번호 {phone}에 해당하는 미사용 멤버십카드 정보를 찾을 수 없습니다.')
+                        
+                except Exception as e:
+                    # 연동 실패 시에도 회원가입은 계속 진행
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"폰번호 {phone} 멤버십카드 연동 실패: {str(e)}")
+                    messages.warning(request, f'멤버십카드 연동 중 오류가 발생했습니다: {str(e)}')
             
             # 이메일 업데이트
             if email:
                 user.email = email
             
-            # 멤버십카드 업데이트
-            if membership_card:
+            # 멤버십카드 수동 업데이트 (전화번호 연동이 실패한 경우)
+            if membership_card and not phone_changed:
                 customer_profile.membership_card = membership_card
             
             # 그룹 업데이트

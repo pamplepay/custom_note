@@ -14,20 +14,33 @@
                     <form method="post">
                         {% csrf_token %}
                         <div class="mb-3">
+                            <label for="username" class="form-label">아이디</label>
+                            <input type="text" class="form-control" id="username" name="username" value="{{ username }}" readonly>
+                            <div class="form-text">아이디는 변경할 수 없습니다.</div>
+                        </div>
+                        <div class="mb-3">
                             <label for="name" class="form-label">이름</label>
                             <input type="text" class="form-control" id="name" name="name" value="{{ name }}">
                         </div>
                         <div class="mb-3">
                             <label for="phone" class="form-label">전화번호</label>
-                            <input type="tel" class="form-control" id="phone" name="phone" value="{{ phone }}">
+                            <input type="tel" class="form-control" id="phone" name="phone" value="{{ phone }}" placeholder="01012345678">
+                            <div class="form-text">주유소에서 등록한 전화번호를 입력하면 멤버십카드가 자동으로 연동됩니다.</div>
                         </div>
                         <div class="mb-3">
                             <label for="email" class="form-label">이메일</label>
                             <input type="email" class="form-control" id="email" name="email" value="{{ email }}">
                         </div>
                         <div class="mb-3">
-                            <label for="membership_card" class="form-label">멤버십 카드</label>
-                            <input type="text" class="form-control" id="membership_card" name="membership_card" value="{{ membership_card }}">
+                            <label for="membership_card" class="form-label">멤버십 카드 번호</label>
+                            <input type="text" class="form-control" id="membership_card" name="membership_card" value="{{ membership_card }}" readonly>
+                            <div class="form-text">
+                                {% if membership_card %}
+                                    연동된 멤버십카드: {{ membership_card }}
+                                {% else %}
+                                    전화번호를 입력하고 저장하면 멤버십카드가 자동으로 연동됩니다.
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="group" class="form-label">그룹 설정</label>

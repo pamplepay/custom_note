@@ -115,7 +115,7 @@ class StationCardMapping(models.Model):
 
     class Meta:
         verbose_name = '주유소-카드 매핑'
-        verbose_name_plural = '주유소-카드 매핑'
+        verbose_name_plural = '7. 주유소-카드 매핑'
         ordering = ['-registered_at']
 
     def __str__(self):
@@ -168,6 +168,161 @@ class StationCardMapping(models.Model):
         except Exception as e:
             logger.error(f"StationCardMapping 삭제 중 오류 발생: {str(e)}")
             raise
+
+class PhoneCardMapping(models.Model):
+    """폰번호와 멤버십카드 연동 모델"""
+    phone_number = models.CharField(
+        max_length=15, 
+        verbose_name='전화번호',
+        help_text='하이픈(-) 없이 숫자만 입력 (예: 01012345678)',
+        validators=[
+            RegexValidator(
+                regex=r'^01[0-9]{8,9}$',
+                message='올바른 휴대폰 번호를 입력해주세요. (예: 01012345678)'
+            )
+        ]
+    )
+    membership_card = models.ForeignKey(
+        'PointCard',
+        on_delete=models.CASCADE,
+        verbose_name='멤버십 카드',
+        related_name='phone_mappings'
+    )
+    station = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='등록 주유소',
+        limit_choices_to={'user_type': 'STATION'}
+    )
+    is_used = models.BooleanField(
+        default=False,
+        verbose_name='사용 여부',
+        help_text='고객이 회원가입하여 연동되었는지 여부'
+    )
+    linked_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='연동된 사용자',
+        related_name='phone_card_mappings',
+        limit_choices_to={'user_type': 'CUSTOMER'}
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='등록일시')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일시')
+
+    class Meta:
+        verbose_name = '폰번호-카드 연동'
+        verbose_name_plural = '6. 폰번호-카드 연동 목록'
+        ordering = ['-created_at']
+        # unique_together 제거 - 폰번호 하나에 여러 카드 등록 가능
+        indexes = [
+            models.Index(fields=['phone_number']),
+            models.Index(fields=['membership_card']),
+            models.Index(fields=['is_used']),
+        ]
+
+    def __str__(self):
+        status = "연동됨" if self.is_used else "미연동"
+        return f"{self.phone_number} - {self.membership_card.full_number} ({status})"
+
+    def clean(self):
+        """데이터 검증"""
+        from django.core.exceptions import ValidationError
+        
+        # 폰번호 형식 정리 (하이픈 제거)
+        if self.phone_number:
+            self.phone_number = self.phone_number.replace('-', '').replace(' ', '')
+        
+        # 같은 폰번호와 카드 조합이 이미 존재하는지 확인 (중복 등록 방지)
+        existing_mapping = PhoneCardMapping.objects.filter(
+            phone_number=self.phone_number,
+            membership_card=self.membership_card,
+            station=self.station
+        ).exclude(pk=self.pk)
+        
+        if existing_mapping.exists():
+            raise ValidationError('이 폰번호와 카드 조합은 이미 등록되어 있습니다.')
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def find_by_phone(cls, phone_number, station=None):
+        """폰번호로 연동 정보 찾기 (미사용 상태 우선)"""
+        phone_number = phone_number.replace('-', '').replace(' ', '')
+        queryset = cls.objects.filter(phone_number=phone_number)
+        
+        if station:
+            queryset = queryset.filter(station=station)
+        
+        # 미사용 상태인 매핑을 우선적으로 반환
+        unused_mapping = queryset.filter(is_used=False).first()
+        if unused_mapping:
+            return unused_mapping
+        
+        # 미사용 상태가 없으면 첫 번째 매핑 반환
+        return queryset.first()
+
+    @classmethod
+    def find_all_by_phone(cls, phone_number, station=None):
+        """폰번호로 모든 연동 정보 찾기"""
+        phone_number = phone_number.replace('-', '').replace(' ', '')
+        queryset = cls.objects.filter(phone_number=phone_number)
+        
+        if station:
+            queryset = queryset.filter(station=station)
+        
+        return queryset.order_by('-is_used', '-created_at')  # 미사용 상태 우선, 최신 등록 우선
+
+    def link_to_user(self, user):
+        """사용자와 연동"""
+        if user.user_type != 'CUSTOMER':
+            raise ValueError('일반 고객만 연동할 수 있습니다.')
+        
+        # 이미 사용 중인 카드인지 확인 (다른 PhoneCardMapping에서 사용 중인지 확인)
+        existing_used_mapping = PhoneCardMapping.objects.filter(
+            membership_card=self.membership_card,
+            is_used=True
+        ).exclude(pk=self.pk)
+        
+        if existing_used_mapping.exists():
+            # 이미 다른 매핑에서 사용 중인 카드라면 연동 불가
+            raise ValueError('이미 다른 사용자와 연동된 멤버십 카드입니다.')
+        
+        self.linked_user = user
+        self.is_used = True
+        self.save()
+        
+        # 고객 프로필에 멤버십 카드 정보 업데이트
+        if hasattr(user, 'customer_profile'):
+            # 기존 멤버십카드가 있으면 추가, 없으면 새로 설정
+            current_cards = user.customer_profile.membership_card or ''
+            if current_cards:
+                if self.membership_card.full_number not in current_cards:
+                    user.customer_profile.membership_card = f"{current_cards},{self.membership_card.full_number}"
+            else:
+                user.customer_profile.membership_card = self.membership_card.full_number
+            user.customer_profile.save()
+        
+        # 주유소와 고객 관계 생성
+        from Cust_User.models import CustomerStationRelation
+        CustomerStationRelation.objects.get_or_create(
+            customer=user,
+            station=self.station,
+            defaults={'is_active': True}
+        )
+        
+        logger.info(f"폰번호 {self.phone_number}과 사용자 {user.username} 연동 완료")
+
+    def unlink_user(self):
+        """사용자 연동 해제"""
+        self.linked_user = None
+        self.is_used = False
+        self.save()
+        
+        logger.info(f"폰번호 {self.phone_number} 사용자 연동 해제")
 
 class StationList(get_user_model()):
     class Meta:
@@ -229,7 +384,7 @@ class ExcelSalesData(models.Model):
 
     class Meta:
         verbose_name = '엑셀 매출 데이터'
-        verbose_name_plural = '5. 엑셀 매출 데이터 목록'
+        verbose_name_plural = '4. 엑셀 매출 데이터 목록'
         ordering = ['-sale_date', '-sale_time']
 
     def __str__(self):
@@ -250,7 +405,7 @@ class SalesStatistics(models.Model):
 
     class Meta:
         verbose_name = '매출 통계'
-        verbose_name_plural = '4. 매출 통계 목록'
+        verbose_name_plural = '3. 매출 통계 목록'
         ordering = ['-sale_date', '-created_at']
         unique_together = ['tid', 'sale_date']
 
@@ -279,7 +434,7 @@ class MonthlySalesStatistics(models.Model):
 
     class Meta:
         verbose_name = '월별 매출 통계'
-        verbose_name_plural = '6. 월별 매출 통계 목록'
+        verbose_name_plural = '5. 월별 매출 통계 목록'
         ordering = ['-year_month']
         unique_together = ['tid', 'year_month']
 
