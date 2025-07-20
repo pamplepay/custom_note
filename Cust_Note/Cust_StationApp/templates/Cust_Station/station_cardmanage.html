@@ -208,18 +208,14 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- 카드 상태 변경 및 삭제 버튼 - 기능 비활성화됨 -->
-                        <!-- <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-secondary" 
-                                    onclick="updateCardStatus('{{ card.number }}', {{ card.is_used|yesno:'false,true' }})">
-                                {% if card.is_used %}미사용으로 변경{% else %}사용중으로 변경{% endif %}
-                            </button>
+                        <!-- 카드 삭제 버튼 (상태 변경 기능 비활성화) -->
+                        <div class="btn-group">
                             <button class="btn btn-sm btn-outline-danger" 
                                     onclick="deleteCard('{{ card.number }}', {{ card.is_used|yesno:'true,false' }})"
-                                    {% if card.is_used %}disabled title="사용중인 카드는 삭제할 수 없습니다"{% endif %}>
+                                    {% if card.is_used %}disabled title="사용중인 카드는 삭제할 수 없습니다"{% else %}title="카드 삭제"{% endif %}>
                                 <i class="fas fa-trash"></i>
                             </button>
-                        </div> -->
+                        </div>
                     </div>
                 </div>
                 {% empty %}
@@ -467,18 +463,14 @@ function createCardItem(card) {
                         </div>
                     </div>
                 </div>
-                <!-- 카드 상태 변경 및 삭제 버튼 - 기능 비활성화됨 -->
-                <!-- <div class="btn-group">
-                    <button class="btn btn-sm btn-outline-secondary" 
-                            onclick="updateCardStatus('${card.number}', ${!card.is_used})">
-                        ${card.is_used ? '미사용으로 변경' : '사용중으로 변경'}
-                    </button>
+                <!-- 카드 삭제 버튼 (상태 변경 기능 비활성화) -->
+                <div class="btn-group">
                     <button class="btn btn-sm btn-outline-danger" 
                             onclick="deleteCard('${card.number}', ${card.is_used})"
-                            ${card.is_used ? 'disabled title="사용중인 카드는 삭제할 수 없습니다"' : ''}>
+                            ${card.is_used ? 'disabled title="사용중인 카드는 삭제할 수 없습니다"' : 'title="카드 삭제"'} >
                         <i class="fas fa-trash"></i>
                     </button>
-                </div> -->
+                </div>
             </div>
         </div>
     `;

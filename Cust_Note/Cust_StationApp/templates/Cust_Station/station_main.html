@@ -29,9 +29,9 @@
                     <h3 class="text-primary mb-0">
                         {% if monthly_stats and monthly_stats.previous_month %}
                             {{ monthly_stats.previous_month.total_quantity|floatformat:0|intcomma }}L
-                            <br><small class="text-muted">({{ monthly_stats.previous_month_dm|floatformat:2 }} DM)</small>
+                            <br><small class="text-muted">({{ monthly_stats.previous_month_dm|floatformat:1 }} DM)</small>
                         {% else %}
-                            0L<br><small class="text-muted">(0.00 DM)</small>
+                            0L<br><small class="text-muted">(0.0 DM)</small>
                         {% endif %}
                     </h3>
                     {% if monthly_stats and monthly_stats.previous_top_products %}
@@ -86,9 +86,9 @@
                     <h3 class="text-info mb-0">
                         {% if monthly_stats and monthly_stats.current_month %}
                             {{ monthly_stats.current_month.total_quantity|floatformat:0|intcomma }}L
-                            <br><small class="text-muted">({{ monthly_stats.current_month_dm|floatformat:2 }} DM)</small>
+                            <br><small class="text-muted">({{ monthly_stats.current_month_dm|floatformat:1 }} DM)</small>
                         {% else %}
-                            0L<br><small class="text-muted">(0.00 DM)</small>
+                            0L<br><small class="text-muted">(0.0 DM)</small>
                         {% endif %}
                     </h3>
                     {% if monthly_stats and monthly_stats.current_top_products %}
@@ -457,8 +457,8 @@ function showDailyData(month, type) {
     const unitToggleContainer = document.getElementById('unitToggleContainer');
     if (type === 'quantity') {
         unitToggleContainer.style.display = 'block';
-        // 기본값을 리터로 설정 (체크박스 해제 상태)
-        document.getElementById('unitToggle').checked = false;
+        // 기본값을 드럼으로 설정 (체크박스 체크 상태)
+        document.getElementById('unitToggle').checked = true;
     } else {
         unitToggleContainer.style.display = 'none';
     }
@@ -548,7 +548,9 @@ function showDailyData(month, type) {
 
 function displayDailyData(data) {
     const typeText = data.type === 'quantity' ? '판매량' : '판매금액';
-    const unit = data.type === 'quantity' ? 'L' : '원';
+    // 기본값을 드럼으로 설정 (체크박스가 체크된 상태)
+    const unit = data.type === 'quantity' ? 'DM' : '원';
+    const conversionFactor = data.type === 'quantity' ? 200 : 1; // 200리터 = 1드럼
     
     let html = `
         <h6 class="mb-3">${data.month} ${typeText} 상세</h6>
@@ -569,13 +571,14 @@ function displayDailyData(data) {
         
         data.top_products.forEach((product, index) => {
             if (data.type === 'quantity') {
+                const convertedQuantity = parseFloat(product.quantity) / conversionFactor;
                 html += `
                     <div class="col-md-6">
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="fw-bold">${index + 1}. ${product.product}</span>
                             <div class="text-end">
                                 <div class="small text-muted">판매횟수: ${product.count}회</div>
-                                <div class="small text-muted">판매수량: ${parseFloat(product.quantity).toLocaleString()}L</div>
+                                <div class="small text-muted">판매수량: ${convertedQuantity.toFixed(1)}${unit}</div>
                             </div>
                         </div>
                     </div>
@@ -627,7 +630,7 @@ function displayDailyData(data) {
     } else {
         data.data.forEach((item, index) => {
             const formattedValue = data.type === 'quantity' 
-                ? parseFloat(item.value).toLocaleString() + unit
+                ? (parseFloat(item.value) / conversionFactor).toFixed(1) + unit
                 : parseFloat(item.value).toLocaleString() + unit;
             
             let productInfo = '';
@@ -635,12 +638,13 @@ function displayDailyData(data) {
                 const dailyStats = data.daily_product_stats[index];
                 if (dailyStats.products && dailyStats.products.length > 0) {
                     if (data.type === 'quantity') {
-                        productInfo = dailyStats.products.map(product => 
-                            `<div class="small">
+                        productInfo = dailyStats.products.map(product => {
+                            const convertedQuantity = parseFloat(product.quantity) / conversionFactor;
+                            return `<div class="small">
                                 <strong>${product.product}</strong><br>
-                                <span class="text-muted">${product.count}회 / ${parseFloat(product.quantity).toLocaleString()}L</span>
-                            </div>`
-                        ).join('<hr class="my-1">');
+                                <span class="text-muted">${product.count}회 / ${convertedQuantity.toFixed(1)}${unit}</span>
+                            </div>`;
+                        }).join('<hr class="my-1">');
                     } else {  // amount
                         productInfo = dailyStats.products.map(product => 
                             `<div class="small">
@@ -713,7 +717,7 @@ function updateUnitDisplay(selectedUnit) {
                         <span class="fw-bold">${index + 1}. ${product.product}</span>
                         <div class="text-end">
                             <div class="small text-muted">판매횟수: ${product.count}회</div>
-                            <div class="small text-muted">판매수량: ${convertedQuantity.toLocaleString()}${unit}</div>
+                            <div class="small text-muted">판매수량: ${convertedQuantity.toFixed(1)}${unit}</div>
                         </div>
                     </div>
                 </div>
@@ -751,7 +755,7 @@ function updateUnitDisplay(selectedUnit) {
     } else {
         data.data.forEach((item, index) => {
             const convertedValue = parseFloat(item.value) / conversionFactor;
-            const formattedValue = convertedValue.toLocaleString() + unit;
+            const formattedValue = convertedValue.toFixed(1) + unit;
             
             let productInfo = '';
             if (data.daily_product_stats && data.daily_product_stats[index]) {
@@ -761,7 +765,7 @@ function updateUnitDisplay(selectedUnit) {
                         const convertedQuantity = parseFloat(product.quantity) / conversionFactor;
                         return `<div class="small">
                             <strong>${product.product}</strong><br>
-                            <span class="text-muted">${product.count}회 / ${convertedQuantity.toLocaleString()}${unit}</span>
+                            <span class="text-muted">${product.count}회 / ${convertedQuantity.toFixed(1)}${unit}</span>
                         </div>`;
                     }).join('<hr class="my-1">');
                 }

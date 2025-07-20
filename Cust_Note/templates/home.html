@@ -10,24 +10,20 @@
             <h1 class="display-4 mb-4">Oil Note</h1>
             <p class="lead mb-4">주유소와 고객을 위한 스마트한 관리 시스템</p>
             
-            <div class="row mt-5">
+            <div class="row mt-5 justify-content-center">
                 <div class="col-md-6">
                     <div class="card mb-4">
                         <div class="card-body">
-                            <h3 class="card-title">주유소</h3>
-                            <p class="card-text">주유소 관리와 고객 서비스를 한 번에</p>
-                            <a href="{% url 'users:login' %}" class="btn btn-primary">로그인</a>
-                            <a href="{% url 'users:station_signup' %}" class="btn btn-outline-primary">회원가입</a>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card mb-4">
-                        <div class="card-body">
-                            <h3 class="card-title">고객</h3>
-                            <p class="card-text">편리한 주유 기록과 쿠폰 관리</p>
-                            <a href="{% url 'users:login' %}" class="btn btn-primary">로그인</a>
-                            <a href="{% url 'users:customer_signup' %}" class="btn btn-outline-primary">회원가입</a>
+                            <h3 class="card-title">시작하기</h3>
+                            <p class="card-text">Oil Note와 함께 스마트한 주유 관리를 시작하세요</p>
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'users:login' %}" class="btn btn-primary">
+                                    <i class="fas fa-sign-in-alt me-2"></i>로그인
+                                </a>
+                                <a href="{% url 'users:customer_signup' %}" class="btn btn-outline-primary">
+                                    <i class="fas fa-user-plus me-2"></i>회원가입
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -37,17 +33,17 @@
                 <h2 class="h4 mb-4">주요 기능</h2>
                 <div class="row">
                     <div class="col-md-4">
-                        <i class="fas fa-gas-pump fa-2x mb-3"></i>
+                        <i class="fas fa-gas-pump fa-2x mb-3 text-primary"></i>
                         <h3 class="h5">주유 기록</h3>
                         <p>간편한 주유 내역 관리</p>
                     </div>
                     <div class="col-md-4">
-                        <i class="fas fa-coins fa-2x mb-3"></i>
+                        <i class="fas fa-coins fa-2x mb-3 text-primary"></i>
                         <h3 class="h5">쿠폰 관리</h3>
                         <p>자동 쿠폰 관리 시스템</p>
                     </div>
                     <div class="col-md-4">
-                        <i class="fas fa-chart-line fa-2x mb-3"></i>
+                        <i class="fas fa-chart-line fa-2x mb-3 text-primary"></i>
                         <h3 class="h5">통계 분석</h3>
                         <p>상세한 통계와 분석 제공</p>
                     </div>

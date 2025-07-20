@@ -9,12 +9,13 @@ User = get_user_model()
 class CustomUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = CustomUser
-        fields = ('username', 'email', 'user_type')
+        # 원래 소스: fields = ('username', 'email', 'user_type')
+        fields = ('username', 'user_type')  # 이메일 필드 제거
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['username'].label = '아이디'
-        self.fields['email'].label = '이메일'
+        # 원래 소스: self.fields['email'].label = '이메일'
         self.fields['password1'].label = '비밀번호'
         self.fields['password2'].label = '비밀번호 확인'
         self.fields['user_type'].widget = forms.RadioSelect()
@@ -95,11 +96,16 @@ class CustomerSignUpForm(CustomUserCreationForm):
     
     class Meta(CustomUserCreationForm.Meta):
         fields = CustomUserCreationForm.Meta.fields + ('customer_phone', 'car_number',)
-
+        
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['user_type'].initial = 'CUSTOMER'
         self.fields['user_type'].widget = forms.HiddenInput()
+        
+        # 이메일 필드 주석 처리 (일시적으로 비활성화)
+        # 원래 소스:
+        # self.fields['email'].required = False
+        # self.fields['email'].widget = forms.HiddenInput()
         
         # 전화번호 필드에 패턴 추가
         self.fields['customer_phone'].widget.attrs.update({

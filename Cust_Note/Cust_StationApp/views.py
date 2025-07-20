@@ -619,7 +619,7 @@ def station_usermanage(request):
     unregistered_customers_data = []
     for mapping in unregistered_mappings:
         unregistered_customers_data.append({
-            'id': None,
+            'id': f"unreg_{mapping.id}",  # 고유 ID 생성
             'phone': mapping.phone_number,
             'card_number': mapping.membership_card.full_number,
             'last_visit': None,
@@ -1080,27 +1080,50 @@ def delete_card(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            card_id = data.get('card_id')
+            card_number = data.get('cardNumber')
             
-            if not card_id:
+            if not card_number:
                 return JsonResponse({
                     'status': 'error',
-                    'message': '멤버십 카드 ID는 필수입니다.'
+                    'message': '멤버십 카드 번호는 필수입니다.'
+                }, status=400)
+            
+            # 카드 번호로 카드 찾기
+            card = get_object_or_404(PointCard, number=card_number)
+            
+            # 사용중인 카드는 삭제할 수 없음
+            if card.is_used:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '사용중인 카드는 삭제할 수 없습니다. 먼저 미사용 상태로 변경해주세요.'
                 }, status=400)
             
             # 카드 매핑 삭제
             mapping = get_object_or_404(
                 StationCardMapping,
-                point_card_id=card_id,
+                card=card,
                 station=request.user
             )
             mapping.delete()
+            
+            # 카드 자체도 삭제
+            card.delete()
             
             return JsonResponse({
                 'status': 'success',
                 'message': '멤버십 카드가 성공적으로 삭제되었습니다.'
             })
             
+        except PointCard.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': '해당 카드를 찾을 수 없습니다.'
+            }, status=404)
+        except StationCardMapping.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': '해당 카드의 매핑 정보를 찾을 수 없습니다.'
+            }, status=404)
         except Exception as e:
             logger.error(f"멤버십 카드 삭제 중 오류 발생: {str(e)}", exc_info=True)
             return JsonResponse({
@@ -1360,6 +1383,19 @@ def register_customer(request):
                             'message': '이 전화번호와 카드 조합은 이미 등록되어 있습니다.'
                         }, status=400)
 
+                    # 일반 고객 DB에서 동일한 전화번호를 가진 고객 확인
+                    existing_customer = None
+                    try:
+                        from Cust_User.models import CustomerProfile
+                        existing_customer = CustomerProfile.objects.filter(
+                            customer_phone=phone
+                        ).select_related('user').first()
+                        
+                        if existing_customer:
+                            logger.info(f"기존 고객 발견: {existing_customer.user.username} (전화번호: {phone})")
+                    except Exception as e:
+                        logger.warning(f"기존 고객 조회 중 오류: {str(e)}")
+
                     # 폰번호-카드 연동 생성
                     phone_card_mapping = PhoneCardMapping.objects.create(
                         phone_number=phone,
@@ -1369,15 +1405,44 @@ def register_customer(request):
                     )
                     logger.info(f"폰번호-카드 연동 생성 완료: {phone} - {card_number}")
                     
+                    # 기존 고객이 있다면 해당 고객의 프로필에 카드번호 등록
+                    if existing_customer:
+                        try:
+                            existing_customer.membership_card = card_number
+                            existing_customer.save()
+                            logger.info(f"기존 고객 프로필에 카드번호 등록 완료: {existing_customer.user.username} - {card_number}")
+                            
+                            # 고객-주유소 관계 생성 (이미 존재하지 않는 경우에만)
+                            from Cust_User.models import CustomerStationRelation
+                            relation, created = CustomerStationRelation.objects.get_or_create(
+                                customer=existing_customer.user,
+                                station=request.user,
+                                defaults={'is_active': True}
+                            )
+                            
+                            if created:
+                                logger.info(f"고객-주유소 관계 생성 완료: {existing_customer.user.username} - {request.user.username}")
+                            else:
+                                logger.info(f"고객-주유소 관계 이미 존재: {existing_customer.user.username} - {request.user.username}")
+                                
+                        except Exception as e:
+                            logger.error(f"기존 고객 프로필 업데이트 중 오류: {str(e)}", exc_info=True)
+                    
                     # 카드 상태 업데이트 (사용 중으로 변경)
                     card.is_used = True
                     card.save()
                     logger.info(f"카드 상태 업데이트 완료 - 카드번호: {card_number}")
                     
+                    # 응답 메시지 결정
+                    if existing_customer:
+                        message = f'폰번호와 멤버십카드가 성공적으로 연동되었습니다. 기존 고객 "{existing_customer.user.username}"님의 프로필에 카드가 등록되었습니다.'
+                    else:
+                        message = '폰번호와 멤버십카드가 성공적으로 연동되었습니다. 고객이 회원가입 시 자동으로 연동됩니다.'
+                    
                     logger.info("=== 고객 등록 프로세스 완료 ===")
                     return JsonResponse({
                         'status': 'success',
-                        'message': '폰번호와 멤버십카드가 성공적으로 연동되었습니다. 고객이 회원가입 시 자동으로 연동됩니다.'
+                        'message': message
                     })
                     
             except IntegrityError as e:
@@ -1492,10 +1557,11 @@ def check_customer_exists(request):
         }, status=400)
 
     try:
-        # 사용자 검색
-        user = CustomUser.objects.filter(username=phone).first()
+        # 전화번호로 기존 고객 프로필 검색
+        from Cust_User.models import CustomerProfile
+        profile = CustomerProfile.objects.filter(customer_phone=phone).select_related('user').first()
         
-        if not user:
+        if not profile:
             return JsonResponse({
                 'status': 'success',
                 'exists': False,
@@ -1505,8 +1571,7 @@ def check_customer_exists(request):
                 }
             })
 
-        # 프로필 정보 가져오기
-        profile = CustomerProfile.objects.filter(user=user).first()
+        user = profile.user
         
         # 현재 주유소와의 관계 확인
         relation = CustomerStationRelation.objects.filter(
@@ -1518,7 +1583,7 @@ def check_customer_exists(request):
             message = '이미 이 주유소에 등록된 고객입니다.'
             can_register = False
         else:
-            message = '다른 주유소에 등록된 전화번호입니다. 새로운 카드로 등록 가능합니다.'
+            message = f'기존 고객 "{user.username}"님의 전화번호입니다. 카드 등록 시 자동으로 연동됩니다.'
             can_register = True
 
         return JsonResponse({
@@ -1526,8 +1591,9 @@ def check_customer_exists(request):
             'exists': True,
             'message': message,
             'data': {
-                'phone': profile.customer_phone if profile else None,
-                'membership_card': profile.membership_card if profile else None,
+                'phone': profile.customer_phone,
+                'membership_card': profile.membership_card,
+                'username': user.username,
                 'is_registered_here': relation,
                 'can_register': can_register
             }

@@ -108,6 +108,7 @@
                                         <input type="text" class="form-control" id="couponName" placeholder="쿠폰명을 입력하세요">
                                     </div>
                                 </div>
+                                <!-- 할인 유형과 최소 사용 금액 항목 주석처리
                                 <div class="row mb-3">
                                     <div class="col-md-6">
                                         <label for="discountType" class="form-label">할인 유형</label>
@@ -126,6 +127,18 @@
                                     <div class="col-md-6">
                                         <label for="minAmount" class="form-label">최소 사용 금액</label>
                                         <input type="number" class="form-control" id="minAmount" placeholder="최소 사용 금액을 입력하세요">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="expiryDate" class="form-label">만료일</label>
+                                        <input type="date" class="form-control" id="expiryDate">
+                                    </div>
+                                </div>
+                                -->
+                                
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="discountValue" class="form-label">할인 값</label>
+                                        <input type="number" class="form-control" id="discountValue" placeholder="할인 값을 입력하세요">
                                     </div>
                                     <div class="col-md-6">
                                         <label for="expiryDate" class="form-label">만료일</label>
@@ -353,6 +366,14 @@ function showCouponCreation() {
     document.getElementById('couponCreationSection').scrollIntoView({ 
         behavior: 'smooth' 
     });
+    
+    // 만료일 기본값 설정 (현재 날짜 기준 한 달 후)
+    const today = new Date();
+    const oneMonthLater = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
+    const expiryDateInput = document.getElementById('expiryDate');
+    if (expiryDateInput) {
+        expiryDateInput.value = oneMonthLater.toISOString().split('T')[0];
+    }
 }
 
 function hideCouponCreation() {
