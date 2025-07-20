@@ -153,58 +153,54 @@
             </a>
         </div>
         <div class="col-md-4 mb-3">
-            <a href="{% url 'station:usermanage' %}" class="text-decoration-none">
-                <div class="card shadow-sm h-100 border-0 hover-card" style="cursor: pointer;">
-                    <div class="card-body text-center">
-                        <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                            <i class="fas fa-calendar-alt fa-2x text-success"></i>
-                        </div>
-                        <h5 class="card-title">전월 방문 횟수 & 주유금액</h5>
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-muted fs-6">방문 횟수</span>
-                                <span class="text-success fw-bold fs-5">{{ previous_month_visitors|default:0 }}회</span>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-muted fs-6">주유 금액</span>
-                                <span class="text-success fw-bold fs-5">{{ previous_month_amount|default:0|intcomma }}원</span>
-                            </div>
-                        </div>
-                        <small class="text-muted d-block mt-2">
-                            <i class="fas fa-info-circle me-1"></i>클릭하여 고객 노트로 이동
-                        </small>
+            <div class="card shadow-sm h-100 border-0 hover-card" style="cursor: pointer;" onclick="showPreviousMonthVisitors()">
+                <div class="card-body text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-calendar-alt fa-2x text-success"></i>
                     </div>
+                    <h5 class="card-title">전월 방문 횟수 & 주유금액</h5>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted fs-6">방문 횟수</span>
+                            <span class="text-success fw-bold fs-5">{{ previous_month_visitors|default:0 }}회</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted fs-6">주유 금액</span>
+                            <span class="text-success fw-bold fs-5">{{ previous_month_amount|default:0|intcomma }}원</span>
+                        </div>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        <i class="fas fa-info-circle me-1"></i>클릭하여 상세보기
+                    </small>
                 </div>
-            </a>
+            </div>
         </div>
         <div class="col-md-4 mb-3">
-            <a href="{% url 'station:usermanage' %}" class="text-decoration-none">
-                <div class="card shadow-sm h-100 border-0 hover-card" style="cursor: pointer;">
-                    <div class="card-body text-center">
-                        <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                            <i class="fas fa-calendar-check fa-2x text-info"></i>
-                        </div>
-                        <h5 class="card-title">금월 방문 횟수 & 주유금액</h5>
-                        <div class="mb-3">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-muted fs-6">방문 횟수</span>
-                                <span class="text-info fw-bold fs-5">{{ current_month_visitors|default:0 }}회</span>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="text-muted fs-6">주유 금액</span>
-                                <span class="text-info fw-bold fs-5">{{ current_month_amount|default:0|intcomma }}원</span>
-                            </div>
-                        </div>
-                        <small class="text-muted d-block mt-2">
-                            <i class="fas fa-info-circle me-1"></i>클릭하여 고객 노트로 이동
-                        </small>
+            <div class="card shadow-sm h-100 border-0 hover-card" style="cursor: pointer;" onclick="showCurrentMonthVisitors()">
+                <div class="card-body text-center">
+                    <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-calendar-check fa-2x text-info"></i>
                     </div>
+                    <h5 class="card-title">금월 방문 횟수 & 주유금액</h5>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted fs-6">방문 횟수</span>
+                            <span class="text-info fw-bold fs-5">{{ current_month_visitors|default:0 }}회</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted fs-6">주유 금액</span>
+                            <span class="text-info fw-bold fs-5">{{ current_month_amount|default:0|intcomma }}원</span>
+                        </div>
+                    </div>
+                    <small class="text-muted d-block mt-2">
+                        <i class="fas fa-info-circle me-1"></i>클릭하여 상세보기
+                    </small>
                 </div>
-            </a>
+            </div>
         </div>
 
     </div>
@@ -376,6 +372,60 @@
                     <div class="text-center">
                         <div class="spinner-border" role="status">
                             <span class="visually-hidden">로딩 중...</span>
+                        </div>
+                        <p class="mt-2">데이터를 불러오는 중...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 전월 방문 고객 정보 모달 -->
+<div class="modal fade" id="previousMonthVisitorsModal" tabindex="-1" aria-labelledby="previousMonthVisitorsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previousMonthVisitorsModalLabel">
+                    <i class="fas fa-calendar-alt me-2 text-success"></i>전월 방문 고객 정보
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="previousMonthVisitorsContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">데이터를 불러오는 중...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 금월 방문 고객 정보 모달 -->
+<div class="modal fade" id="currentMonthVisitorsModal" tabindex="-1" aria-labelledby="currentMonthVisitorsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="currentMonthVisitorsModalLabel">
+                    <i class="fas fa-calendar-check me-2 text-info"></i>금월 방문 고객 정보
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="currentMonthVisitorsContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
                         </div>
                         <p class="mt-2">데이터를 불러오는 중...</p>
                     </div>
@@ -790,6 +840,296 @@ function updateUnitDisplay(selectedUnit) {
     document.getElementById('dailyDataContent').innerHTML = html;
 }
 
+// 전월 방문 고객 정보 모달 표시 함수
+function showPreviousMonthVisitors() {
+    const modalElement = document.getElementById('previousMonthVisitorsModal');
+    const modal = new bootstrap.Modal(modalElement);
+    
+    // 모달 표시
+    modal.show();
+    
+    // 로딩 상태 표시
+    document.getElementById('previousMonthVisitorsContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">로딩 중...</span>
+            </div>
+            <p class="mt-2">데이터를 불러오는 중...</p>
+        </div>
+    `;
+    
+    // AJAX 요청
+    fetch('{% url "station:get_previous_month_visitors" %}')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                displayPreviousMonthVisitors(data);
+            } else {
+                document.getElementById('previousMonthVisitorsContent').innerHTML = `
+                    <div class="text-center text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <p>데이터를 불러오는 중 오류가 발생했습니다.</p>
+                        <small>${data.error || '알 수 없는 오류'}</small>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('previousMonthVisitorsContent').innerHTML = `
+                <div class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                    <p>네트워크 오류가 발생했습니다.</p>
+                        <small>잠시 후 다시 시도해주세요.</small>
+                </div>
+            `;
+        });
+}
+
+// 전월 방문 고객 정보 표시 함수
+function displayPreviousMonthVisitors(data) {
+    let html = `
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card bg-success text-white">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">
+                            <i class="fas fa-users me-2"></i>총 방문 고객
+                        </h6>
+                        <h3 class="mb-0">${data.total_visitors}명</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">
+                            <i class="fas fa-won-sign me-2"></i>총 주유 금액
+                        </h6>
+                        <h3 class="mb-0">${parseInt(data.total_amount).toLocaleString()}원</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (data.visitors && data.visitors.length > 0) {
+        html += `
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>순위</th>
+                            <th>고객 정보</th>
+                            <th class="text-center">방문 횟수</th>
+                            <th class="text-end">주유 금액</th>
+                            <th class="text-center">평균 금액</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.visitors.forEach((visitor, index) => {
+            const avgAmount = Math.round(parseInt(visitor.total_amount) / parseInt(visitor.visit_count));
+            html += `
+                <tr>
+                    <td class="text-center">
+                        <span class="badge bg-${index < 3 ? ['warning', 'secondary', 'danger'][index] : 'light'} text-dark">
+                            ${index + 1}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                <i class="fas fa-user text-primary"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold">${visitor.customer_name || '고객'}</div>
+                                <small class="text-muted">${visitor.phone || '전화번호 없음'}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-success">${visitor.visit_count}회</span>
+                    </td>
+                    <td class="text-end fw-bold">
+                        ${parseInt(visitor.total_amount).toLocaleString()}원
+                    </td>
+                    <td class="text-center text-muted">
+                        ${avgAmount.toLocaleString()}원
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-info-circle fa-3x mb-3"></i>
+                <h5>전월 방문 고객이 없습니다</h5>
+                <p>이번 달에 방문한 고객이 없거나 데이터가 없습니다.</p>
+            </div>
+        `;
+    }
+    
+    document.getElementById('previousMonthVisitorsContent').innerHTML = html;
+}
+
+// 금월 방문 고객 정보 모달 표시 함수
+function showCurrentMonthVisitors() {
+    const modalElement = document.getElementById('currentMonthVisitorsModal');
+    const modal = new bootstrap.Modal(modalElement);
+    
+    // 모달 표시
+    modal.show();
+    
+    // 로딩 상태 표시
+    document.getElementById('currentMonthVisitorsContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">로딩 중...</span>
+            </div>
+            <p class="mt-2">데이터를 불러오는 중...</p>
+        </div>
+    `;
+    
+    // AJAX 요청
+    fetch('{% url "station:get_current_month_visitors" %}')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                displayCurrentMonthVisitors(data);
+            } else {
+                document.getElementById('currentMonthVisitorsContent').innerHTML = `
+                    <div class="text-center text-danger">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <p>데이터를 불러오는 중 오류가 발생했습니다.</p>
+                        <small>${data.error || '알 수 없는 오류'}</small>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('currentMonthVisitorsContent').innerHTML = `
+                <div class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                    <p>네트워크 오류가 발생했습니다.</p>
+                        <small>잠시 후 다시 시도해주세요.</small>
+                </div>
+            `;
+        });
+}
+
+// 금월 방문 고객 정보 표시 함수
+function displayCurrentMonthVisitors(data) {
+    let html = `
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">
+                            <i class="fas fa-users me-2"></i>총 방문 고객
+                        </h6>
+                        <h3 class="mb-0">${data.total_visitors}명</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">
+                            <i class="fas fa-won-sign me-2"></i>총 주유 금액
+                        </h6>
+                        <h3 class="mb-0">${parseInt(data.total_amount).toLocaleString()}원</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (data.visitors && data.visitors.length > 0) {
+        html += `
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>순위</th>
+                            <th>고객 정보</th>
+                            <th class="text-center">방문 횟수</th>
+                            <th class="text-end">주유 금액</th>
+                            <th class="text-center">평균 금액</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.visitors.forEach((visitor, index) => {
+            const avgAmount = Math.round(parseInt(visitor.total_amount) / parseInt(visitor.visit_count));
+            html += `
+                <tr>
+                    <td class="text-center">
+                        <span class="badge bg-${index < 3 ? ['warning', 'secondary', 'danger'][index] : 'light'} text-dark">
+                            ${index + 1}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                <i class="fas fa-user text-primary"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold">${visitor.customer_name || '고객'}</div>
+                                <small class="text-muted">${visitor.phone || '전화번호 없음'}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-info">${visitor.visit_count}회</span>
+                    </td>
+                    <td class="text-end fw-bold">
+                        ${parseInt(visitor.total_amount).toLocaleString()}원
+                    </td>
+                    <td class="text-center text-muted">
+                        ${avgAmount.toLocaleString()}원
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-info-circle fa-3x mb-3"></i>
+                <h5>금월 방문 고객이 없습니다</h5>
+                <p>이번 달에 방문한 고객이 없거나 데이터가 없습니다.</p>
+            </div>
+        `;
+    }
+    
+    document.getElementById('currentMonthVisitorsContent').innerHTML = html;
+}
+
 // 전역 모달 접근성 개선
 document.addEventListener('DOMContentLoaded', function() {
     const modalElement = document.getElementById('dailyDataModal');
@@ -843,6 +1183,26 @@ document.addEventListener('DOMContentLoaded', function() {
             // 브라우저 히스토리에서 뒤로 가기 이벤트 무효화
             event.preventDefault();
             history.pushState(null, null, window.location.href);
+        }
+    });
+    
+    // 전월/금월 방문 고객 정보 모달 히스토리 관리
+    const visitorModals = ['previousMonthVisitorsModal', 'currentMonthVisitorsModal'];
+    
+    visitorModals.forEach(modalId => {
+        const modalElement = document.getElementById(modalId);
+        if (modalElement) {
+            // 모달이 열릴 때 히스토리에 상태 추가
+            modalElement.addEventListener('show.bs.modal', function() {
+                history.pushState({modal: modalId}, null, window.location.href);
+            });
+            
+            modalElement.addEventListener('hidden.bs.modal', function() {
+                // 모달이 닫힐 때 히스토리에서 상태 제거 (뒤로 가기로 닫힌 경우가 아닌 경우)
+                if (history.state && history.state.modal === modalId) {
+                    history.back();
+                }
+            });
         }
     });
 });

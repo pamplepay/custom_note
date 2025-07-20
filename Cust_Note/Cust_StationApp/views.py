@@ -2841,6 +2841,158 @@ def get_groups(request):
         }, status=500)
 
 @login_required
+def get_current_month_visitors(request):
+    """금월 방문 고객 정보 조회 API"""
+    try:
+        from Cust_UserApp.models import CustomerVisitHistory
+        from datetime import datetime
+        from django.utils import timezone
+        
+        current_month = timezone.now().month
+        current_year = timezone.now().year
+        
+        # 금월 방문 고객 정보 조회
+        current_month_visits = CustomerVisitHistory.objects.filter(
+            station=request.user,
+            visit_date__year=current_year,
+            visit_date__month=current_month
+        ).select_related('customer', 'customer__customer_profile')
+        
+        # 고객별 방문 횟수와 주유 금액 집계
+        visitor_stats = {}
+        for visit in current_month_visits:
+            customer_id = visit.customer.id
+            if customer_id not in visitor_stats:
+                visitor_stats[customer_id] = {
+                    'customer': visit.customer,
+                    'visit_count': 0,
+                    'total_amount': 0
+                }
+            visitor_stats[customer_id]['visit_count'] += 1
+            visitor_stats[customer_id]['total_amount'] += float(visit.sale_amount or 0)
+        
+        # 방문 횟수 기준으로 정렬 (내림차순)
+        sorted_visitors = sorted(
+            visitor_stats.values(),
+            key=lambda x: x['visit_count'],
+            reverse=True
+        )
+        
+        # 총 방문 고객 수와 총 주유 금액 계산
+        total_visitors = len(sorted_visitors)
+        total_amount = sum(visitor['total_amount'] for visitor in sorted_visitors)
+        
+        # 응답 데이터 구성
+        visitors_data = []
+        for visitor in sorted_visitors:
+            customer = visitor['customer']
+            # 전화번호는 CustomerProfile에서 가져오기
+            phone = ''
+            if hasattr(customer, 'customer_profile') and customer.customer_profile:
+                phone = customer.customer_profile.customer_phone or ''
+            
+            visitors_data.append({
+                'customer_name': customer.username if customer.username else '고객',
+                'phone': phone,
+                'visit_count': visitor['visit_count'],
+                'total_amount': visitor['total_amount']
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'total_visitors': total_visitors,
+            'total_amount': total_amount,
+            'visitors': visitors_data
+        })
+        
+    except Exception as e:
+        logger.error(f"금월 방문 고객 정보 조회 중 오류: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': '데이터를 불러오는 중 오류가 발생했습니다.'
+        })
+
+@login_required
+def get_previous_month_visitors(request):
+    """전월 방문 고객 정보 조회 API"""
+    try:
+        from Cust_UserApp.models import CustomerVisitHistory
+        from datetime import datetime
+        from django.utils import timezone
+        
+        current_month = timezone.now().month
+        current_year = timezone.now().year
+        
+        # 이전 월 계산
+        if current_month == 1:
+            previous_month = 12
+            previous_year = current_year - 1
+        else:
+            previous_month = current_month - 1
+            previous_year = current_year
+        
+        # 전월 방문 고객 정보 조회
+        previous_month_visits = CustomerVisitHistory.objects.filter(
+            station=request.user,
+            visit_date__year=previous_year,
+            visit_date__month=previous_month
+        ).select_related('customer', 'customer__customer_profile')
+        
+        # 고객별 방문 횟수와 주유 금액 집계
+        visitor_stats = {}
+        for visit in previous_month_visits:
+            customer_id = visit.customer.id
+            if customer_id not in visitor_stats:
+                visitor_stats[customer_id] = {
+                    'customer': visit.customer,
+                    'visit_count': 0,
+                    'total_amount': 0
+                }
+            visitor_stats[customer_id]['visit_count'] += 1
+            visitor_stats[customer_id]['total_amount'] += float(visit.sale_amount or 0)
+        
+        # 방문 횟수 기준으로 정렬 (내림차순)
+        sorted_visitors = sorted(
+            visitor_stats.values(),
+            key=lambda x: x['visit_count'],
+            reverse=True
+        )
+        
+        # 총 방문 고객 수와 총 주유 금액 계산
+        total_visitors = len(sorted_visitors)
+        total_amount = sum(visitor['total_amount'] for visitor in sorted_visitors)
+        
+        # 응답 데이터 구성
+        visitors_data = []
+        for visitor in sorted_visitors:
+            customer = visitor['customer']
+            # 전화번호는 CustomerProfile에서 가져오기
+            phone = ''
+            if hasattr(customer, 'customer_profile') and customer.customer_profile:
+                phone = customer.customer_profile.customer_phone or ''
+            
+            visitors_data.append({
+                'customer_name': customer.username if customer.username else '고객',
+                'phone': phone,
+                'visit_count': visitor['visit_count'],
+                'total_amount': visitor['total_amount']
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'total_visitors': total_visitors,
+            'total_amount': total_amount,
+            'visitors': visitors_data
+        })
+        
+    except Exception as e:
+        logger.error(f"전월 방문 고객 정보 조회 중 오류: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': '데이터를 불러오는 중 오류가 발생했습니다.'
+        })
+
+@login_required
 def check_phone_mapping(request):
     """폰번호로 연동 정보 조회"""
     logger.info("=== 폰번호 연동 정보 조회 시작 ===")

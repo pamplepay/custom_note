@@ -44,6 +44,12 @@ urlpatterns = [
     # 날짜별 판매 데이터 조회 API
     path('get-daily-sales-data/', views.get_daily_sales_data, name='get_daily_sales_data'),
     
+    # 전월 방문 고객 정보 조회 API
+    path('get-previous-month-visitors/', views.get_previous_month_visitors, name='get_previous_month_visitors'),
+    
+    # 금월 방문 고객 정보 조회 API
+    path('get-current-month-visitors/', views.get_current_month_visitors, name='get_current_month_visitors'),
+    
     # 그룹 관리 관련 URL
     path('groupmanage/', views.group_management, name='groupmanage'),
     path('create-group/', views.create_group, name='create_group'),
