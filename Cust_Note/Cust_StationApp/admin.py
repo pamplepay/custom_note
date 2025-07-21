@@ -6,7 +6,7 @@ from django.utils.safestring import mark_safe
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.contrib import messages
-from .models import PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics, MonthlySalesStatistics, Group, PhoneCardMapping, Coupon
+from .models import PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics, MonthlySalesStatistics, Group, PhoneCardMapping, CouponType, CouponTemplate, CustomerCoupon
 from Cust_User.models import CustomUser
 
 class StationCardMappingInline(admin.TabularInline):
@@ -707,30 +707,69 @@ class PhoneCardMappingAdmin(admin.ModelAdmin):
         self.message_user(request, f'{count}개의 미사용 연동 정보가 삭제되었습니다.')
     bulk_delete_unused.short_description = '미사용 연동 정보 일괄 삭제'
 
-@admin.register(Coupon)
-class CouponAdmin(admin.ModelAdmin):
-    list_display = ('coupon_number', 'coupon_type', 'station', 'customer_phone', 'status_display', 'created_at', 'issued_at', 'used_at')
-    list_filter = ('coupon_type', 'is_used', 'created_at', 'issued_at', 'used_at', 'station')
-    search_fields = ('coupon_number', 'customer_phone', 'station__username', 'station__station_profile__station_name')
-    readonly_fields = ('coupon_number', 'created_at', 'issued_at', 'used_at', 'status_display')
+@admin.register(CouponType)
+class CouponTypeAdmin(admin.ModelAdmin):
+    list_display = ('station', 'type_name', 'type_code', 'is_default', 'is_active', 'created_at')
+    list_filter = ('is_default', 'is_active', 'created_at')
+    search_fields = ('type_name', 'type_code', 'station__username')
+    readonly_fields = ('created_at',)
+    
+    fieldsets = (
+        ('기본 정보', {
+            'fields': ('station', 'type_code', 'type_name')
+        }),
+        ('설정', {
+            'fields': ('is_default', 'is_active', 'created_at')
+        }),
+    )
+
+@admin.register(CouponTemplate)
+class CouponTemplateAdmin(admin.ModelAdmin):
+    list_display = ('station', 'coupon_name', 'coupon_type', 'benefit_type', 'discount_amount', 'product_name', 'is_active', 'created_at')
+    list_filter = ('benefit_type', 'is_active', 'is_permanent', 'created_at', 'coupon_type')
+    search_fields = ('coupon_name', 'description', 'station__username', 'product_name')
+    readonly_fields = ('created_at', 'updated_at')
+    
+    fieldsets = (
+        ('기본 정보', {
+            'fields': ('station', 'coupon_type', 'coupon_name', 'description')
+        }),
+        ('혜택 설정', {
+            'fields': ('benefit_type', 'discount_amount', 'product_name')
+        }),
+        ('유효기간', {
+            'fields': ('is_permanent', 'valid_from', 'valid_until')
+        }),
+        ('관리', {
+            'fields': ('is_active', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+@admin.register(CustomerCoupon)
+class CustomerCouponAdmin(admin.ModelAdmin):
+    list_display = ('customer', 'coupon_template', 'status_display', 'issued_date', 'used_date', 'expiry_date')
+    list_filter = ('status', 'issued_date', 'used_date', 'expiry_date', 'coupon_template__station')
+    search_fields = ('customer__username', 'customer__phone_number', 'coupon_template__coupon_name', 'coupon_template__station__username')
+    readonly_fields = ('issued_date', 'used_date', 'status_display')
     list_per_page = 50
     actions = ['bulk_issue_coupons', 'bulk_delete_unused', 'mark_as_used', 'mark_as_unused']
     
     fieldsets = (
         ('쿠폰 정보', {
-            'fields': ('coupon_number', 'coupon_type', 'station', 'tid')
+            'fields': ('coupon_template', 'status')
         }),
         ('고객 정보', {
-            'fields': ('customer_phone', 'is_used')
+            'fields': ('customer',)
         }),
         ('시간 정보', {
-            'fields': ('created_at', 'issued_at', 'used_at', 'status_display'),
+            'fields': ('issued_date', 'used_date', 'expiry_date', 'status_display'),
             'classes': ('collapse',)
         }),
     )
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('station', 'station__station_profile')
+        return super().get_queryset(request).select_related('customer', 'coupon_template', 'coupon_template__station')
     
     def status_display(self, obj):
         """쿠폰 상태 표시"""
@@ -749,16 +788,16 @@ class CouponAdmin(admin.ModelAdmin):
     status_display.short_description = '상태'
     
     def get_readonly_fields(self, request, obj=None):
-        if obj and obj.is_used:  # 이미 사용된 쿠폰
-            return self.readonly_fields + ('coupon_type', 'station', 'customer_phone')
-        elif obj and obj.issued_at:  # 이미 발행된 쿠폰
-            return self.readonly_fields + ('coupon_type', 'station')
+        if obj and obj.status == 'USED':  # 이미 사용된 쿠폰
+            return self.readonly_fields + ('coupon_template', 'customer')
+        elif obj and obj.issued_date:  # 이미 발행된 쿠폰
+            return self.readonly_fields + ('coupon_template',)
         return self.readonly_fields
     
     def bulk_issue_coupons(self, request, queryset):
         """선택된 쿠폰들을 일괄 발행"""
-        unused_coupons = queryset.filter(is_used=False, issued_at__isnull=True)
-        count = unused_coupons.count()
+        available_coupons = queryset.filter(status='AVAILABLE')
+        count = available_coupons.count()
         
         if count == 0:
             self.message_user(request, '발행할 수 있는 쿠폰이 없습니다.')
@@ -770,7 +809,7 @@ class CouponAdmin(admin.ModelAdmin):
     
     def bulk_delete_unused(self, request, queryset):
         """미사용 쿠폰 일괄 삭제"""
-        unused_coupons = queryset.filter(is_used=False, issued_at__isnull=True)
+        unused_coupons = queryset.filter(status='AVAILABLE')
         count = unused_coupons.count()
         unused_coupons.delete()
         
@@ -779,15 +818,15 @@ class CouponAdmin(admin.ModelAdmin):
     
     def mark_as_used(self, request, queryset):
         """선택된 쿠폰들을 사용됨으로 표시"""
-        issued_coupons = queryset.filter(is_used=False, issued_at__isnull=False)
+        available_coupons = queryset.filter(status='AVAILABLE')
         count = 0
         
-        for coupon in issued_coupons:
+        for coupon in available_coupons:
             try:
                 coupon.use_coupon()
                 count += 1
             except ValueError as e:
-                self.message_user(request, f'쿠폰 {coupon.coupon_number}: {str(e)}', level=messages.ERROR)
+                self.message_user(request, f'쿠폰 {coupon.id}: {str(e)}', level=messages.ERROR)
         
         if count > 0:
             self.message_user(request, f'{count}개의 쿠폰이 사용됨으로 표시되었습니다.')
@@ -795,12 +834,12 @@ class CouponAdmin(admin.ModelAdmin):
     
     def mark_as_unused(self, request, queryset):
         """선택된 쿠폰들을 미사용으로 표시 (관리자용)"""
-        used_coupons = queryset.filter(is_used=True)
+        used_coupons = queryset.filter(status='USED')
         count = 0
         
         for coupon in used_coupons:
-            coupon.is_used = False
-            coupon.used_at = None
+            coupon.status = 'AVAILABLE'
+            coupon.used_date = None
             coupon.save()
             count += 1
         

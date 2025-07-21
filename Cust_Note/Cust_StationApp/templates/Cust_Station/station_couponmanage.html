@@ -12,7 +12,7 @@
                     <h1 class="card-title h3 mb-3">
                         <i class="fas fa-ticket-alt me-2"></i>쿠폰 노트
                     </h1>
-                    <p class="card-text mb-0">{{ user.station_profile.station_name|default:"주유소" }}의 쿠폰을 관리하세요.</p>
+                    <p class="card-text mb-0">{{ station_name }}의 쿠폰을 관리하세요.</p>
                 </div>
             </div>
         </div>
@@ -91,80 +91,99 @@
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-8">
-                            <form>
+                        <div class="col-md-12">
+                            <form id="couponCreationForm">
+                                {% csrf_token %}
                                 <div class="row mb-3">
                                     <div class="col-md-6">
                                         <label for="couponType" class="form-label">쿠폰 유형</label>
-                                        <select class="form-select" id="couponType">
+                                        <select class="form-select" id="couponType" name="coupon_type_id" required>
                                             <option value="">쿠폰 유형을 선택하세요</option>
-                                            <option value="car_wash">세차 쿠폰</option>
-                                            <option value="product">상품 쿠폰</option>
-                                            <option value="fuel">주유 쿠폰</option>
+                                            {% for coupon_type in coupon_types %}
+                                                <option value="{{ coupon_type.id }}" data-code="{{ coupon_type.type_code }}">
+                                                    {{ coupon_type.type_name }}
+                                                    {% if coupon_type.is_default %}(기본){% endif %}
+                                                </option>
+                                            {% endfor %}
                                         </select>
+                                        <div class="mt-2">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="showAddCouponType()">
+                                                <i class="fas fa-plus me-1"></i>새 유형 추가
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="col-md-6">
                                         <label for="couponName" class="form-label">쿠폰명</label>
-                                        <input type="text" class="form-control" id="couponName" placeholder="쿠폰명을 입력하세요">
+                                        <input type="text" class="form-control" id="couponName" name="coupon_name" placeholder="쿠폰명을 입력하세요" required>
                                     </div>
                                 </div>
-                                <!-- 할인 유형과 최소 사용 금액 항목 주석처리
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <label for="discountType" class="form-label">할인 유형</label>
-                                        <select class="form-select" id="discountType">
-                                            <option value="">할인 유형을 선택하세요</option>
-                                            <option value="percent">퍼센트 할인</option>
-                                            <option value="amount">금액 할인</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label for="discountValue" class="form-label">할인 값</label>
-                                        <input type="number" class="form-control" id="discountValue" placeholder="할인 값을 입력하세요">
-                                    </div>
-                                </div>
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <label for="minAmount" class="form-label">최소 사용 금액</label>
-                                        <input type="number" class="form-control" id="minAmount" placeholder="최소 사용 금액을 입력하세요">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label for="expiryDate" class="form-label">만료일</label>
-                                        <input type="date" class="form-control" id="expiryDate">
-                                    </div>
-                                </div>
-                                -->
                                 
+                                <!-- 혜택 유형 선택 -->
                                 <div class="row mb-3">
+                                    <div class="col-12">
+                                        <label class="form-label">혜택 유형</label>
+                                        <div class="d-flex gap-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="benefit_type" id="benefitDiscount" value="DISCOUNT" onchange="toggleBenefitFields()">
+                                                <label class="form-check-label" for="benefitDiscount">세차 할인</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="benefit_type" id="benefitProduct" value="PRODUCT" onchange="toggleBenefitFields()">
+                                                <label class="form-check-label" for="benefitProduct">상품</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="benefit_type" id="benefitBoth" value="BOTH" onchange="toggleBenefitFields()">
+                                                <label class="form-check-label" for="benefitBoth">세차 할인 + 상품</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 세차 할인 혜택 설정 -->
+                                <div class="row mb-3" id="discountSection" style="display: none;">
                                     <div class="col-md-6">
-                                        <label for="discountValue" class="form-label">할인 값</label>
-                                        <input type="number" class="form-control" id="discountValue" placeholder="할인 값을 입력하세요">
+                                        <label for="discountValue" class="form-label">세차 할인 금액 (원)</label>
+                                        <input type="number" class="form-control" id="discountValue" name="discount_amount" placeholder="세차 서비스 할인 금액을 입력하세요" min="0">
+                                    </div>
+                                </div>
+                                
+                                <!-- 상품 혜택 설정 -->
+                                <div class="row mb-3" id="productSection" style="display: none;">
+                                    <div class="col-md-6">
+                                        <label for="productName" class="form-label">상품명</label>
+                                        <input type="text" class="form-control" id="productName" name="product_name" placeholder="무료 제공할 상품명을 입력하세요">
+                                    </div>
+                                </div>
+                                
+                                <!-- 유효기간 설정 -->
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" id="isPermanent" name="is_permanent" onchange="toggleDateFields()">
+                                            <label class="form-check-label" for="isPermanent">무기한 쿠폰</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-3" id="dateSection">
+                                    <div class="col-md-6">
+                                        <label for="validFrom" class="form-label">사용 시작일</label>
+                                        <input type="date" class="form-control" id="validFrom" name="valid_from">
                                     </div>
                                     <div class="col-md-6">
-                                        <label for="expiryDate" class="form-label">만료일</label>
-                                        <input type="date" class="form-control" id="expiryDate">
+                                        <label for="validUntil" class="form-label">사용 종료일</label>
+                                        <input type="date" class="form-control" id="validUntil" name="valid_until">
                                     </div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="couponDescription" class="form-label">쿠폰 설명</label>
-                                    <textarea class="form-control" id="couponDescription" rows="3" placeholder="쿠폰에 대한 설명을 입력하세요"></textarea>
+                                    <textarea class="form-control" id="couponDescription" name="description" rows="3" placeholder="쿠폰에 대한 설명을 입력하세요"></textarea>
                                 </div>
                                 <div class="text-end">
                                     <button type="button" class="btn btn-secondary me-2" onclick="hideCouponCreation()">취소</button>
-                                    <button type="submit" class="btn btn-primary">쿠폰 생성</button>
+                                    <button type="submit" class="btn btn-primary" id="createCouponBtn">쿠폰 생성</button>
                                 </div>
                             </form>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card bg-light">
-                                <div class="card-body">
-                                    <h6 class="card-title">생성된 쿠폰 목록</h6>
-                                    <div class="text-center py-4">
-                                        <i class="fas fa-ticket-alt fa-2x text-muted mb-2"></i>
-                                        <p class="text-muted mb-0">생성된 쿠폰이 없습니다.</p>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -189,45 +208,60 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-8">
-                            <form>
+                            <form id="couponIssuanceForm">
+                                {% csrf_token %}
                                 <div class="row mb-3">
                                     <div class="col-md-6">
                                         <label for="selectCoupon" class="form-label">발행할 쿠폰</label>
-                                        <select class="form-select" id="selectCoupon">
+                                        <select class="form-select" id="selectCoupon" name="coupon_template_id" required>
                                             <option value="">발행할 쿠폰을 선택하세요</option>
-                                            <option value="coupon1">세차 서비스 50% 할인</option>
-                                            <option value="coupon2">편의점 상품 30% 할인</option>
-                                            <option value="coupon3">주유 1000원 할인</option>
+                                            {% for template in coupon_templates %}
+                                                <option value="{{ template.id }}">
+                                                    {{ template.coupon_name }} ({{ template.coupon_type.type_name }})
+                                                </option>
+                                            {% endfor %}
                                         </select>
                                     </div>
                                     <div class="col-md-6">
-                                        <label for="customerSelect" class="form-label">발행 대상 고객</label>
-                                        <select class="form-select" id="customerSelect">
-                                            <option value="">발행할 고객을 선택하세요</option>
+                                        <label for="customerSelect" class="form-label">발행 대상</label>
+                                        <select class="form-select" id="customerSelect" name="target_type" required onchange="toggleTargetOptions()">
+                                            <option value="">발행 대상을 선택하세요</option>
                                             <option value="all">전체 고객</option>
-                                            <option value="vip">VIP 고객</option>
-                                            <option value="group1">그룹 1</option>
-                                            <option value="group2">그룹 2</option>
+                                            <option value="group">특정 그룹</option>
+                                            <option value="individual">개별 고객</option>
                                         </select>
+                                    </div>
+                                </div>
+                                <div class="row mb-3" id="groupSelectRow" style="display: none;">
+                                    <div class="col-md-12">
+                                        <label for="groupSelect" class="form-label">대상 그룹</label>
+                                        <select class="form-select" id="groupSelect" name="group_id">
+                                            <option value="">그룹을 선택하세요</option>
+                                            {% for group in groups %}
+                                                <option value="{{ group.id }}">{{ group.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row mb-3" id="customerSelectRow" style="display: none;">
+                                    <div class="col-md-12">
+                                        <label for="individualCustomer" class="form-label">고객 선택</label>
+                                        <input type="text" class="form-control" id="individualCustomer" name="customer_phone" placeholder="고객 전화번호를 입력하세요">
                                     </div>
                                 </div>
                                 <div class="row mb-3">
                                     <div class="col-md-6">
-                                        <label for="issuanceDate" class="form-label">발행일</label>
-                                        <input type="date" class="form-control" id="issuanceDate">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label for="quantity" class="form-label">발행 수량</label>
-                                        <input type="number" class="form-control" id="quantity" placeholder="발행할 쿠폰 수량">
+                                        <label for="quantity" class="form-label">1인당 발행 수량</label>
+                                        <input type="number" class="form-control" id="quantity" name="quantity" value="1" min="1" required>
                                     </div>
                                 </div>
                                 <div class="mb-3">
                                     <label for="issuanceMessage" class="form-label">발행 메시지</label>
-                                    <textarea class="form-control" id="issuanceMessage" rows="3" placeholder="고객에게 전달할 메시지를 입력하세요"></textarea>
+                                    <textarea class="form-control" id="issuanceMessage" name="message" rows="3" placeholder="고객에게 전달할 메시지를 입력하세요"></textarea>
                                 </div>
                                 <div class="text-end">
                                     <button type="button" class="btn btn-secondary me-2" onclick="hideCouponIssuance()">취소</button>
-                                    <button type="submit" class="btn btn-success">쿠폰 발행</button>
+                                    <button type="submit" class="btn btn-success" id="issueCouponBtn">쿠폰 발행</button>
                                 </div>
                             </form>
                         </div>
@@ -301,6 +335,58 @@
                                     </div>
                                     <h5 class="card-title">미사용 쿠폰</h5>
                                     <h3 class="text-warning mb-0">{{ unused_coupons|default:0 }}장</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 생성된 쿠폰 템플릿 목록 -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card shadow-sm border-0">
+                                <div class="card-header bg-white border-0">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-ticket-alt me-2 text-primary"></i>생성된 쿠폰 템플릿 ({{ coupon_templates|length }}개)
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if coupon_templates %}
+                                        <div class="row">
+                                            {% for template in coupon_templates %}
+                                            <div class="col-md-6 col-lg-4 mb-3">
+                                                <div class="card border">
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                                            <span class="badge bg-secondary">{{ template.coupon_type.type_name }}</span>
+                                                            <span class="badge {% if template.is_permanent %}bg-success{% else %}bg-warning{% endif %}">
+                                                                {% if template.is_permanent %}무기한{% else %}기간제{% endif %}
+                                                            </span>
+                                                        </div>
+                                                        <h6 class="card-title">{{ template.coupon_name }}</h6>
+                                                        <p class="card-text text-success fw-bold">{{ template.get_benefit_description }}</p>
+                                                        {% if template.description %}
+                                                        <p class="card-text"><small class="text-muted">{{ template.description }}</small></p>
+                                                        {% endif %}
+                                                        {% if not template.is_permanent %}
+                                                        <p class="card-text">
+                                                            <small class="text-muted">
+                                                                {{ template.valid_from|date:"Y-m-d" }} ~ {{ template.valid_until|date:"Y-m-d" }}
+                                                            </small>
+                                                        </p>
+                                                        {% endif %}
+                                                        <small class="text-muted">생성일: {{ template.created_at|date:"Y-m-d H:i" }}</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <div class="text-center py-4">
+                                            <i class="fas fa-ticket-alt fa-2x text-muted mb-2"></i>
+                                            <p class="text-muted mb-0">생성된 쿠폰 템플릿이 없습니다.</p>
+                                            <small class="text-muted">쿠폰 생성 버튼을 클릭하여 새 쿠폰을 만들어보세요.</small>
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -409,5 +495,135 @@ function hideAllSections() {
     document.getElementById('couponIssuanceSection').style.display = 'none';
     document.getElementById('couponManagementSection').style.display = 'none';
 }
+
+function toggleBenefitFields() {
+    const discountRadio = document.getElementById('benefitDiscount');
+    const productRadio = document.getElementById('benefitProduct');
+    const bothRadio = document.getElementById('benefitBoth');
+    const discountSection = document.getElementById('discountSection');
+    const productSection = document.getElementById('productSection');
+    
+    if (discountRadio.checked) {
+        discountSection.style.display = 'block';
+        productSection.style.display = 'none';
+    } else if (productRadio.checked) {
+        discountSection.style.display = 'none';
+        productSection.style.display = 'block';
+    } else if (bothRadio.checked) {
+        discountSection.style.display = 'block';
+        productSection.style.display = 'block';
+    } else {
+        discountSection.style.display = 'none';
+        productSection.style.display = 'none';
+    }
+}
+
+function toggleDateFields() {
+    const isPermanent = document.getElementById('isPermanent');
+    const dateSection = document.getElementById('dateSection');
+    
+    if (isPermanent.checked) {
+        dateSection.style.display = 'none';
+    } else {
+        dateSection.style.display = 'block';
+    }
+}
+
+function toggleTargetOptions() {
+    const targetType = document.getElementById('customerSelect').value;
+    const groupRow = document.getElementById('groupSelectRow');
+    const customerRow = document.getElementById('customerSelectRow');
+    
+    if (targetType === 'group') {
+        groupRow.style.display = 'block';
+        customerRow.style.display = 'none';
+    } else if (targetType === 'individual') {
+        groupRow.style.display = 'none';
+        customerRow.style.display = 'block';
+    } else {
+        groupRow.style.display = 'none';
+        customerRow.style.display = 'none';
+    }
+}
+
+// 쿠폰 생성 폼 제출
+document.addEventListener('DOMContentLoaded', function() {
+    const couponCreationForm = document.getElementById('couponCreationForm');
+    if (couponCreationForm) {
+        couponCreationForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const createBtn = document.getElementById('createCouponBtn');
+            
+            createBtn.disabled = true;
+            createBtn.textContent = '생성 중...';
+            
+            fetch('/station/create-coupon-template/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('쿠폰이 성공적으로 생성되었습니다.');
+                    location.reload(); // 페이지 새로고침
+                } else {
+                    alert('오류: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('쿠폰 생성 중 오류가 발생했습니다.');
+            })
+            .finally(() => {
+                createBtn.disabled = false;
+                createBtn.textContent = '쿠폰 생성';
+            });
+        });
+    }
+    
+    // 쿠폰 발행 폼 제출
+    const couponIssuanceForm = document.getElementById('couponIssuanceForm');
+    if (couponIssuanceForm) {
+        couponIssuanceForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const issueBtn = document.getElementById('issueCouponBtn');
+            
+            issueBtn.disabled = true;
+            issueBtn.textContent = '발행 중...';
+            
+            fetch('/station/issue-coupon/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(`쿠폰이 성공적으로 발행되었습니다. (${data.issued_count}개)`);
+                    location.reload(); // 페이지 새로고침
+                } else {
+                    alert('오류: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('쿠폰 발행 중 오류가 발생했습니다.');
+            })
+            .finally(() => {
+                issueBtn.disabled = false;
+                issueBtn.textContent = '쿠폰 발행';
+            });
+        });
+    }
+});
 </script>
 {% endblock %} 

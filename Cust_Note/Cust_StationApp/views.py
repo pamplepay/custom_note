@@ -4,7 +4,7 @@ from django.http import JsonResponse, FileResponse
 from django.contrib import messages
 from django.db.models import Q, Sum
 from Cust_User.models import CustomUser, CustomerProfile, CustomerStationRelation
-from .models import PointCard, StationCardMapping, SalesData, ExcelSalesData, MonthlySalesStatistics, SalesStatistics, Group, PhoneCardMapping
+from .models import PointCard, StationCardMapping, SalesData, ExcelSalesData, MonthlySalesStatistics, SalesStatistics, Group, PhoneCardMapping, CouponType, CouponTemplate, CustomerCoupon
 from datetime import datetime, timedelta
 import json
 import logging
@@ -14,6 +14,7 @@ from django.contrib.auth.hashers import make_password
 from django.db import transaction
 from django.db.transaction import TransactionManagementError
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 import os
 from django.conf import settings
 from django.db.utils import IntegrityError
@@ -739,6 +740,7 @@ def get_cards(request):
         }, status=500)
 
 @login_required
+@csrf_exempt
 def register_cards_single(request):
     """카드 개별 등록"""
     logger.info(f"개별 카드 등록 요청 - 사용자: {request.user.username}, 메소드: {request.method}")
@@ -827,6 +829,7 @@ def register_cards_single(request):
     return JsonResponse({'status': 'error', 'message': '잘못된 요청 방식입니다.'}, status=405)
 
 @login_required
+@csrf_exempt
 def register_cards_bulk(request):
     """카드 일괄 등록"""
     logger.info(f"일괄 카드 등록 요청 - 사용자: {request.user.username}, 메소드: {request.method}")
@@ -1143,14 +1146,355 @@ def station_couponmanage(request):
         messages.error(request, '주유소 회원만 접근할 수 있습니다.')
         return redirect('home')
     
+    # 기본 쿠폰 유형 생성 (없으면)
+    _create_default_coupon_types(request.user)
+    
+    # 쿠폰 통계 계산
+    total_templates = CouponTemplate.objects.filter(station=request.user, is_active=True).count()
+    total_issued = CustomerCoupon.objects.filter(coupon_template__station=request.user).count()
+    used_coupons = CustomerCoupon.objects.filter(
+        coupon_template__station=request.user, 
+        status='USED'
+    ).count()
+    unused_coupons = CustomerCoupon.objects.filter(
+        coupon_template__station=request.user, 
+        status='AVAILABLE'
+    ).count()
+    
+    # 쿠폰 유형 목록
+    coupon_types = CouponType.objects.filter(station=request.user, is_active=True).order_by('is_default', 'type_name')
+    
+    # 쿠폰 템플릿 목록 (최근 5개)
+    recent_templates = CouponTemplate.objects.filter(
+        station=request.user, 
+        is_active=True
+    ).order_by('-created_at')[:5]
+    
+    # 모든 쿠폰 템플릿 (발행용)
+    all_templates = CouponTemplate.objects.filter(
+        station=request.user,
+        is_active=True
+    ).select_related('coupon_type').order_by('-created_at')
+    
+    # 그룹 목록
+    from .models import Group
+    groups = Group.objects.filter(station=request.user).order_by('name')
+    
+    # 발행 통계 (오늘, 이번 주)
+    from datetime import datetime, timedelta
+    from django.utils import timezone
+    now = timezone.now()
+    today = now.date()
+    week_start = today - timedelta(days=today.weekday())
+    
+    today_issued = CustomerCoupon.objects.filter(
+        coupon_template__station=request.user,
+        issued_date__date=today
+    ).count()
+    
+    week_issued = CustomerCoupon.objects.filter(
+        coupon_template__station=request.user,
+        issued_date__date__gte=week_start
+    ).count()
+    
     context = {
         'station_name': request.user.username,
-        'total_coupons': 0,
-        'used_coupons': 0,
-        'unused_coupons': 0
+        'total_templates': total_templates,
+        'total_issued': total_issued,
+        'used_coupons': used_coupons,
+        'unused_coupons': unused_coupons,
+        'total_coupons': total_issued,  # 전체 쿠폰
+        'coupon_types': coupon_types,
+        'recent_templates': recent_templates,
+        'coupon_templates': all_templates,  # 발행용 템플릿 목록
+        'groups': groups,  # 그룹 목록
+        'today_issued': today_issued,  # 오늘 발행
+        'week_issued': week_issued,  # 이번 주 발행
     }
     
     return render(request, 'Cust_Station/station_couponmanage.html', context)
+
+
+def _create_default_coupon_types(station_user):
+    """기본 쿠폰 유형 생성"""
+    default_types = [
+        ('SIGNUP', '회원가입'),
+        ('CARWASH', '세차'),
+        ('PRODUCT', '상품'),
+        ('FUEL', '주유'),
+    ]
+    
+    for type_code, type_name in default_types:
+        CouponType.objects.get_or_create(
+            station=station_user,
+            type_code=type_code,
+            defaults={
+                'type_name': type_name,
+                'is_default': True,
+                'is_active': True
+            }
+        )
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_coupon_type(request):
+    """새로운 쿠폰 유형 생성"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        type_name = request.POST.get('type_name', '').strip()
+        if not type_name:
+            return JsonResponse({'status': 'error', 'message': '유형명을 입력해주세요.'})
+        
+        # 유형 코드 생성 (대문자로 변환하고 공백 제거)
+        type_code = type_name.upper().replace(' ', '_')
+        
+        # 중복 확인
+        if CouponType.objects.filter(station=request.user, type_code=type_code).exists():
+            return JsonResponse({'status': 'error', 'message': '이미 존재하는 유형입니다.'})
+        
+        # 새 유형 생성
+        coupon_type = CouponType.objects.create(
+            station=request.user,
+            type_code=type_code,
+            type_name=type_name,
+            is_default=False,
+            is_active=True
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': '쿠폰 유형이 생성되었습니다.',
+            'coupon_type': {
+                'id': coupon_type.id,
+                'type_code': coupon_type.type_code,
+                'type_name': coupon_type.type_name
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"쿠폰 유형 생성 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '쿠폰 유형 생성 중 오류가 발생했습니다.'})
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_coupon_template(request):
+    """쿠폰 템플릿 생성"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        # 폼 데이터 수집
+        coupon_type_id = request.POST.get('coupon_type_id')
+        coupon_name = request.POST.get('coupon_name', '').strip()
+        description = request.POST.get('description', '').strip()
+        benefit_type = request.POST.get('benefit_type')
+        discount_amount = request.POST.get('discount_amount', 0)
+        product_name = request.POST.get('product_name', '').strip()
+        is_permanent = request.POST.get('is_permanent') == 'on'
+        valid_from = request.POST.get('valid_from')
+        valid_until = request.POST.get('valid_until')
+        
+        # 유효성 검증
+        if not coupon_type_id:
+            return JsonResponse({'status': 'error', 'message': '쿠폰 유형을 선택해주세요.'})
+        
+        if not coupon_name:
+            return JsonResponse({'status': 'error', 'message': '쿠폰명을 입력해주세요.'})
+        
+        if not benefit_type:
+            return JsonResponse({'status': 'error', 'message': '혜택 유형을 선택해주세요.'})
+        
+        # 쿠폰 유형 확인
+        try:
+            coupon_type = CouponType.objects.get(id=coupon_type_id, station=request.user)
+        except CouponType.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': '유효하지 않은 쿠폰 유형입니다.'})
+        
+        # 혜택 유형별 검증
+        if benefit_type in ['DISCOUNT', 'BOTH']:
+            try:
+                discount_amount = Decimal(discount_amount)
+                if discount_amount <= 0:
+                    return JsonResponse({'status': 'error', 'message': '할인 금액은 0보다 커야 합니다.'})
+            except (ValueError, TypeError):
+                return JsonResponse({'status': 'error', 'message': '올바른 할인 금액을 입력해주세요.'})
+        
+        if benefit_type in ['PRODUCT', 'BOTH']:
+            if not product_name:
+                return JsonResponse({'status': 'error', 'message': '상품명을 입력해주세요.'})
+        
+        # 날짜 검증
+        if not is_permanent:
+            if not valid_from or not valid_until:
+                return JsonResponse({'status': 'error', 'message': '유효기간을 설정해주세요.'})
+            
+            try:
+                valid_from = datetime.strptime(valid_from, '%Y-%m-%d').date()
+                valid_until = datetime.strptime(valid_until, '%Y-%m-%d').date()
+                
+                if valid_from > valid_until:
+                    return JsonResponse({'status': 'error', 'message': '시작일이 종료일보다 늦을 수 없습니다.'})
+            except ValueError:
+                return JsonResponse({'status': 'error', 'message': '올바른 날짜 형식을 입력해주세요.'})
+        else:
+            valid_from = None
+            valid_until = None
+        
+        # 기본 설명 설정 (할인 혜택이 있는 경우 세차 할인 명시)
+        if not description and benefit_type in ['DISCOUNT', 'BOTH']:
+            description = f"{coupon_type.type_name} 쿠폰입니다. 할인 혜택은 세차장에서 사용 가능합니다."
+        elif not description:
+            description = f"{coupon_type.type_name} 쿠폰입니다."
+        
+        # 쿠폰 템플릿 생성
+        coupon_template = CouponTemplate.objects.create(
+            station=request.user,
+            coupon_type=coupon_type,
+            coupon_name=coupon_name,
+            description=description,
+            benefit_type=benefit_type,
+            discount_amount=discount_amount if benefit_type in ['DISCOUNT', 'BOTH'] else 0,
+            product_name=product_name if benefit_type in ['PRODUCT', 'BOTH'] else None,
+            is_permanent=is_permanent,
+            valid_from=valid_from,
+            valid_until=valid_until,
+            is_active=True
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': '쿠폰이 생성되었습니다.',
+            'coupon_template': {
+                'id': coupon_template.id,
+                'coupon_name': coupon_template.coupon_name,
+                'benefit_description': coupon_template.get_benefit_description()
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"쿠폰 템플릿 생성 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '쿠폰 생성 중 오류가 발생했습니다.'})
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_coupon_templates(request):
+    """쿠폰 템플릿 목록 조회"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        templates = CouponTemplate.objects.filter(
+            station=request.user,
+            is_active=True
+        ).select_related('coupon_type').order_by('-created_at')
+        
+        templates_data = []
+        for template in templates:
+            templates_data.append({
+                'id': template.id,
+                'coupon_name': template.coupon_name,
+                'coupon_type_name': template.coupon_type.type_name,
+                'benefit_description': template.get_benefit_description(),
+                'is_permanent': template.is_permanent,
+                'valid_from': template.valid_from.strftime('%Y-%m-%d') if template.valid_from else None,
+                'valid_until': template.valid_until.strftime('%Y-%m-%d') if template.valid_until else None,
+                'created_at': template.created_at.strftime('%Y-%m-%d %H:%M'),
+                'is_valid': template.is_valid_today()
+            })
+        
+        return JsonResponse({
+            'status': 'success',
+            'templates': templates_data
+        })
+        
+    except Exception as e:
+        logger.error(f"쿠폰 템플릿 조회 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '쿠폰 목록 조회 중 오류가 발생했습니다.'})
+
+
+@login_required
+@require_http_methods(["POST"])
+def issue_coupon(request):
+    """쿠폰 발행"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        template_id = request.POST.get('coupon_template_id')
+        customer_ids = request.POST.getlist('customer_ids')
+        target_type = request.POST.get('target_type')  # all, group, individual
+        group_id = request.POST.get('group_id')
+        
+        if not template_id:
+            return JsonResponse({'status': 'error', 'message': '쿠폰 템플릿을 선택해주세요.'})
+        
+        # 템플릿 확인
+        try:
+            template = CouponTemplate.objects.get(id=template_id, station=request.user)
+        except CouponTemplate.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': '유효하지 않은 쿠폰 템플릿입니다.'})
+        
+        if not template.is_valid_today():
+            return JsonResponse({'status': 'error', 'message': '유효하지 않은 쿠폰입니다.'})
+        
+        # 발행 대상 고객 확인
+        customers = []
+        
+        if target_type == 'all':
+            # 모든 연결된 고객
+            customers = CustomUser.objects.filter(
+                user_type='CUSTOMER',
+                station_relations__station=request.user,
+                station_relations__is_active=True
+            ).distinct()
+        elif target_type == 'group' and group_id:
+            # 특정 그룹 고객
+            try:
+                group = Group.objects.get(id=group_id, station=request.user)
+                customers = CustomUser.objects.filter(
+                    user_type='CUSTOMER',
+                    customer_profile__group=group.name,
+                    station_relations__station=request.user,
+                    station_relations__is_active=True
+                ).distinct()
+            except Group.DoesNotExist:
+                return JsonResponse({'status': 'error', 'message': '유효하지 않은 그룹입니다.'})
+        elif target_type == 'individual' and customer_ids:
+            # 개별 고객
+            customers = CustomUser.objects.filter(
+                id__in=customer_ids,
+                user_type='CUSTOMER',
+                station_relations__station=request.user,
+                station_relations__is_active=True
+            )
+        
+        if not customers.exists():
+            return JsonResponse({'status': 'error', 'message': '발행할 고객이 없습니다.'})
+        
+        # 쿠폰 발행
+        issued_count = 0
+        for customer in customers:
+            CustomerCoupon.objects.create(
+                customer=customer,
+                coupon_template=template,
+                status='AVAILABLE'
+            )
+            issued_count += 1
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'{issued_count}명의 고객에게 쿠폰을 발행했습니다.',
+            'issued_count': issued_count
+        })
+        
+    except Exception as e:
+        logger.error(f"쿠폰 발행 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '쿠폰 발행 중 오류가 발생했습니다.'})
 
 @require_http_methods(["GET"])
 @login_required
@@ -1185,6 +1529,7 @@ def get_unused_cards(request):
         }, status=500)
 
 @require_http_methods(["POST"])
+@csrf_exempt
 def register_card(request):
     """멤버십 카드 등록 뷰"""
     logger.info("\n=== 멤버십 카드 등록 시작 ===")
@@ -1348,13 +1693,14 @@ def register_customer(request):
             
             try:
                 with transaction.atomic():
-                    # 카드 확인 (락 설정)
+                    # 1. 카드 확인 (기존 등록된 카드만 사용)
                     try:
                         card_mapping = StationCardMapping.objects.select_for_update().select_related('card').get(
                             card__number=card_number,
                             is_active=True
                         )
                         card = card_mapping.card
+                        logger.info(f"기존 카드 발견: {card_number}")
                     except StationCardMapping.DoesNotExist:
                         logger.warning(f"미등록 카드 - 카드번호: {card_number}")
                         return JsonResponse({
@@ -1369,7 +1715,7 @@ def register_customer(request):
                             'message': '이미 사용 중인 카드입니다.'
                         }, status=400)
 
-                    # 기존 폰번호-카드 연동 확인 (같은 폰번호와 카드 조합만 중복 방지)
+                    # 2. 기존 폰번호-카드 연동 확인 (같은 폰번호와 카드 조합만 중복 방지)
                     existing_mapping = PhoneCardMapping.objects.filter(
                         phone_number=phone,
                         membership_card=card,
@@ -1396,7 +1742,7 @@ def register_customer(request):
                     except Exception as e:
                         logger.warning(f"기존 고객 조회 중 오류: {str(e)}")
 
-                    # 폰번호-카드 연동 생성
+                    # 3. 폰번호-카드 연동 생성
                     phone_card_mapping = PhoneCardMapping.objects.create(
                         phone_number=phone,
                         membership_card=card,
@@ -1405,7 +1751,7 @@ def register_customer(request):
                     )
                     logger.info(f"폰번호-카드 연동 생성 완료: {phone} - {card_number}")
                     
-                    # 기존 고객이 있다면 해당 고객의 프로필에 카드번호 등록
+                    # 4. 기존 고객이 있다면 해당 고객의 프로필에 카드번호 등록
                     if existing_customer:
                         try:
                             existing_customer.membership_card = card_number
@@ -1422,13 +1768,19 @@ def register_customer(request):
                             
                             if created:
                                 logger.info(f"고객-주유소 관계 생성 완료: {existing_customer.user.username} - {request.user.username}")
+                                
+                                # 회원가입 쿠폰 자동 발행
+                                from .models import auto_issue_signup_coupons
+                                issued_count = auto_issue_signup_coupons(existing_customer.user, request.user)
+                                if issued_count > 0:
+                                    logger.info(f"회원가입 쿠폰 {issued_count}개 자동 발행됨")
                             else:
                                 logger.info(f"고객-주유소 관계 이미 존재: {existing_customer.user.username} - {request.user.username}")
                                 
                         except Exception as e:
                             logger.error(f"기존 고객 프로필 업데이트 중 오류: {str(e)}", exc_info=True)
                     
-                    # 카드 상태 업데이트 (사용 중으로 변경)
+                    # 5. 카드 상태 업데이트 (사용 중으로 변경)
                     card.is_used = True
                     card.save()
                     logger.info(f"카드 상태 업데이트 완료 - 카드번호: {card_number}")

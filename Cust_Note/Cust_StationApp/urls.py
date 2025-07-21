@@ -60,4 +60,10 @@ urlpatterns = [
     path('update-group/<int:group_id>/', views.update_group, name='update_group'),
     path('delete-group/<int:group_id>/', views.delete_group, name='delete_group'),
     path('get-groups/', views.get_groups, name='get_groups'),
+    
+    # 쿠폰 관리 관련 URL
+    path('create-coupon-type/', views.create_coupon_type, name='create_coupon_type'),
+    path('create-coupon-template/', views.create_coupon_template, name='create_coupon_template'),
+    path('get-coupon-templates/', views.get_coupon_templates, name='get_coupon_templates'),
+    path('issue-coupon/', views.issue_coupon, name='issue_coupon'),
 ] 

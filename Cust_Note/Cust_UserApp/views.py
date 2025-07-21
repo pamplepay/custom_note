@@ -91,9 +91,9 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
             'selected_station_id': station_id or 'all',
             'selected_station': selected_station,
             'selected_station_name': selected_station_name,
-            # 쿠폰 관련 컨텍스트 (임시 데이터)
-            'car_wash_coupon_count': 2,  # 실제 구현 시에는 데이터베이스에서 계산
-            'product_coupon_count': 1,    # 실제 구현 시에는 데이터베이스에서 계산
+            # 쿠폰 관련 컨텍스트 (혜택 유형별)
+            'discount_coupon_count': _get_customer_coupon_count_by_benefit_include_both(self.request.user, 'DISCOUNT'),
+            'product_coupon_count': _get_customer_coupon_count_by_benefit_include_both(self.request.user, 'PRODUCT'),
         })
         
         return context
@@ -509,15 +509,157 @@ class CustomerCouponsView(LoginRequiredMixin, TemplateView):
         car_wash_coupons = len([c for c in car_wash_coupon_list if not c['is_expired'] and not c['is_used']])
         product_coupons = len([c for c in product_coupon_list if not c['is_expired'] and not c['is_used']])
         
+        # 실제 쿠폰 데이터로 교체
+        from Cust_StationApp.models import CustomerCoupon
+        
+        # 고객의 실제 쿠폰 조회 (사용 완료된 쿠폰 제외)
+        customer_coupons = CustomerCoupon.objects.filter(
+            customer=self.request.user,
+            status__in=['AVAILABLE', 'EXPIRED']  # 사용 가능하거나 만료된 쿠폰만 표시
+        ).select_related('coupon_template', 'coupon_template__coupon_type').order_by('-issued_date')
+        
+        # 혜택 유형별 분류
+        discount_coupon_list = []  # 세차 할인
+        product_coupon_list = []   # 무료 상품
+        combo_coupon_list = []     # 할인+상품
+        
+        for coupon in customer_coupons:
+            template = coupon.coupon_template
+            
+            # 템플릿 기준으로 만료 여부 확인
+            is_template_expired = False
+            if not template.is_permanent and template.valid_until:
+                from django.utils import timezone
+                today = timezone.now().date()
+                is_template_expired = today > template.valid_until
+            
+            coupon_data = {
+                'id': coupon.id,
+                'title': template.coupon_name,
+                'description': template.description or f"{template.coupon_type.type_name} 쿠폰입니다. 할인 혜택은 세차장에서 사용 가능합니다." if template.benefit_type in ['DISCOUNT', 'BOTH'] else template.description or f"{template.coupon_type.type_name} 쿠폰입니다.",
+                'benefit_description': template.get_benefit_description(),
+                'discount_type': 'AMOUNT',  # 정액 할인만 사용
+                'discount_value': template.discount_amount,
+                'product_name': template.product_name,
+                'benefit_type': template.benefit_type,
+                'coupon_type_name': template.coupon_type.type_name,  # 발행처 표시용
+                'expiry_date': template.valid_until if template.valid_until and not template.is_permanent else None,
+                'is_expired': is_template_expired or coupon.status == 'EXPIRED',
+                'is_used': coupon.status == 'USED',
+                'is_available': coupon.status == 'AVAILABLE' and not is_template_expired,
+                'issued_date': coupon.issued_date.strftime('%Y-%m-%d'),
+                'used_date': coupon.used_date.strftime('%Y-%m-%d') if coupon.used_date else None,
+                'station_name': template.station.station_profile.station_name if hasattr(template.station, 'station_profile') else template.station.username,
+                'is_permanent': template.is_permanent,
+            }
+            
+            # 혜택 유형별 분류 (BOTH는 두 섹션 모두에 표시)
+            benefit_type = template.benefit_type
+            if benefit_type == 'DISCOUNT':
+                discount_coupon_list.append(coupon_data)
+            elif benefit_type == 'PRODUCT':
+                product_coupon_list.append(coupon_data)
+            elif benefit_type == 'BOTH':
+                # 할인+상품은 두 섹션 모두에 표시
+                discount_coupon_list.append(coupon_data)
+                product_coupon_list.append(coupon_data)
+        
+        # 통계 계산 (사용 가능한 쿠폰만 계산)
+        available_coupons = customer_coupons.filter(status='AVAILABLE')
+        total_coupons = available_coupons.count()
+        discount_coupons = available_coupons.filter(
+            coupon_template__benefit_type__in=['DISCOUNT', 'BOTH']
+        ).count()
+        product_coupons = available_coupons.filter(
+            coupon_template__benefit_type__in=['PRODUCT', 'BOTH']
+        ).count()
+        
         context.update({
-            'car_wash_coupon_list': car_wash_coupon_list,
-            'product_coupon_list': product_coupon_list,
+            'discount_coupon_list': discount_coupon_list,  # 세차 할인 (BOTH 포함)
+            'product_coupon_list': product_coupon_list,    # 무료 상품 (BOTH 포함)
             'total_coupons': total_coupons,
-            'car_wash_coupons': car_wash_coupons,
-            'product_coupons': product_coupons,
+            'discount_coupons': discount_coupons,  # 할인 혜택이 있는 쿠폰 수
+            'product_coupons': product_coupons,    # 상품 혜택이 있는 쿠폰 수
         })
         
-        return context 
+        return context
+
+
+def _get_customer_coupon_count(user, coupon_type_code):
+    """고객의 특정 유형 쿠폰 개수 조회 (사용 가능한 것만)"""
+    from Cust_StationApp.models import CustomerCoupon
+    
+    return CustomerCoupon.objects.filter(
+        customer=user,
+        status='AVAILABLE',
+        coupon_template__coupon_type__type_code=coupon_type_code
+    ).count()
+
+def _get_customer_coupon_count_by_benefit(user, benefit_type):
+    """고객의 특정 혜택 유형 쿠폰 개수 조회 (사용 가능한 것만)"""
+    from Cust_StationApp.models import CustomerCoupon
+    
+    return CustomerCoupon.objects.filter(
+        customer=user,
+        status='AVAILABLE',
+        coupon_template__benefit_type=benefit_type
+    ).count()
+
+def _get_customer_coupon_count_by_benefit_include_both(user, benefit_type):
+    """고객의 특정 혜택 유형 쿠폰 개수 조회 (BOTH 타입 포함, 사용 가능한 것만)"""
+    from Cust_StationApp.models import CustomerCoupon
+    
+    if benefit_type == 'DISCOUNT':
+        benefit_types = ['DISCOUNT', 'BOTH']
+    elif benefit_type == 'PRODUCT':
+        benefit_types = ['PRODUCT', 'BOTH']
+    else:
+        benefit_types = [benefit_type]
+    
+    return CustomerCoupon.objects.filter(
+        customer=user,
+        status='AVAILABLE',
+        coupon_template__benefit_type__in=benefit_types
+    ).count()
+
+@csrf_exempt
+@login_required
+def use_coupon(request, coupon_id):
+    """쿠폰 사용 처리"""
+    if request.user.user_type != 'CUSTOMER':
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': '잘못된 요청입니다.'}, status=405)
+    
+    try:
+        from Cust_StationApp.models import CustomerCoupon
+        
+        # 쿠폰 조회
+        coupon = CustomerCoupon.objects.get(
+            id=coupon_id,
+            customer=request.user
+        )
+        
+        # 쿠폰 사용 가능 여부 확인
+        if not coupon.is_available():
+            return JsonResponse({'status': 'error', 'message': '사용할 수 없는 쿠폰입니다.'})
+        
+        # 쿠폰 사용 처리
+        coupon.use_coupon()
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': '쿠폰이 성공적으로 사용되었습니다.',
+            'coupon_name': coupon.coupon_template.coupon_name
+        })
+        
+    except CustomerCoupon.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': '존재하지 않는 쿠폰입니다.'})
+    except ValueError as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': '쿠폰 사용 중 오류가 발생했습니다.'}) 
 
 @csrf_exempt
 @login_required

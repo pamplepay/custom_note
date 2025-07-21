@@ -96,7 +96,7 @@ DATABASES = {
         "NAME": "db_oilnote",
         "USER": "oilnote",
         "PASSWORD": "dlffldna1004",
-        "HOST": "localhost",
+        "HOST": "139.150.82.74",
         "PORT": "3306",
         "OPTIONS": {
             "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",

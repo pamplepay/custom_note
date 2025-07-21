@@ -308,11 +308,22 @@ class PhoneCardMapping(models.Model):
         
         # 주유소와 고객 관계 생성
         from Cust_User.models import CustomerStationRelation
-        CustomerStationRelation.objects.get_or_create(
+        relation, created = CustomerStationRelation.objects.get_or_create(
             customer=user,
             station=self.station,
             defaults={'is_active': True}
         )
+        
+        # 새로운 관계가 생성된 경우 회원가입 쿠폰 자동 발행
+        if created:
+            logger.info(f"🎯 새로운 고객-주유소 관계 생성됨, 회원가입 쿠폰 자동발행 시작")
+            issued_count = auto_issue_signup_coupons(user, self.station)
+            if issued_count > 0:
+                logger.info(f"🎉 회원가입 쿠폰 {issued_count}개 자동 발행됨")
+            else:
+                logger.info(f"❌ 회원가입 쿠폰 발행되지 않음")
+        else:
+            logger.info(f"이미 존재하는 고객-주유소 관계, 회원가입 쿠폰 발행 건너뜀")
         
         logger.info(f"폰번호 {self.phone_number}과 사용자 {user.username} 연동 완료")
 
@@ -441,167 +452,314 @@ class MonthlySalesStatistics(models.Model):
     def __str__(self):
         return f"{self.tid} - {self.year_month} ({self.total_transactions}건, {self.total_amount:,.0f}원)"
 
-class Coupon(models.Model):
-    """쿠폰 모델"""
-    
-    COUPON_TYPE_CHOICES = [
-        ('CAR_WASH', '세차'),
+
+# ========== 쿠폰 시스템 모델들 ==========
+
+class CouponType(models.Model):
+    """쿠폰 유형 모델 - 기본 4개 유형 + 사용자 정의 유형"""
+    BASIC_TYPES = [
+        ('SIGNUP', '회원가입'),
+        ('CARWASH', '세차'),
         ('PRODUCT', '상품'),
         ('FUEL', '주유'),
     ]
     
-    coupon_number = models.CharField(
-        max_length=16, 
-        unique=True, 
-        verbose_name='쿠폰번호',
-        help_text='16자리 쿠폰번호'
+    station = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        verbose_name='주유소',
+        limit_choices_to={'user_type': 'STATION'}
     )
-    tid = models.CharField(
+    type_code = models.CharField(
+        max_length=20, 
+        verbose_name='유형 코드',
+        help_text="기본 유형(SIGNUP, CARWASH, PRODUCT, FUEL) 또는 사용자 정의 코드"
+    )
+    type_name = models.CharField(
         max_length=50, 
+        verbose_name='유형명',
+        help_text="쿠폰 유형의 표시명"
+    )
+    is_default = models.BooleanField(
+        default=False, 
+        verbose_name='기본 유형 여부',
+        help_text="기본 4개 유형인지 사용자 정의 유형인지 구분"
+    )
+    is_active = models.BooleanField(default=True, verbose_name='활성화 여부')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시')
+    
+    class Meta:
+        verbose_name = '쿠폰 유형'
+        verbose_name_plural = '8. 쿠폰 유형 목록'
+        ordering = ['is_default', '-created_at']
+        unique_together = ['station', 'type_code']
+    
+    def __str__(self):
+        return f"{self.station.username} - {self.type_name}"
+
+
+class CouponTemplate(models.Model):
+    """쿠폰 템플릿 모델 - 주유소에서 생성하는 쿠폰 종류"""
+    BENEFIT_TYPES = [
+        ('DISCOUNT', '할인'),
+        ('PRODUCT', '상품'),
+        ('BOTH', '할인+상품'),
+    ]
+    
+    station = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        verbose_name='주유소',
+        limit_choices_to={'user_type': 'STATION'}
+    )
+    coupon_type = models.ForeignKey(
+        CouponType, 
+        on_delete=models.CASCADE, 
+        verbose_name='쿠폰 유형'
+    )
+    coupon_name = models.CharField(
+        max_length=100, 
+        verbose_name='쿠폰명',
+        help_text="고객에게 표시될 쿠폰 이름"
+    )
+    description = models.TextField(
         blank=True, 
         null=True, 
-        verbose_name='주유소 TID',
-        help_text='쿠폰을 발행한 주유소 TID'
+        verbose_name='설명',
+        help_text="쿠폰에 대한 상세 설명"
     )
-    coupon_type = models.CharField(
-        max_length=10,
-        choices=COUPON_TYPE_CHOICES,
-        verbose_name='쿠폰 종류',
-        help_text='쿠폰의 종류 (세차, 상품, 주유)'
+    
+    # 혜택 설정
+    benefit_type = models.CharField(
+        max_length=10, 
+        choices=BENEFIT_TYPES, 
+        verbose_name='혜택 유형'
     )
-    is_used = models.BooleanField(
-        default=False,
-        verbose_name='쿠폰 사용 여부',
-        help_text='쿠폰이 사용되었는지 여부'
+    
+    # 할인 관련
+    discount_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=0, 
+        default=0, 
+        verbose_name='할인 금액',
+        help_text="정액 할인 금액 (원)"
     )
-    customer_phone = models.CharField(
-        max_length=15,
-        blank=True,
-        null=True,
-        verbose_name='소유 고객 전화번호',
-        help_text='쿠폰을 소유한 고객의 전화번호'
+    
+    # 상품 관련
+    product_name = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name='상품명',
+        help_text="무료 제공할 상품명"
     )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='쿠폰 생성일자',
-        help_text='쿠폰이 생성된 날짜와 시간'
+    
+    # 유효기간 설정
+    is_permanent = models.BooleanField(
+        default=False, 
+        verbose_name='무기한 여부'
     )
-    issued_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name='쿠폰 발행일자',
-        help_text='쿠폰이 고객에게 발행된 날짜와 시간'
+    valid_from = models.DateField(
+        null=True, 
+        blank=True, 
+        verbose_name='사용 시작일'
     )
-    used_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name='쿠폰 사용일자',
-        help_text='쿠폰이 사용된 날짜와 시간'
+    valid_until = models.DateField(
+        null=True, 
+        blank=True, 
+        verbose_name='사용 종료일'
     )
-    station = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        verbose_name='발행 주유소',
-        limit_choices_to={'user_type': 'STATION'},
-        help_text='쿠폰을 발행한 주유소'
+    
+    # 관리 필드
+    is_active = models.BooleanField(default=True, verbose_name='활성화 여부')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일시')
+    
+    class Meta:
+        verbose_name = '쿠폰 템플릿'
+        verbose_name_plural = '9. 쿠폰 템플릿 목록'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.station.username} - {self.coupon_name}"
+    
+    def is_valid_today(self):
+        """오늘 날짜 기준으로 쿠폰이 유효한지 확인"""
+        if self.is_permanent:
+            return True
+        
+        today = timezone.now().date()
+        if self.valid_from and today < self.valid_from:
+            return False
+        if self.valid_until and today > self.valid_until:
+            return False
+        return True
+    
+    def get_benefit_description(self):
+        """혜택 내용을 문자열로 반환"""
+        if self.benefit_type == 'DISCOUNT':
+            return f"세차 서비스 {self.discount_amount:,.0f}원 할인"
+        elif self.benefit_type == 'PRODUCT':
+            return f"{self.product_name} 무료"
+        elif self.benefit_type == 'BOTH':
+            return f"세차 서비스 {self.discount_amount:,.0f}원 할인 + {self.product_name} 무료"
+        return ""
+
+
+class CustomerCoupon(models.Model):
+    """고객이 보유한 쿠폰"""
+    STATUS_CHOICES = [
+        ('AVAILABLE', '사용가능'),
+        ('USED', '사용완료'),
+        ('EXPIRED', '만료됨'),
+    ]
+    
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        verbose_name='고객',
+        limit_choices_to={'user_type': 'CUSTOMER'}
+    )
+    coupon_template = models.ForeignKey(
+        CouponTemplate, 
+        on_delete=models.CASCADE, 
+        verbose_name='쿠폰 템플릿'
+    )
+    
+    # 쿠폰 상태
+    status = models.CharField(
+        max_length=10, 
+        choices=STATUS_CHOICES, 
+        default='AVAILABLE', 
+        verbose_name='사용 상태'
+    )
+    
+    # 발행 및 사용 정보
+    issued_date = models.DateTimeField(auto_now_add=True, verbose_name='발행일시')
+    used_date = models.DateTimeField(null=True, blank=True, verbose_name='사용일시')
+    expiry_date = models.DateField(null=True, blank=True, verbose_name='만료일')
+    
+    # 사용 관련 정보
+    used_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=0, 
+        null=True, 
+        blank=True, 
+        verbose_name='사용 금액',
+        help_text="쿠폰 사용 시 거래 금액"
     )
     
     class Meta:
-        verbose_name = '쿠폰'
-        verbose_name_plural = '8. 쿠폰 목록'
-        ordering = ['-created_at']
+        verbose_name = '고객 쿠폰'
+        verbose_name_plural = '10. 고객 쿠폰 목록'
+        ordering = ['-issued_date']
         indexes = [
-            models.Index(fields=['coupon_number']),
-            models.Index(fields=['customer_phone']),
-            models.Index(fields=['coupon_type']),
-            models.Index(fields=['is_used']),
-            models.Index(fields=['created_at']),
+            models.Index(fields=['customer', 'status']),
+            models.Index(fields=['coupon_template']),
         ]
     
     def __str__(self):
-        status = "사용됨" if self.is_used else "미사용"
-        return f"{self.get_coupon_type_display()} 쿠폰 - {self.coupon_number} ({status})"
+        return f"{self.customer.username} - {self.coupon_template.coupon_name} ({self.get_status_display()})"
     
-    def issue_to_customer(self, phone_number):
-        """고객에게 쿠폰 발행"""
-        if self.is_used:
-            raise ValueError("이미 사용된 쿠폰입니다.")
+    def save(self, *args, **kwargs):
+        # 만료일 자동 설정
+        if not self.expiry_date and not self.coupon_template.is_permanent:
+            if self.coupon_template.valid_until:
+                self.expiry_date = self.coupon_template.valid_until
         
-        if self.issued_at:
-            raise ValueError("이미 발행된 쿠폰입니다.")
+        # 만료된 쿠폰 상태 자동 업데이트
+        if self.expiry_date and timezone.now().date() > self.expiry_date:
+            if self.status == 'AVAILABLE':
+                self.status = 'EXPIRED'
         
-        self.customer_phone = phone_number
-        self.issued_at = timezone.now()
+        super().save(*args, **kwargs)
+    
+    def use_coupon(self, used_amount=None):
+        """쿠폰 사용 처리"""
+        if self.status != 'AVAILABLE':
+            raise ValueError("사용할 수 없는 쿠폰입니다.")
+        
+        if self.expiry_date and timezone.now().date() > self.expiry_date:
+            raise ValueError("만료된 쿠폰입니다.")
+        
+        self.status = 'USED'
+        self.used_date = timezone.now()
+        if used_amount:
+            self.used_amount = used_amount
         self.save()
     
-    def use_coupon(self):
-        """쿠폰 사용"""
-        if self.is_used:
-            raise ValueError("이미 사용된 쿠폰입니다.")
+    def is_available(self):
+        """쿠폰 사용 가능 여부 확인"""
+        if self.status != 'AVAILABLE':
+            return False
         
-        if not self.issued_at:
-            raise ValueError("발행되지 않은 쿠폰입니다.")
+        if self.expiry_date and timezone.now().date() > self.expiry_date:
+            return False
         
-        self.is_used = True
-        self.used_at = timezone.now()
-        self.save()
+        return True
+
+
+def auto_issue_signup_coupons(customer, station):
+    """회원가입 쿠폰 자동 발행"""
+    logger.info(f"=== 회원가입 쿠폰 자동발행 시작 ===")
+    logger.info(f"고객: {customer.username} (ID: {customer.id})")
+    logger.info(f"주유소: {station.username} (ID: {station.id})")
     
-    @classmethod
-    def generate_coupon_number(cls):
-        """16자리 쿠폰번호 생성"""
-        import random
-        import string
-        
-        while True:
-            # 16자리 랜덤 문자열 생성 (숫자 + 대문자)
-            coupon_number = ''.join(random.choices(string.digits + string.ascii_uppercase, k=16))
-            
-            # 중복 확인
-            if not cls.objects.filter(coupon_number=coupon_number).exists():
-                return coupon_number
-    
-    @classmethod
-    def create_coupon(cls, station, coupon_type, tid=None):
-        """새로운 쿠폰 생성"""
-        coupon_number = cls.generate_coupon_number()
-        return cls.objects.create(
-            coupon_number=coupon_number,
+    try:
+        # 해당 주유소의 회원가입 쿠폰 템플릿 조회
+        signup_templates = CouponTemplate.objects.filter(
             station=station,
-            coupon_type=coupon_type,
-            tid=tid
+            coupon_type__type_code='SIGNUP',
+            is_active=True
         )
-    
-    def get_status_display(self):
-        """쿠폰 상태 표시"""
-        if self.is_used:
-            return "사용됨"
-        elif self.issued_at:
-            return "발행됨"
+        
+        logger.info(f"주유소 {station.username}의 회원가입 쿠폰 템플릿 조회 결과: {signup_templates.count()}개")
+        
+        if not signup_templates.exists():
+            logger.info("회원가입 쿠폰 템플릿이 존재하지 않음")
+            return 0
+        
+        issued_count = 0
+        for template in signup_templates:
+            logger.info(f"템플릿 처리 중: {template.coupon_name} (ID: {template.id})")
+            
+            # 템플릿 유효성 확인
+            if not template.is_valid_today():
+                logger.info(f"템플릿 {template.coupon_name}은 유효기간이 아님 (is_permanent: {template.is_permanent}, valid_from: {template.valid_from}, valid_until: {template.valid_until})")
+                continue
+            
+            logger.info(f"템플릿 {template.coupon_name}은 유효함")
+            
+            # 이미 발행된 회원가입 쿠폰이 있는지 확인 (중복 발행 방지)
+            existing_coupon = CustomerCoupon.objects.filter(
+                customer=customer,
+                coupon_template=template
+            ).first()
+            
+            if existing_coupon:
+                logger.info(f"이미 발행된 회원가입 쿠폰이 존재: {template.coupon_name} (쿠폰 ID: {existing_coupon.id})")
+                continue
+            
+            logger.info(f"새로운 회원가입 쿠폰 발행 중: {template.coupon_name}")
+            
+            # 회원가입 쿠폰 발행
+            new_coupon = CustomerCoupon.objects.create(
+                customer=customer,
+                coupon_template=template,
+                status='AVAILABLE'
+            )
+            
+            issued_count += 1
+            logger.info(f"✅ 회원가입 쿠폰 발행 완료: {template.coupon_name} (새 쿠폰 ID: {new_coupon.id})")
+        
+        if issued_count > 0:
+            logger.info(f"🎉 총 {issued_count}개의 회원가입 쿠폰 발행 완료")
         else:
-            return "생성됨"
-    
-    @classmethod
-    def get_available_coupons_for_station(cls, station):
-        """특정 주유소의 사용 가능한 쿠폰 조회"""
-        return cls.objects.filter(
-            station=station,
-            is_used=False,
-            issued_at__isnull=True  # 아직 발행되지 않은 쿠폰
-        ).order_by('coupon_type', 'created_at')
-    
-    @classmethod
-    def get_coupon_counts_by_type(cls, station):
-        """주유소별 쿠폰 종류별 개수 조회"""
-        coupons = cls.get_available_coupons_for_station(station)
-        counts = {
-            'CAR_WASH': 0,
-            'PRODUCT': 0,
-            'FUEL': 0,
-            'total': 0
-        }
+            logger.info("❌ 발행할 회원가입 쿠폰이 없음")
+            
+        logger.info(f"=== 회원가입 쿠폰 자동발행 종료 ===")
+        return issued_count
         
-        for coupon in coupons:
-            counts[coupon.coupon_type] += 1
-            counts['total'] += 1
-        
-        return counts
+    except Exception as e:
+        logger.error(f"❌ 회원가입 쿠폰 자동발행 중 오류: {str(e)}", exc_info=True)
+        return 0
