@@ -3078,45 +3078,28 @@ def search_card_by_number(request):
         try:
             # 카드번호로 카드 찾기 (부분 매칭)
             from .models import PointCard
-            cards = PointCard.objects.filter(number__icontains=card_number).order_by('number')
+            cards = PointCard.objects.filter(number__icontains=card_number).order_by('number')[:10]  # 최대 10개까지만 반환
             
             if cards.exists():
-                # 첫 번째 매칭 카드 반환
-                card = cards.first()
-                
-                # 매칭된 카드가 여러 개인 경우 정보 추가
-                total_matches = cards.count()
-            
-            if card:
-                # 카드 상태 정보
-                status = "사용 중" if card.is_used else "미사용"
-                status_class = "text-danger" if card.is_used else "text-success"
-                
-                # TID 정보
-                tid_info = ""
-                if card.tids:
-                    tid_info = ", ".join(card.tids)
-                
-                response_data = {
-                    'status': 'success',
-                    'exists': True,
-                    'data': {
+                # 실시간 검색과 동일한 형식으로 카드 데이터 변환
+                cards_data = []
+                for card in cards:
+                    cards_data.append({
+                        'id': card.id,
                         'card_number': card.full_number,
+                        'card_number_short': card.number,
                         'is_used': card.is_used,
-                        'status': status,
-                        'status_class': status_class,
-                        'tids': tid_info,
+                        'tids': ", ".join(card.tids) if card.tids else None,
                         'created_at': card.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                         'updated_at': card.updated_at.strftime('%Y-%m-%d %H:%M:%S')
-                    }
-                }
+                    })
                 
-                # 매칭된 카드가 여러 개인 경우 정보 추가
-                if total_matches > 1:
-                    response_data['data']['total_matches'] = total_matches
-                    response_data['data']['search_term'] = card_number
-                
-                return JsonResponse(response_data)
+                return JsonResponse({
+                    'status': 'success',
+                    'exists': True,
+                    'cards': cards_data,
+                    'total_count': cards.count()
+                })
             else:
                 return JsonResponse({
                     'status': 'success',
