@@ -440,3 +440,142 @@ class MonthlySalesStatistics(models.Model):
 
     def __str__(self):
         return f"{self.tid} - {self.year_month} ({self.total_transactions}건, {self.total_amount:,.0f}원)"
+
+class Coupon(models.Model):
+    """쿠폰 모델"""
+    
+    COUPON_TYPE_CHOICES = [
+        ('CAR_WASH', '세차'),
+        ('PRODUCT', '상품'),
+        ('FUEL', '주유'),
+    ]
+    
+    coupon_number = models.CharField(
+        max_length=16, 
+        unique=True, 
+        verbose_name='쿠폰번호',
+        help_text='16자리 쿠폰번호'
+    )
+    tid = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True, 
+        verbose_name='주유소 TID',
+        help_text='쿠폰을 발행한 주유소 TID'
+    )
+    coupon_type = models.CharField(
+        max_length=10,
+        choices=COUPON_TYPE_CHOICES,
+        verbose_name='쿠폰 종류',
+        help_text='쿠폰의 종류 (세차, 상품, 주유)'
+    )
+    is_used = models.BooleanField(
+        default=False,
+        verbose_name='쿠폰 사용 여부',
+        help_text='쿠폰이 사용되었는지 여부'
+    )
+    customer_phone = models.CharField(
+        max_length=15,
+        blank=True,
+        null=True,
+        verbose_name='소유 고객 전화번호',
+        help_text='쿠폰을 소유한 고객의 전화번호'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='쿠폰 생성일자',
+        help_text='쿠폰이 생성된 날짜와 시간'
+    )
+    issued_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='쿠폰 발행일자',
+        help_text='쿠폰이 고객에게 발행된 날짜와 시간'
+    )
+    used_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='쿠폰 사용일자',
+        help_text='쿠폰이 사용된 날짜와 시간'
+    )
+    station = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='발행 주유소',
+        limit_choices_to={'user_type': 'STATION'},
+        help_text='쿠폰을 발행한 주유소'
+    )
+    
+    class Meta:
+        verbose_name = '쿠폰'
+        verbose_name_plural = '8. 쿠폰 목록'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['coupon_number']),
+            models.Index(fields=['customer_phone']),
+            models.Index(fields=['coupon_type']),
+            models.Index(fields=['is_used']),
+            models.Index(fields=['created_at']),
+        ]
+    
+    def __str__(self):
+        status = "사용됨" if self.is_used else "미사용"
+        return f"{self.get_coupon_type_display()} 쿠폰 - {self.coupon_number} ({status})"
+    
+    def issue_to_customer(self, phone_number):
+        """고객에게 쿠폰 발행"""
+        if self.is_used:
+            raise ValueError("이미 사용된 쿠폰입니다.")
+        
+        if self.issued_at:
+            raise ValueError("이미 발행된 쿠폰입니다.")
+        
+        self.customer_phone = phone_number
+        self.issued_at = timezone.now()
+        self.save()
+    
+    def use_coupon(self):
+        """쿠폰 사용"""
+        if self.is_used:
+            raise ValueError("이미 사용된 쿠폰입니다.")
+        
+        if not self.issued_at:
+            raise ValueError("발행되지 않은 쿠폰입니다.")
+        
+        self.is_used = True
+        self.used_at = timezone.now()
+        self.save()
+    
+    @classmethod
+    def generate_coupon_number(cls):
+        """16자리 쿠폰번호 생성"""
+        import random
+        import string
+        
+        while True:
+            # 16자리 랜덤 문자열 생성 (숫자 + 대문자)
+            coupon_number = ''.join(random.choices(string.digits + string.ascii_uppercase, k=16))
+            
+            # 중복 확인
+            if not cls.objects.filter(coupon_number=coupon_number).exists():
+                return coupon_number
+    
+    @classmethod
+    def create_coupon(cls, station, coupon_type, tid=None):
+        """새로운 쿠폰 생성"""
+        coupon_number = cls.generate_coupon_number()
+        return cls.objects.create(
+            coupon_number=coupon_number,
+            station=station,
+            coupon_type=coupon_type,
+            tid=tid
+        )
+    
+    def get_status_display(self):
+        """쿠폰 상태 표시"""
+        if self.is_used:
+            return "사용됨"
+        elif self.issued_at:
+            return "발행됨"
+        else:
+            return "생성됨"
