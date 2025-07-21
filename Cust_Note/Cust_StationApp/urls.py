@@ -27,6 +27,10 @@ urlpatterns = [
     # 폰번호-카드 연동 관련 URL
     path('check-phone-mapping/', views.check_phone_mapping, name='check_phone_mapping'),
     
+    # 카드번호 조회 관련 URL
+    path('search-card-by-number/', views.search_card_by_number, name='search_card_by_number'),
+    path('search-cards-by-number-partial/', views.search_cards_by_number_partial, name='search_cards_by_number_partial'),
+    
     # 멤버십 카드 관리 관련 URL
     path('register-card/', views.register_card, name='register_card'),
     path('get-unused-cards/', views.get_unused_cards, name='get_unused_cards'),

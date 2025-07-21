@@ -11,4 +11,5 @@ urlpatterns = [
     path('stations/', views.StationListView.as_view(), name='station_list'),
     path('stations/<int:station_id>/register/', views.register_station, name='register_station'),
     path('get-groups/', views.get_customer_groups, name='get_groups'),
+    path('check-location-coupons/', views.check_location_coupons, name='check_location_coupons'),
 ] 

@@ -120,6 +120,24 @@ class StationProfile(models.Model):
     phone = models.CharField(max_length=20, verbose_name='전화번호', default='', blank=True)
     tid = models.CharField(max_length=20, verbose_name='단말기 번호(TID)', help_text='카드 결제 단말기 번호를 입력하세요', blank=True, null=True)
     
+    # 위치 정보
+    latitude = models.DecimalField(
+        max_digits=9, 
+        decimal_places=6, 
+        verbose_name='위도', 
+        help_text='주유소 위도 좌표',
+        null=True, 
+        blank=True
+    )
+    longitude = models.DecimalField(
+        max_digits=9, 
+        decimal_places=6, 
+        verbose_name='경도', 
+        help_text='주유소 경도 좌표',
+        null=True, 
+        blank=True
+    )
+    
     # 주유소 코드 체계
     oil_company_code = models.CharField(max_length=1, verbose_name='정유사코드', default='0')
     agency_code = models.CharField(max_length=3, verbose_name='대리점코드', default='000')

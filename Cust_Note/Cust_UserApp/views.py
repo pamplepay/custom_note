@@ -518,3 +518,108 @@ class CustomerCouponsView(LoginRequiredMixin, TemplateView):
         })
         
         return context 
+
+@csrf_exempt
+@login_required
+def check_location_coupons(request):
+    """현재 위치에서 쿠폰 발행 가능한 주유소 확인"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'POST 요청만 허용됩니다.'})
+    
+    try:
+        data = json.loads(request.body)
+        latitude = float(data.get('latitude'))
+        longitude = float(data.get('longitude'))
+        accuracy = float(data.get('accuracy', 0))
+        
+        # 위치 정보 유효성 검사
+        if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+            return JsonResponse({
+                'success': False, 
+                'message': '유효하지 않은 위치 정보입니다.'
+            })
+        
+        # 쿠폰을 발행할 수 있는 주유소 찾기 (위치 정보가 있는 주유소)
+        from Cust_User.models import StationProfile
+        from Cust_StationApp.models import Coupon
+        from math import radians, cos, sin, asin, sqrt
+        
+        # 모든 주유소 프로필 가져오기 (위치 정보가 있는 것만)
+        station_profiles = StationProfile.objects.filter(
+            latitude__isnull=False,
+            longitude__isnull=False
+        ).select_related('user')
+        
+        nearby_stations = []
+        max_distance = 1000  # 1km 이내
+        
+        for profile in station_profiles:
+            # 두 지점 간의 거리 계산 (Haversine 공식)
+            distance = calculate_distance(
+                latitude, longitude,
+                float(profile.latitude), float(profile.longitude)
+            )
+            
+            # 지정된 거리 이내인 경우만 추가
+            if distance <= max_distance:
+                # 해당 주유소의 사용 가능한 쿠폰 정보 조회
+                coupon_counts = Coupon.get_coupon_counts_by_type(profile.user)
+                
+                nearby_stations.append({
+                    'station_id': profile.user.id,
+                    'station_name': profile.station_name,
+                    'address': profile.address,
+                    'tid': profile.tid,
+                    'distance': round(distance),
+                    'latitude': float(profile.latitude),
+                    'longitude': float(profile.longitude),
+                    'coupon_counts': coupon_counts,
+                    'has_coupons': coupon_counts['total'] > 0
+                })
+        
+        # 거리순으로 정렬
+        nearby_stations.sort(key=lambda x: x['distance'])
+        
+        return JsonResponse({
+            'success': True,
+            'nearby_stations': nearby_stations,
+            'accuracy': accuracy,
+            'total_count': len(nearby_stations)
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False, 
+            'message': '잘못된 JSON 형식입니다.'
+        })
+    except (ValueError, TypeError) as e:
+        return JsonResponse({
+            'success': False, 
+            'message': f'잘못된 데이터 형식입니다: {str(e)}'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False, 
+            'message': f'서버 오류가 발생했습니다: {str(e)}'
+        })
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """두 지점 간의 거리 계산 (Haversine 공식) - 미터 단위"""
+    # 지구 반지름 (미터)
+    R = 6371000
+    
+    # 라디안으로 변환
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    
+    # 좌표 차이
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    
+    # Haversine 공식
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a))
+    
+    # 거리 계산 (미터)
+    distance = R * c
+    
+    return distance 

@@ -4,6 +4,7 @@
 {% block title %}Oil Note - 메인{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="container py-4">
     <div class="row">
         <div class="col-12 mb-4">
@@ -13,6 +14,31 @@
                         <i class="fas fa-user-circle me-2"></i>{{ user.username }}님, 환영합니다!
                     </h1>
                     <p class="card-text mb-0">오늘도 행복한 하루 되세요.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 위치 확인 섹션 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-map-marker-alt me-2 text-success"></i>위치 기반 쿠폰 확인
+                        </h5>
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="checkLocationForCoupons()">
+                            <i class="fas fa-location-arrow me-1"></i>위치 확인
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="location-status" class="text-center py-3">
+                        <i class="fas fa-map-marker-alt fa-2x text-muted mb-2"></i>
+                        <p class="text-muted mb-0">위치 확인 버튼을 눌러 쿠폰 발행 가능한 주유소를 확인하세요.</p>
+                    </div>
+                    <div id="location-result" style="display: none;"></div>
                 </div>
             </div>
         </div>
@@ -252,6 +278,248 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 위치 확인 및 쿠폰 발행 가능 주유소 확인 함수
+function checkLocationForCoupons() {
+    const statusDiv = document.getElementById('location-status');
+    const resultDiv = document.getElementById('location-result');
+    
+    // 상태 업데이트
+    statusDiv.innerHTML = `
+        <div class="d-flex align-items-center justify-content-center">
+            <div class="spinner-border spinner-border-sm text-success me-2" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <span class="text-success">위치 확인 중...</span>
+        </div>
+    `;
+    
+    // 브라우저 위치 정보 지원 확인
+    if (!navigator.geolocation) {
+        showLocationError('브라우저가 위치 정보를 지원하지 않습니다.');
+        return;
+    }
+    
+    // 위치 정보 요청
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+            
+            // 서버에 위치 정보 전송하여 쿠폰 발행 가능 주유소 확인
+            checkNearbyStations(latitude, longitude, accuracy);
+        },
+        function(error) {
+            let errorMessage = '위치 정보를 가져올 수 없습니다.';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = '위치 정보 접근이 거부되었습니다. 브라우저 설정에서 위치 정보 접근을 허용해주세요.';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = '위치 정보를 사용할 수 없습니다.';
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = '위치 정보 요청 시간이 초과되었습니다.';
+                    break;
+            }
+            showLocationError(errorMessage);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 60000
+        }
+    );
+}
+
+// 서버에 위치 정보 전송하여 주변 주유소 확인
+function checkNearbyStations(latitude, longitude, accuracy) {
+    const statusDiv = document.getElementById('location-status');
+    const resultDiv = document.getElementById('location-result');
+    
+    statusDiv.innerHTML = `
+        <div class="d-flex align-items-center justify-content-center">
+            <div class="spinner-border spinner-border-sm text-success me-2" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <span class="text-success">주변 주유소 확인 중...</span>
+        </div>
+    `;
+    
+    // CSRF 토큰 가져오기
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    fetch('{% url "customer:check_location_coupons" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({
+            latitude: latitude,
+            longitude: longitude,
+            accuracy: accuracy
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showLocationResult(data);
+        } else {
+            showLocationError(data.message || '주변 주유소 확인 중 오류가 발생했습니다.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showLocationError('서버 통신 중 오류가 발생했습니다.');
+    });
+}
+
+// 위치 확인 결과 표시
+function showLocationResult(data) {
+    const statusDiv = document.getElementById('location-status');
+    const resultDiv = document.getElementById('location-result');
+    
+    statusDiv.style.display = 'none';
+    resultDiv.style.display = 'block';
+    
+    let resultHtml = '';
+    
+    if (data.nearby_stations && data.nearby_stations.length > 0) {
+        // 쿠폰이 있는 주유소만 필터링
+        const stationsWithCoupons = data.nearby_stations.filter(station => station.has_coupons);
+        
+        if (stationsWithCoupons.length > 0) {
+            resultHtml = `
+                <div class="alert alert-success">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-ticket-alt me-2"></i>사용 가능한 쿠폰 발견!
+                    </h6>
+                    <p class="mb-2">현재 위치에서 가까운 주유소에서 쿠폰을 발행받을 수 있습니다.</p>
+                    <small class="text-muted">정확도: ±${data.accuracy || '알 수 없음'}m</small>
+                </div>
+                <div class="list-group">
+            `;
+            
+            stationsWithCoupons.forEach(station => {
+                const couponCounts = station.coupon_counts;
+                resultHtml += `
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">${station.station_name}</h6>
+                                <small class="text-muted">
+                                    <i class="fas fa-map-marker-alt me-1"></i>
+                                    ${station.address || '주소 정보 없음'}
+                                </small>
+                                <br>
+                                <small class="text-success">
+                                    <i class="fas fa-ruler me-1"></i>
+                                    거리: ${station.distance}m
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-success mb-2">쿠폰 발행 가능</span>
+                                <div class="small">
+                                    <div class="text-primary">
+                                        <i class="fas fa-car me-1"></i>세차: ${couponCounts.CAR_WASH}개
+                                    </div>
+                                    <div class="text-info">
+                                        <i class="fas fa-shopping-bag me-1"></i>상품: ${couponCounts.PRODUCT}개
+                                    </div>
+                                    <div class="text-warning">
+                                        <i class="fas fa-gas-pump me-1"></i>주유: ${couponCounts.FUEL}개
+                                    </div>
+                                    <div class="text-success fw-bold">
+                                        <i class="fas fa-ticket-alt me-1"></i>총 ${couponCounts.total}개
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            resultHtml = `
+                <div class="alert alert-warning">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-exclamation-triangle me-2"></i>사용 가능한 쿠폰이 없습니다
+                    </h6>
+                    <p class="mb-2">주변 주유소에서 현재 사용 가능한 쿠폰이 없습니다.</p>
+                    <small class="text-muted">정확도: ±${data.accuracy || '알 수 없음'}m</small>
+                </div>
+            `;
+        }
+        
+        resultHtml += `
+            </div>
+            <div class="mt-3">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetLocationCheck()">
+                    <i class="fas fa-refresh me-1"></i>다시 확인
+                </button>
+            </div>
+        `;
+    } else {
+        resultHtml = `
+            <div class="alert alert-warning">
+                <h6 class="alert-heading">
+                    <i class="fas fa-exclamation-triangle me-2"></i>쿠폰 발행 가능한 주유소가 없습니다
+                </h6>
+                <p class="mb-2">현재 위치 주변에 쿠폰을 발행하는 주유소가 없습니다.</p>
+                <small class="text-muted">정확도: ±${data.accuracy || '알 수 없음'}m</small>
+            </div>
+            <div class="mt-3">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetLocationCheck()">
+                    <i class="fas fa-refresh me-1"></i>다시 확인
+                </button>
+            </div>
+        `;
+    }
+    
+    resultDiv.innerHTML = resultHtml;
+}
+
+// 위치 확인 오류 표시
+function showLocationError(message) {
+    const statusDiv = document.getElementById('location-status');
+    const resultDiv = document.getElementById('location-result');
+    
+    statusDiv.style.display = 'none';
+    resultDiv.style.display = 'block';
+    
+    resultDiv.innerHTML = `
+        <div class="alert alert-danger">
+            <h6 class="alert-heading">
+                <i class="fas fa-exclamation-circle me-2"></i>위치 확인 실패
+            </h6>
+            <p class="mb-2">${message}</p>
+        </div>
+        <div class="mt-3">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetLocationCheck()">
+                <i class="fas fa-refresh me-1"></i>다시 시도
+            </button>
+        </div>
+    `;
+}
+
+// 위치 확인 초기화
+function resetLocationCheck() {
+    const statusDiv = document.getElementById('location-status');
+    const resultDiv = document.getElementById('location-result');
+    
+    statusDiv.style.display = 'block';
+    resultDiv.style.display = 'none';
+    
+    statusDiv.innerHTML = `
+        <i class="fas fa-map-marker-alt fa-2x text-muted mb-2"></i>
+        <p class="text-muted mb-0">위치 확인 버튼을 눌러 쿠폰 발행 가능한 주유소를 확인하세요.</p>
+    `;
+}
+</script>
 {% endblock %}
 
 {% block extra_css %}

@@ -579,3 +579,29 @@ class Coupon(models.Model):
             return "발행됨"
         else:
             return "생성됨"
+    
+    @classmethod
+    def get_available_coupons_for_station(cls, station):
+        """특정 주유소의 사용 가능한 쿠폰 조회"""
+        return cls.objects.filter(
+            station=station,
+            is_used=False,
+            issued_at__isnull=True  # 아직 발행되지 않은 쿠폰
+        ).order_by('coupon_type', 'created_at')
+    
+    @classmethod
+    def get_coupon_counts_by_type(cls, station):
+        """주유소별 쿠폰 종류별 개수 조회"""
+        coupons = cls.get_available_coupons_for_station(station)
+        counts = {
+            'CAR_WASH': 0,
+            'PRODUCT': 0,
+            'FUEL': 0,
+            'total': 0
+        }
+        
+        for coupon in coupons:
+            counts[coupon.coupon_type] += 1
+            counts['total'] += 1
+        
+        return counts

@@ -3047,3 +3047,174 @@ def check_phone_mapping(request):
         'status': 'error',
         'message': '잘못된 요청 방식입니다.'
     }, status=405)
+
+@login_required
+def search_card_by_number(request):
+    """카드번호로 카드 정보 조회"""
+    logger.info("=== 카드번호 조회 시작 ===")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 접근 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    if request.method == 'GET':
+        card_number = request.GET.get('card_number', '').strip()
+        
+        if not card_number:
+            return JsonResponse({
+                'status': 'error',
+                'message': '카드번호를 입력해주세요.'
+            }, status=400)
+        
+        # 카드번호 형식 정리 (숫자만 추출)
+        card_number = re.sub(r'[^0-9]', '', card_number)
+        
+        if len(card_number) < 4:
+            return JsonResponse({
+                'status': 'error',
+                'message': '카드번호는 최소 4자리 이상 입력해주세요.'
+            }, status=400)
+        
+        try:
+            # 카드번호로 카드 찾기 (부분 매칭)
+            from .models import PointCard
+            cards = PointCard.objects.filter(number__icontains=card_number).order_by('number')
+            
+            if cards.exists():
+                # 첫 번째 매칭 카드 반환
+                card = cards.first()
+                
+                # 매칭된 카드가 여러 개인 경우 정보 추가
+                total_matches = cards.count()
+            
+            if card:
+                # 카드 상태 정보
+                status = "사용 중" if card.is_used else "미사용"
+                status_class = "text-danger" if card.is_used else "text-success"
+                
+                # TID 정보
+                tid_info = ""
+                if card.tids:
+                    tid_info = ", ".join(card.tids)
+                
+                response_data = {
+                    'status': 'success',
+                    'exists': True,
+                    'data': {
+                        'card_number': card.full_number,
+                        'is_used': card.is_used,
+                        'status': status,
+                        'status_class': status_class,
+                        'tids': tid_info,
+                        'created_at': card.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                        'updated_at': card.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                }
+                
+                # 매칭된 카드가 여러 개인 경우 정보 추가
+                if total_matches > 1:
+                    response_data['data']['total_matches'] = total_matches
+                    response_data['data']['search_term'] = card_number
+                
+                return JsonResponse(response_data)
+            else:
+                return JsonResponse({
+                    'status': 'success',
+                    'exists': False,
+                    'message': '해당 카드번호로 등록된 카드가 없습니다.'
+                })
+                
+        except Exception as e:
+            logger.error(f"카드번호 조회 중 오류: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': '카드 정보 조회 중 오류가 발생했습니다.'
+            }, status=500)
+    
+    return JsonResponse({
+        'status': 'error',
+        'message': '잘못된 요청 방식입니다.'
+    }, status=405)
+
+@login_required
+def search_cards_by_number_partial(request):
+    """카드번호 부분 입력으로 카드 검색 (실시간 검색용)"""
+    logger.info("=== 실시간 카드번호 검색 시작 ===")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 접근 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    if request.method == 'GET':
+        card_number = request.GET.get('card_number', '').strip()
+        
+        if not card_number:
+            return JsonResponse({
+                'status': 'success',
+                'cards': []
+            })
+        
+        # 카드번호 형식 정리 (숫자만 추출)
+        card_number = re.sub(r'[^0-9]', '', card_number)
+        
+        # 최소 4자리 이상 입력된 경우에만 검색
+        if len(card_number) < 4:
+            return JsonResponse({
+                'status': 'success',
+                'cards': []
+            })
+        
+        try:
+            # 카드번호로 카드 검색 (부분 매칭)
+            from .models import PointCard
+            logger.info(f"검색할 카드번호: {card_number}")
+            
+            # 16자리 카드번호에서 어느 위치든 입력된 숫자가 포함되는 카드 검색
+            cards = PointCard.objects.filter(
+                number__icontains=card_number
+            ).order_by('number')[:10]  # 최대 10개까지만 반환
+            
+            logger.info(f"검색된 카드 수: {cards.count()}")
+            
+            cards_data = []
+            for card in cards:
+                # 카드 상태 정보
+                status = "사용 중" if card.is_used else "미사용"
+                status_class = "text-danger" if card.is_used else "text-success"
+                
+                # TID 정보
+                tid_info = ""
+                if card.tids:
+                    tid_info = ", ".join(card.tids)
+                
+                cards_data.append({
+                    'card_number': card.full_number,
+                    'card_number_short': card.number,
+                    'is_used': card.is_used,
+                    'status': status,
+                    'status_class': status_class,
+                    'tids': tid_info,
+                    'created_at': card.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'updated_at': card.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+                })
+            
+            logger.info(f"반환할 카드 데이터: {cards_data}")
+            response_data = {
+                'status': 'success',
+                'cards': cards_data,
+                'count': len(cards_data)
+            }
+            logger.info(f"최종 응답: {response_data}")
+            return JsonResponse(response_data)
+                
+        except Exception as e:
+            logger.error(f"실시간 카드번호 검색 중 오류: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': '카드 검색 중 오류가 발생했습니다.'
+            }, status=500)
+    
+    return JsonResponse({
+        'status': 'error',
+        'message': '잘못된 요청 방식입니다.'
+    }, status=405)
