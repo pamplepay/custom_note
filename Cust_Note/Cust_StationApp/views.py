@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.contrib.auth.hashers import make_password
 from django.db import transaction
 from django.db.transaction import TransactionManagementError
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_GET
 from django.views.decorators.csrf import csrf_exempt
 import os
 from django.conf import settings
@@ -618,6 +618,9 @@ def station_usermanage(request):
             'is_registered': True
         })
     
+    # 방문 횟수 기준 내림차순 정렬
+    registered_customers_data.sort(key=lambda x: x['total_visit_count'], reverse=True)
+    
     # 미회원가입 고객 데이터 가공
     unregistered_customers_data = []
     for mapping in unregistered_mappings:
@@ -1205,6 +1208,23 @@ def station_couponmanage(request):
         issued_date__date__gte=week_start
     ).count()
     
+    # 전체 발행 쿠폰 리스트 (최대 100개, 최신순)
+    all_coupons = CustomerCoupon.objects.filter(
+        coupon_template__station=request.user
+    ).select_related('coupon_template', 'customer').order_by('-issued_date')[:100]
+
+    # 사용된 쿠폰 리스트 (최대 100개)
+    used_coupons_list = CustomerCoupon.objects.filter(
+        coupon_template__station=request.user,
+        status='USED'
+    ).select_related('coupon_template', 'customer').order_by('-used_date', '-issued_date')[:100]
+
+    # 미사용 쿠폰 리스트 (최대 100개)
+    unused_coupons_list = CustomerCoupon.objects.filter(
+        coupon_template__station=request.user,
+        status='AVAILABLE'
+    ).select_related('coupon_template', 'customer').order_by('-issued_date')[:100]
+    
     context = {
         'station_name': request.user.username,
         'total_templates': total_templates,
@@ -1218,6 +1238,9 @@ def station_couponmanage(request):
         'groups': groups,  # 그룹 목록
         'today_issued': today_issued,  # 오늘 발행
         'week_issued': week_issued,  # 이번 주 발행
+        'all_coupons': all_coupons,  # 전체 쿠폰 리스트
+        'used_coupons_list': used_coupons_list,  # 사용된 쿠폰 리스트
+        'unused_coupons_list': unused_coupons_list,  # 미사용 쿠폰 리스트
     }
     
     return render(request, 'Cust_Station/station_couponmanage.html', context)
@@ -3284,8 +3307,8 @@ def get_current_month_visitors(request):
             phone = ''
             if hasattr(customer, 'customer_profile') and customer.customer_profile:
                 phone = customer.customer_profile.customer_phone or ''
-            
             visitors_data.append({
+                'customer_id': customer.id,  # 반드시 포함!
                 'customer_name': customer.username if customer.username else '고객',
                 'phone': phone,
                 'visit_count': visitor['visit_count'],
@@ -3364,8 +3387,8 @@ def get_previous_month_visitors(request):
             phone = ''
             if hasattr(customer, 'customer_profile') and customer.customer_profile:
                 phone = customer.customer_profile.customer_phone or ''
-            
             visitors_data.append({
+                'customer_id': customer.id,  # 반드시 포함!
                 'customer_name': customer.username if customer.username else '고객',
                 'phone': phone,
                 'visit_count': visitor['visit_count'],
@@ -3595,3 +3618,41 @@ def search_cards_by_number_partial(request):
         'status': 'error',
         'message': '잘못된 요청 방식입니다.'
     }, status=405)
+
+@require_GET
+@login_required
+def api_visit_history(request):
+    from Cust_UserApp.models import CustomerVisitHistory  # import 누락 방지
+    import logging
+    logger = logging.getLogger(__name__)
+    customer_id = request.GET.get('customer_id')
+    logger.info(f"[api_visit_history] customer_id: {customer_id}")
+    if not request.user.is_station:
+        logger.warning("[api_visit_history] 비회원 주유소 접근")
+        return JsonResponse({'error': '주유소 회원만 접근할 수 있습니다.'}, status=403)
+    if not customer_id:
+        logger.warning("[api_visit_history] 고객 ID 없음")
+        return JsonResponse({'error': '고객 ID가 필요합니다.'}, status=400)
+    try:
+        from Cust_User.models import CustomUser
+        customer = CustomUser.objects.get(id=customer_id)
+        logger.info(f"[api_visit_history] customer: {customer} ({customer.username})")
+    except CustomUser.DoesNotExist:
+        logger.warning(f"[api_visit_history] 고객({customer_id}) 없음")
+        return JsonResponse({'error': '고객을 찾을 수 없습니다.'}, status=404)
+    visits = CustomerVisitHistory.objects.filter(
+        customer=customer,
+        station=request.user
+    ).order_by('-visit_date', '-visit_time')
+    logger.info(f"[api_visit_history] visits count: {visits.count()}")
+    records = []
+    for v in visits:
+        logger.info(f"[api_visit_history] visit: {v.visit_date} {v.visit_time} {v.sale_amount} {v.product_pack}")
+        records.append({
+            'date': v.visit_date.strftime('%Y-%m-%d') if v.visit_date else '',
+            'time': v.visit_time.strftime('%H:%M') if v.visit_time else '',
+            'amount': int(v.sale_amount) if v.sale_amount else 0,
+            'product': v.product_pack or ''
+        })
+    logger.info(f"[api_visit_history] records len: {len(records)}")
+    return JsonResponse({'records': records})

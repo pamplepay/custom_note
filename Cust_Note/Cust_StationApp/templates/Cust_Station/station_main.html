@@ -844,10 +844,13 @@ function updateUnitDisplay(selectedUnit) {
 function showPreviousMonthVisitors() {
     const modalElement = document.getElementById('previousMonthVisitorsModal');
     const modal = new bootstrap.Modal(modalElement);
-    
+    // 모달 body를 항상 초기화
+    const modalBody = modalElement.querySelector('.modal-body');
+    if (modalBody) {
+        modalBody.innerHTML = '<div id="previousMonthVisitorsContent"></div>';
+    }
     // 모달 표시
     modal.show();
-    
     // 로딩 상태 표시
     document.getElementById('previousMonthVisitorsContent').innerHTML = `
         <div class="text-center">
@@ -857,7 +860,6 @@ function showPreviousMonthVisitors() {
             <p class="mt-2">데이터를 불러오는 중...</p>
         </div>
     `;
-    
     // AJAX 요청
     fetch('{% url "station:get_previous_month_visitors" %}')
         .then(response => {
@@ -894,29 +896,30 @@ function showPreviousMonthVisitors() {
 // 전월 방문 고객 정보 표시 함수
 function displayPreviousMonthVisitors(data) {
     let html = `
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card bg-success text-white">
-                    <div class="card-body text-center">
-                        <h6 class="card-title">
-                            <i class="fas fa-users me-2"></i>총 방문 고객
-                        </h6>
-                        <h3 class="mb-0">${data.total_visitors}명</h3>
+        <div id="visitorListSection">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card bg-success text-white">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">
+                                <i class="fas fa-users me-2"></i>총 방문 고객
+                            </h6>
+                            <h3 class="mb-0">${data.total_visitors}명</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">
+                                <i class="fas fa-won-sign me-2"></i>총 주유 금액
+                            </h6>
+                            <h3 class="mb-0">${parseInt(data.total_amount).toLocaleString()}원</h3>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card bg-primary text-white">
-                    <div class="card-body text-center">
-                        <h6 class="card-title">
-                            <i class="fas fa-won-sign me-2"></i>총 주유 금액
-                        </h6>
-                        <h3 class="mb-0">${parseInt(data.total_amount).toLocaleString()}원</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+        `;
     
     if (data.visitors && data.visitors.length > 0) {
         html += `
@@ -982,6 +985,9 @@ function displayPreviousMonthVisitors(data) {
         `;
     }
     
+    html += `
+    <div id="visitHistoryDetail" style="display:none;"></div>
+`;
     document.getElementById('previousMonthVisitorsContent').innerHTML = html;
 }
 
@@ -989,10 +995,13 @@ function displayPreviousMonthVisitors(data) {
 function showCurrentMonthVisitors() {
     const modalElement = document.getElementById('currentMonthVisitorsModal');
     const modal = new bootstrap.Modal(modalElement);
-    
+    // 모달 body를 항상 초기화
+    const modalBody = modalElement.querySelector('.modal-body');
+    if (modalBody) {
+        modalBody.innerHTML = '<div id="currentMonthVisitorsContent"></div>';
+    }
     // 모달 표시
     modal.show();
-    
     // 로딩 상태 표시
     document.getElementById('currentMonthVisitorsContent').innerHTML = `
         <div class="text-center">
@@ -1002,7 +1011,6 @@ function showCurrentMonthVisitors() {
             <p class="mt-2">데이터를 불러오는 중...</p>
         </div>
     `;
-    
     // AJAX 요청
     fetch('{% url "station:get_current_month_visitors" %}')
         .then(response => {
@@ -1039,29 +1047,30 @@ function showCurrentMonthVisitors() {
 // 금월 방문 고객 정보 표시 함수
 function displayCurrentMonthVisitors(data) {
     let html = `
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card bg-info text-white">
-                    <div class="card-body text-center">
-                        <h6 class="card-title">
-                            <i class="fas fa-users me-2"></i>총 방문 고객
-                        </h6>
-                        <h3 class="mb-0">${data.total_visitors}명</h3>
+        <div id="visitorListSection">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">
+                                <i class="fas fa-users me-2"></i>총 방문 고객
+                            </h6>
+                            <h3 class="mb-0">${data.total_visitors}명</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">
+                                <i class="fas fa-won-sign me-2"></i>총 주유 금액
+                            </h6>
+                            <h3 class="mb-0">${parseInt(data.total_amount).toLocaleString()}원</h3>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card bg-primary text-white">
-                    <div class="card-body text-center">
-                        <h6 class="card-title">
-                            <i class="fas fa-won-sign me-2"></i>총 주유 금액
-                        </h6>
-                        <h3 class="mb-0">${parseInt(data.total_amount).toLocaleString()}원</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+        `;
     
     if (data.visitors && data.visitors.length > 0) {
         html += `
@@ -1127,7 +1136,31 @@ function displayCurrentMonthVisitors(data) {
         `;
     }
     
+    html += `
+    <div id="visitHistoryDetail" style="display:none;"></div>
+`;
     document.getElementById('currentMonthVisitorsContent').innerHTML = html;
+}
+
+// 모달 내 방문 기록 테이블 렌더 함수 추가
+function renderVisitHistoryTable(data, customerName, showBackBtn) {
+    const records = data.records || data.visits || [];
+    console.log('renderVisitHistoryTable records:', records, 'length:', records.length);
+    let html = `<h6 class="mb-3">${customerName} 방문 기록</h6>`;
+    if (records.length > 0) {
+        html += `<div class="table-responsive"><table class="table table-bordered table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>날짜</th><th>시간</th><th>금액</th><th>유종</th></tr></thead><tbody>`;
+        records.forEach(r => {
+            html += `<tr><td>${r.date}</td><td>${r.time}</td><td>${parseInt(r.amount).toLocaleString()}원</td><td>${r.product}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+    } else {
+        html += `<div class="text-center text-muted py-4">방문 기록이 없습니다.</div>`;
+    }
+    if (showBackBtn) {
+        html += `<div class="text-end mt-3"><button class="btn btn-secondary close-visit-history">목록으로</button></div>`;
+    }
+    return html;
 }
 
 // 전역 모달 접근성 개선
@@ -1205,6 +1238,55 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
+});
+
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('view-visit-history-btn')) {
+        const customerId = e.target.getAttribute('data-customer-id');
+        const customerName = e.target.getAttribute('data-customer-name') || '';
+        if (!customerId) return;
+        fetch(`/station/api/visit-history/?customer_id=${customerId}`)
+            .then(res => res.json())
+            .then(data => {
+                const modal = e.target.closest('.modal');
+                // 리스트 영역 숨기고 상세 영역에 테이블 삽입
+                const listSection = modal.querySelector('#visitorListSection');
+                const detailSection = modal.querySelector('#visitHistoryDetail');
+                if (listSection && detailSection) {
+                    listSection.style.display = 'none';
+                    detailSection.innerHTML = renderVisitHistoryTable(data, customerName, true);
+                    detailSection.style.display = 'block';
+                }
+            });
+    }
+    if (e.target.classList.contains('close-visit-history')) {
+        const modal = e.target.closest('.modal');
+        if (modal) {
+            // 상세 영역 숨기고 리스트 영역 다시 보이기
+            const listSection = modal.querySelector('#visitorListSection');
+            const detailSection = modal.querySelector('#visitHistoryDetail');
+            if (listSection && detailSection) {
+                detailSection.style.display = 'none';
+                listSection.style.display = 'block';
+            }
+        }
+    }
+});
+
+// 접근성 개선: 모달 닫힐 때 포커스 강제 이동
+['previousMonthVisitorsModal', 'currentMonthVisitorsModal'].forEach(function(modalId) {
+    const modalElement = document.getElementById(modalId);
+    if (modalElement) {
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            // 모달 트리거 버튼으로 포커스 이동
+            const trigger = document.querySelector(`[data-bs-target="#${modalId}"]`);
+            if (trigger) {
+                trigger.focus();
+            } else {
+                document.body.focus();
+            }
+        });
+    }
 });
 </script>
 

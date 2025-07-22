@@ -272,6 +272,80 @@
         </div>
     </div>
 
+    <!-- 쿠폰 사용 내역 리스트 (1개만 카드/행으로, 클릭 시 모달) -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2 text-secondary"></i>쿠폰 사용 내역
+                    </h5>
+                    {% if used_coupon_list and used_coupon_list|length > 1 %}
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="showUsedCouponsModalBtn">
+                        전체 보기
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <!-- 최근 1개만 카드/행으로 노출 -->
+                    {% if used_coupon_list %}
+                        <!-- PC: 테이블 1행 -->
+                        <div class="table-responsive d-none d-md-block">
+                            <table class="table table-bordered table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>사용일</th>
+                                        <th>쿠폰명</th>
+                                        <th>혜택</th>
+                                        <th>발행처</th>
+                                        <th>만료일</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="used-coupon-row" style="cursor:pointer;" data-bs-toggle="modal" data-bs-target="#usedCouponsModal">
+                                        <td>{{ used_coupon_list.0.used_date|default:'-' }}</td>
+                                        <td>{{ used_coupon_list.0.title }}</td>
+                                        <td>{{ used_coupon_list.0.benefit_description|default:'-' }}</td>
+                                        <td>{{ used_coupon_list.0.station_name }}</td>
+                                        <td>{% if used_coupon_list.0.expiry_date %}{{ used_coupon_list.0.expiry_date|date:'Y.m.d' }}{% else %}무기한{% endif %}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- 모바일: 카드 1개 -->
+                        <div class="d-md-none">
+                            <div class="mobile-coupon-history-list">
+                                <div class="card mb-2 coupon-history-card used-coupon-row" style="cursor:pointer;" data-bs-toggle="modal" data-bs-target="#usedCouponsModal">
+                                    <div class="card-body py-2 px-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="fw-bold">{{ used_coupon_list.0.used_date|default:'-' }}</span>
+                                            <span class="badge bg-secondary">사용완료</span>
+                                        </div>
+                                        <div class="mb-1">
+                                            <span class="fw-bold">{{ used_coupon_list.0.title }}</span>
+                                            <span class="text-muted small ms-2">{{ used_coupon_list.0.benefit_description|default:'-' }}</span>
+                                        </div>
+                                        <div class="mb-1">
+                                            <span class="text-muted">발행처:</span> {{ used_coupon_list.0.station_name }}
+                                        </div>
+                                        <div>
+                                            <span class="text-muted">만료일:</span> {% if used_coupon_list.0.expiry_date %}{{ used_coupon_list.0.expiry_date|date:'Y.m.d' }}{% else %}무기한{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-history fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">쿠폰 사용 내역이 없습니다.</p>
+                            <small class="text-muted">쿠폰을 사용하면 이곳에 기록이 표시됩니다.</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- 쿠폰 사용 가이드 -->
     <div class="row">
@@ -305,7 +379,81 @@
             </div>
         </div>
     </div>
-</div>
+
+    
+
+    <!-- 전체 사용 완료 쿠폰 리스트 모달 -->
+    <div class="modal fade" id="usedCouponsModal" tabindex="-1" aria-labelledby="usedCouponsModalLabel" aria-hidden="true" data-bs-focus="false">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="usedCouponsModalLabel"><i class="fas fa-history me-2 text-secondary"></i>사용 완료 쿠폰 전체 내역</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+          </div>
+          <div class="modal-body">
+            {% if used_coupon_list %}
+            <!-- PC: 테이블 -->
+            <div class="table-responsive d-none d-md-block">
+              <table class="table table-bordered table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>사용일</th>
+                    <th>쿠폰명</th>
+                    <th>혜택</th>
+                    <th>발행처</th>
+                    <th>만료일</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for coupon in used_coupon_list %}
+                  <tr>
+                    <td>{{ coupon.used_date|default:'-' }}</td>
+                    <td>{{ coupon.title }}</td>
+                    <td>{{ coupon.benefit_description|default:'-' }}</td>
+                    <td>{{ coupon.station_name }}</td>
+                    <td>{% if coupon.expiry_date %}{{ coupon.expiry_date|date:'Y.m.d' }}{% else %}무기한{% endif %}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <!-- 모바일: 카드형 리스트 -->
+            <div class="d-md-none mobile-coupon-modal-list">
+              {% for coupon in used_coupon_list %}
+              <div class="card mb-2 coupon-history-card">
+                <div class="card-body py-2 px-3">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="fw-bold">{{ coupon.used_date|default:'-' }}</span>
+                    <span class="badge bg-secondary">사용완료</span>
+                  </div>
+                  <div class="mb-1">
+                    <span class="fw-bold">{{ coupon.title }}</span>
+                    <span class="text-muted small ms-2">{{ coupon.benefit_description|default:'-' }}</span>
+                  </div>
+                  <div class="mb-1">
+                    <span class="text-muted">발행처:</span> {{ coupon.station_name }}
+                  </div>
+                  <div>
+                    <span class="text-muted">만료일:</span> {% if coupon.expiry_date %}{{ coupon.expiry_date|date:'Y.m.d' }}{% else %}무기한{% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+              <i class="fas fa-history fa-2x text-muted mb-2"></i>
+              <p class="text-muted mb-0">쿠폰 사용 내역이 없습니다.</p>
+              <small class="text-muted">쿠폰을 사용하면 이곳에 기록이 표시됩니다.</small>
+            </div>
+            {% endif %}
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
 <style>
 .bg-gradient-primary {
@@ -346,32 +494,83 @@
         margin-bottom: 1rem;
     }
 }
+.mobile-coupon-modal-list {
+    max-height: 60vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-right: 2px;
+}
+@media (max-width: 768px) {
+    .mobile-coupon-modal-list .coupon-history-card {
+        font-size: 0.97rem;
+        margin-bottom: 0.5rem;
+    }
+    .modal-dialog {
+        margin: 80px 0.5rem 1.5rem 0.5rem !important;
+    }
+}
+/* PC/모바일 모두 모달이 네브바와 겹치지 않게 */
+.modal-dialog {
+    margin-top: 80px !important;
+    margin-bottom: 20px !important;
+}
 </style>
 
 <script>
-// 주유소 선택 초기화 함수
-function resetStationSelection() {
-    fetch('{% url "customer:reset_station_selection" %}', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken'),
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            // 성공 시 페이지 새로고침
-            window.location.reload();
-        } else {
-            alert('주유소 선택 초기화 중 오류가 발생했습니다: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('주유소 선택 초기화 중 오류가 발생했습니다.');
+document.addEventListener('DOMContentLoaded', function() {
+    // PC/모바일 모두 최근 1개 사용 완료 쿠폰 클릭 시 모달 오픈 (data-bs-toggle이 있어도 JS로도 보장)
+    document.querySelectorAll('.used-coupon-row').forEach(function(row) {
+        row.addEventListener('click', function(e) {
+            e.preventDefault();
+            const modal = new bootstrap.Modal(document.getElementById('usedCouponsModal'), { focus: false });
+            modal.show();
+        });
     });
-}
+    // 우측 상단 전체보기 버튼도 모달 오픈 (항상 동작 보장)
+    const showBtn = document.getElementById('showUsedCouponsModalBtn');
+    if (showBtn) {
+        showBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const modal = new bootstrap.Modal(document.getElementById('usedCouponsModal'), { focus: false });
+            modal.show();
+        });
+    }
+
+    // 모달 히스토리 관리 및 오버레이 제거 + body 클래스/포커스 복원 (쿠폰 사용 내역 모달만)
+    const usedCouponsModal = document.getElementById('usedCouponsModal');
+    if (usedCouponsModal) {
+        usedCouponsModal.addEventListener('show.bs.modal', function() {
+            history.pushState({modal: 'usedCouponsModal'}, null, window.location.href);
+        });
+        usedCouponsModal.addEventListener('hidden.bs.modal', function() {
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            document.querySelectorAll('.modal-backdrop').forEach(function(el) { el.remove(); });
+            // 접근성: 모달이 완전히 닫힌 후(렌더링까지 끝난 뒤) 포커스를 main 컨텐츠로 이동
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    var mainContent = document.getElementById('mainContent');
+                    if (mainContent) {
+                        mainContent.focus();
+                    } else {
+                        document.body.focus();
+                    }
+                });
+            });
+            // 히스토리 pop
+            if (history.state && history.state.modal === 'usedCouponsModal') {
+                history.back();
+            }
+        });
+    }
+    window.addEventListener('popstate', function(event) {
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        document.querySelectorAll('.modal-backdrop').forEach(function(el) { el.remove(); });
+    });
+});
 
 function useCoupon(couponId, couponTitle) {
     if (!confirm(`"${couponTitle}" 쿠폰을 사용하시겠습니까?\n\n사용 후에는 취소할 수 없습니다.`)) {

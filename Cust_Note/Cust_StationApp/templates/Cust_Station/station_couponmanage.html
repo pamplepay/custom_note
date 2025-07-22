@@ -306,7 +306,7 @@
                     <!-- 쿠폰 통계 -->
                     <div class="row mb-4">
                         <div class="col-md-4 mb-3">
-                            <div class="card shadow-sm h-100 border-0">
+                            <div class="card shadow-sm h-100 border-0 card-clickable" id="allCouponsCard" style="cursor:pointer;">
                                 <div class="card-body text-center">
                                     <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
                                         <i class="fas fa-ticket-alt fa-2x text-primary"></i>
@@ -317,7 +317,7 @@
                             </div>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <div class="card shadow-sm h-100 border-0">
+                            <div class="card shadow-sm h-100 border-0 card-clickable" id="usedCouponsCard" style="cursor:pointer;">
                                 <div class="card-body text-center">
                                     <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
                                         <i class="fas fa-check-circle fa-2x text-success"></i>
@@ -328,7 +328,7 @@
                             </div>
                         </div>
                         <div class="col-md-4 mb-3">
-                            <div class="card shadow-sm h-100 border-0">
+                            <div class="card shadow-sm h-100 border-0 card-clickable" id="unusedCouponsCard" style="cursor:pointer;">
                                 <div class="card-body text-center">
                                     <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
                                         <i class="fas fa-clock fa-2x text-warning"></i>
@@ -417,6 +417,140 @@
     </div>
 </div>
 
+<!-- 전체 쿠폰 리스트 모달 -->
+<div class="modal fade" id="allCouponsModal" tabindex="-1" aria-labelledby="allCouponsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="allCouponsModalLabel"><i class="fas fa-ticket-alt me-2"></i>전체 발행 쿠폰 리스트</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>고객명</th>
+                <th>쿠폰명</th>
+                <th>상태</th>
+                <th>발행일</th>
+                <th>만료일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for coupon in all_coupons %}
+              <tr>
+                <td>{{ coupon.customer.username }}</td>
+                <td>{{ coupon.coupon_template.coupon_name }}</td>
+                <td>
+                  {% if coupon.status == 'USED' %}
+                    <span class="badge bg-secondary">사용완료</span>
+                  {% elif coupon.status == 'EXPIRED' %}
+                    <span class="badge bg-danger">만료됨</span>
+                  {% else %}
+                    <span class="badge bg-success">사용가능</span>
+                  {% endif %}
+                </td>
+                <td>{{ coupon.issued_date|date:'Y-m-d H:i' }}</td>
+                <td>{{ coupon.expiry_date|default:coupon.coupon_template.valid_until|date:'Y-m-d' }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted">발행된 쿠폰이 없습니다.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 사용된 쿠폰 리스트 모달 -->
+<div class="modal fade" id="usedCouponsModal" tabindex="-1" aria-labelledby="usedCouponsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="usedCouponsModalLabel"><i class="fas fa-check-circle me-2 text-success"></i>사용된 쿠폰 리스트</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>고객명</th>
+                <th>쿠폰명</th>
+                <th>발행일</th>
+                <th>사용일</th>
+                <th>만료일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for coupon in used_coupons_list %}
+              <tr>
+                <td>{{ coupon.customer.username }}</td>
+                <td>{{ coupon.coupon_template.coupon_name }}</td>
+                <td>{{ coupon.issued_date|date:'Y-m-d H:i' }}</td>
+                <td>{{ coupon.used_date|date:'Y-m-d H:i' }}</td>
+                <td>{{ coupon.expiry_date|default:coupon.coupon_template.valid_until|date:'Y-m-d' }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center text-muted">사용된 쿠폰이 없습니다.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- 미사용 쿠폰 리스트 모달 -->
+<div class="modal fade" id="unusedCouponsModal" tabindex="-1" aria-labelledby="unusedCouponsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="unusedCouponsModalLabel"><i class="fas fa-clock me-2 text-warning"></i>미사용 쿠폰 리스트</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>고객명</th>
+                <th>쿠폰명</th>
+                <th>발행일</th>
+                <th>만료일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for coupon in unused_coupons_list %}
+              <tr>
+                <td>{{ coupon.customer.username }}</td>
+                <td>{{ coupon.coupon_template.coupon_name }}</td>
+                <td>{{ coupon.issued_date|date:'Y-m-d H:i' }}</td>
+                <td>{{ coupon.expiry_date|default:coupon.coupon_template.valid_until|date:'Y-m-d' }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-center text-muted">미사용 쿠폰이 없습니다.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <style>
 .bg-gradient-primary {
     background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
@@ -438,9 +572,22 @@
     font-weight: 500;
 }
 
+.card-clickable {
+    cursor: pointer;
+}
+
+/* 모달이 네브바와 겹치지 않도록 상단 여백 추가 */
+.modal-dialog {
+    margin-top: 80px !important;
+    margin-bottom: 20px !important;
+}
+
 @media (max-width: 768px) {
     .coupon-card {
         margin-bottom: 1rem;
+    }
+    .modal-dialog {
+        margin-top: 60px !important;
     }
 }
 </style>
@@ -622,6 +769,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 issueBtn.disabled = false;
                 issueBtn.textContent = '쿠폰 발행';
             });
+        });
+    }
+
+    // 전체 쿠폰 카드 클릭 시 모달 오픈
+    const allCouponsCard = document.getElementById('allCouponsCard');
+    if (allCouponsCard) {
+        allCouponsCard.addEventListener('click', function() {
+            const modal = new bootstrap.Modal(document.getElementById('allCouponsModal'));
+            modal.show();
+        });
+    }
+    // 사용된 쿠폰 카드 클릭 시 모달 오픈
+    const usedCouponsCard = document.getElementById('usedCouponsCard');
+    if (usedCouponsCard) {
+        usedCouponsCard.addEventListener('click', function() {
+            const modal = new bootstrap.Modal(document.getElementById('usedCouponsModal'));
+            modal.show();
+        });
+    }
+    // 미사용 쿠폰 카드 클릭 시 모달 오픈
+    const unusedCouponsCard = document.getElementById('unusedCouponsCard');
+    if (unusedCouponsCard) {
+        unusedCouponsCard.addEventListener('click', function() {
+            const modal = new bootstrap.Modal(document.getElementById('unusedCouponsModal'));
+            modal.show();
         });
     }
 });

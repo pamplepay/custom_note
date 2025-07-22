@@ -66,4 +66,7 @@ urlpatterns = [
     path('create-coupon-template/', views.create_coupon_template, name='create_coupon_template'),
     path('get-coupon-templates/', views.get_coupon_templates, name='get_coupon_templates'),
     path('send-coupon/', views.send_coupon, name='send_coupon'),
+    
+    # 방문 기록 AJAX API
+    path('api/visit-history/', views.api_visit_history, name='api_visit_history'),
 ] 

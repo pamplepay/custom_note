@@ -778,6 +778,40 @@ class CustomerCouponsView(LoginRequiredMixin, TemplateView):
             coupon_template__benefit_type__in=['PRODUCT', 'BOTH']
         ).count()
         
+        # 쿠폰 사용 내역(사용완료 쿠폰)
+        used_coupon_filter = {
+            'customer': self.request.user,
+            'status': 'USED',
+        }
+        if selected_station:
+            used_coupon_filter['coupon_template__station'] = selected_station
+        used_coupons = CustomerCoupon.objects.filter(
+            **used_coupon_filter
+        ).select_related('coupon_template', 'coupon_template__coupon_type').order_by('-used_date', '-issued_date')[:50]
+        used_coupon_list = []
+        for coupon in used_coupons:
+            template = coupon.coupon_template
+            used_coupon_list.append({
+                'id': coupon.id,
+                'title': template.coupon_name,
+                'description': template.description or f"{template.coupon_type.type_name} 쿠폰입니다.",
+                'benefit_description': template.get_benefit_description() if hasattr(template, 'get_benefit_description') else '',
+                'discount_type': 'AMOUNT',
+                'discount_value': template.discount_amount,
+                'product_name': template.product_name,
+                'benefit_type': template.benefit_type,
+                'coupon_type_name': template.coupon_type.type_name,
+                'expiry_date': template.valid_until if template.valid_until and not template.is_permanent else None,
+                'is_expired': coupon.status == 'EXPIRED',
+                'is_used': True,
+                'is_available': False,
+                'issued_date': coupon.issued_date.strftime('%Y-%m-%d'),
+                'used_date': coupon.used_date.strftime('%Y-%m-%d %H:%M') if coupon.used_date else None,
+                'station_name': template.station.station_profile.station_name if hasattr(template.station, 'station_profile') else template.station.username,
+                'is_permanent': template.is_permanent,
+            })
+        context['used_coupon_list'] = used_coupon_list
+
         context.update({
             'discount_coupon_list': discount_coupon_list,  # 세차 할인 (BOTH 포함)
             'product_coupon_list': product_coupon_list,    # 무료 상품 (BOTH 포함)
