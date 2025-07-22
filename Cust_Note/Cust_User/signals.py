@@ -9,26 +9,47 @@ logger = logging.getLogger(__name__)
 @receiver(post_save, sender=CustomUser)
 def create_user_profile(sender, instance, created, **kwargs):
     """사용자 생성 시 사용자 타입에 따라 프로필 생성"""
+    logger.info(f"[SIGNAL] create_user_profile 호출됨 - 사용자: {instance.username}, created: {created}")
+    
     if created:
         if instance.user_type == 'CUSTOMER':
-            # 이미 프로필이 존재하면 생성하지 않음 (폼에서 이미 생성했을 수 있음)
-            profile, created_profile = CustomerProfile.objects.get_or_create(user=instance)
+            logger.info(f"[SIGNAL] 고객 프로필 생성 시도 - 사용자: {instance.username}")
             
-            # 프로필이 새로 생성된 경우에만 기본값 설정
-            if created_profile:
+            # 이미 프로필이 존재하는지 확인
+            existing_profile = CustomerProfile.objects.filter(user=instance).first()
+            if existing_profile:
+                logger.info(f"[SIGNAL] 프로필이 이미 존재함 - 생성하지 않음: {instance.username}")
+                return
+            
+            # 프로필이 존재하지 않는 경우에만 생성
+            try:
+                profile = CustomerProfile.objects.create(user=instance)
+                logger.info(f"[SIGNAL] 새 프로필 생성 완료: {instance.username}")
+                
                 # CustomUser의 car_number가 있으면 복사
                 if instance.car_number:
                     profile.car_number = instance.car_number
                     profile.save(update_fields=['car_number'])
+                    logger.info(f"[SIGNAL] 차량번호 복사 완료: {instance.car_number}")
+            except Exception as e:
+                logger.error(f"[SIGNAL] 프로필 생성 중 오류: {str(e)}")
+                
         elif instance.user_type == 'STATION':
-            StationProfile.objects.create(
-                user=instance,
-                station_name=instance.station_name or '',
-                address=instance.station_address or '',
-                business_number=instance.business_number or '',
-                oil_company_code='0',
-                agency_code='000'
-            )
+            logger.info(f"[SIGNAL] 주유소 프로필 생성 시도 - 사용자: {instance.username}")
+            try:
+                StationProfile.objects.create(
+                    user=instance,
+                    station_name=instance.station_name or '',
+                    address=instance.station_address or '',
+                    business_number=instance.business_number or '',
+                    oil_company_code='0',
+                    agency_code='000'
+                )
+                logger.info(f"[SIGNAL] 주유소 프로필 생성 완료: {instance.username}")
+            except Exception as e:
+                logger.error(f"[SIGNAL] 주유소 프로필 생성 중 오류: {str(e)}")
+    else:
+        logger.info(f"[SIGNAL] 사용자 생성이 아님 - 프로필 생성하지 않음: {instance.username}")
 
 
 @receiver(post_save, sender=CustomUser)

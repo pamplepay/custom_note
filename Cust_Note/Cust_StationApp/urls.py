@@ -65,5 +65,5 @@ urlpatterns = [
     path('create-coupon-type/', views.create_coupon_type, name='create_coupon_type'),
     path('create-coupon-template/', views.create_coupon_template, name='create_coupon_template'),
     path('get-coupon-templates/', views.get_coupon_templates, name='get_coupon_templates'),
-    path('issue-coupon/', views.issue_coupon, name='issue_coupon'),
+    path('send-coupon/', views.send_coupon, name='send_coupon'),
 ] 

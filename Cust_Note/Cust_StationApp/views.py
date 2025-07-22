@@ -1427,7 +1427,7 @@ def get_coupon_templates(request):
 
 @login_required
 @require_http_methods(["POST"])
-def issue_coupon(request):
+def send_coupon(request):
     """쿠폰 발행"""
     if not request.user.is_station:
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)

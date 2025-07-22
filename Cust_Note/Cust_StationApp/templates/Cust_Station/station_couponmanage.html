@@ -598,7 +598,7 @@ document.addEventListener('DOMContentLoaded', function() {
             issueBtn.disabled = true;
             issueBtn.textContent = '발행 중...';
             
-            fetch('/station/issue-coupon/', {
+            fetch('/station/send-coupon/', {
                 method: 'POST',
                 body: formData,
                 headers: {

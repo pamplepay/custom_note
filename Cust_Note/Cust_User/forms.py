@@ -54,6 +54,27 @@ class StationSignUpForm(CustomUserCreationForm):
         cleaned_data['phone'] = cleaned_data.get('phone')
         cleaned_data['address'] = cleaned_data.get('address')
         cleaned_data['business_number'] = cleaned_data.get('business_number')
+        
+        # 주유소 전화번호 중복 확인
+        phone = cleaned_data.get('phone', '')
+        if phone:
+            # 하이픈과 공백 제거
+            phone = phone.replace('-', '').replace(' ', '')
+            
+            # 숫자만 있는지 확인
+            if not phone.isdigit():
+                raise forms.ValidationError('전화번호는 숫자만 입력해주세요.')
+            
+            # 길이 확인 (10-11자리)
+            if len(phone) not in [10, 11]:
+                raise forms.ValidationError('전화번호는 10-11자리로 입력해주세요.')
+            
+            # 주유소 프로필에서 전화번호 중복 확인 (현재 폼 인스턴스 제외)
+            from .models import StationProfile
+            existing_profile = StationProfile.objects.filter(phone=phone).first()
+            if existing_profile and (not self.instance.pk or existing_profile.user != self.instance):
+                raise forms.ValidationError('이미 등록된 주유소 전화번호입니다. 다른 전화번호를 사용해주세요.')
+        
         return cleaned_data
         
     def save(self, commit=True):
@@ -136,6 +157,12 @@ class CustomerSignUpForm(CustomUserCreationForm):
             # 010으로 시작하는지 확인 (11자리인 경우)
             if len(phone) == 11 and not phone.startswith('010'):
                 raise forms.ValidationError('올바른 휴대폰 번호 형식이 아닙니다.')
+            
+            # 전화번호 중복 확인 (현재 폼 인스턴스 제외)
+            from .models import CustomerProfile
+            existing_profile = CustomerProfile.objects.filter(customer_phone=phone).first()
+            if existing_profile and (not self.instance.pk or existing_profile.user != self.instance):
+                raise forms.ValidationError('이미 등록된 전화번호입니다. 다른 전화번호를 사용해주세요.')
         
         return phone
 
@@ -150,8 +177,20 @@ class CustomerSignUpForm(CustomUserCreationForm):
         if commit:
             # 시그널을 임시로 비활성화
             from .signals import create_user_profile, save_user_profile
+            logger.info("시그널 비활성화 시작")
+            
+            # 시그널 연결 상태 확인
+            from django.db.models.signals import post_save
+            receivers = post_save._live_receivers(sender=CustomUser)
+            logger.info(f"현재 연결된 시그널 수: {len(receivers)}")
+            
+            # 시그널 비활성화
             post_save.disconnect(create_user_profile, sender=CustomUser)
             post_save.disconnect(save_user_profile, sender=CustomUser)
+            
+            # 비활성화 후 연결 상태 확인
+            receivers_after = post_save._live_receivers(sender=CustomUser)
+            logger.info(f"비활성화 후 연결된 시그널 수: {len(receivers_after)}")
             
             try:
                 user.save()
@@ -261,8 +300,14 @@ class CustomerSignUpForm(CustomUserCreationForm):
                         logger.error(traceback.format_exc())
             finally:
                 # 시그널 다시 연결
+                logger.info("시그널 재연결 시작")
                 post_save.connect(create_user_profile, sender=CustomUser)
                 post_save.connect(save_user_profile, sender=CustomUser)
+                
+                # 재연결 후 연결 상태 확인
+                receivers_final = post_save._live_receivers(sender=CustomUser)
+                logger.info(f"재연결 후 연결된 시그널 수: {len(receivers_final)}")
+                logger.info("시그널 재연결 완료")
         
         return user
 
