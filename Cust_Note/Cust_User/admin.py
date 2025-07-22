@@ -18,13 +18,13 @@ class CustomerUser(CustomUser):
     class Meta:
         proxy = True
         verbose_name = '일반 고객'
-        verbose_name_plural = '2. 일반 고객들'
+        verbose_name_plural = '1. 일반 고객들'
 
 class StationUser(CustomUser):
     class Meta:
         proxy = True
         verbose_name = '주유소 고객들'
-        verbose_name_plural = '3. 주유소 고객들'
+        verbose_name_plural = '2. 주유소 고객들'
 
 class CustomUserCreationForm(UserCreationForm):
     class Meta:
@@ -39,14 +39,14 @@ class CustomUserChangeForm(UserChangeForm):
 class CustomerProfileInline(admin.StackedInline):
     model = CustomerProfile
     can_delete = False
-    verbose_name_plural = '4. 고객 프로필'
+    verbose_name_plural = '3. 고객 프로필'
     extra = 0
     fields = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'membership_card', 'group')
 
 class StationProfileInline(admin.StackedInline):
     model = StationProfile
     can_delete = False
-    verbose_name_plural = '5. 주유소 프로필'
+    verbose_name_plural = '4. 주유소 프로필'
     extra = 0
 
 class CustomerStationInline(admin.TabularInline):
@@ -179,7 +179,7 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(CustomerProfile)
 class CustomerProfileAdmin(admin.ModelAdmin):
-    list_display = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'group', 'total_fuel_amount', 'monthly_fuel_amount', 'last_fuel_amount', 'created_at')
+    list_display = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'group', 'total_fuel_amount', 'monthly_fuel_amount', 'last_fuel_amount', 'created_at', 'station_list')
     list_filter = ('fuel_type', 'group', 'created_at')
     search_fields = ('name', 'customer_phone', 'car_number', 'car_model', 'group')
     readonly_fields = ('created_at', 'updated_at')
@@ -195,6 +195,17 @@ class CustomerProfileAdmin(admin.ModelAdmin):
         }),
         ('날짜 정보', {'fields': ('created_at', 'updated_at')}),
     )
+
+    def station_list(self, obj):
+        # 연결된 주유소 목록을 문자열로 반환
+        relations = obj.user.station_relations.select_related('station__station_profile').filter(is_active=True)
+        if not relations.exists():
+            return '-'
+        return ', '.join([
+            f"{rel.station.station_profile.station_name}({rel.station.station_profile.business_number})" if hasattr(rel.station, 'station_profile') else rel.station.username
+            for rel in relations
+        ])
+    station_list.short_description = '연결 주유소'
 
 @admin.register(StationProfile)
 class StationProfileAdmin(admin.ModelAdmin):
@@ -233,8 +244,23 @@ class StationProfileAdmin(admin.ModelAdmin):
 
 @admin.register(CustomerUser)
 class CustomerUserAdmin(CustomUserAdmin):
+    list_display = CustomUserAdmin.list_display + ('station_list',)
+
     def get_queryset(self, request):
         return super().get_queryset(request).filter(user_type='CUSTOMER')
+
+    def station_list(self, obj):
+        # CustomerProfile이 있으면 연결 주유소 목록 반환
+        if hasattr(obj, 'customer_profile'):
+            relations = obj.station_relations.select_related('station__station_profile').filter(is_active=True)
+            if not relations.exists():
+                return '-'
+            return ', '.join([
+                f"{rel.station.station_profile.station_name}({rel.station.station_profile.business_number})" if hasattr(rel.station, 'station_profile') else rel.station.username
+                for rel in relations
+            ])
+        return '-'
+    station_list.short_description = '연결 주유소'
 
 @admin.register(StationUser)
 class StationUserAdmin(CustomUserAdmin):

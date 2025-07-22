@@ -27,8 +27,7 @@ def create_user_profile(sender, instance, created, **kwargs):
                 address=instance.station_address or '',
                 business_number=instance.business_number or '',
                 oil_company_code='0',
-                agency_code='000',
-                station_code='000000000000'
+                agency_code='000'
             )
 
 

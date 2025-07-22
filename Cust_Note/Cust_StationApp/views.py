@@ -95,9 +95,9 @@ def station_main(request):
         return redirect('home')
     
     # 카드 통계
-    total_cards = StationCardMapping.objects.filter(is_active=True).count()
-    active_cards = StationCardMapping.objects.filter(is_active=True, card__is_used=False).count()
-    inactive_cards = StationCardMapping.objects.filter(is_active=True, card__is_used=True).count()
+    total_cards = StationCardMapping.objects.filter(station=request.user, tid=request.user.station_profile.tid, is_active=True).count()
+    active_cards = StationCardMapping.objects.filter(station=request.user, tid=request.user.station_profile.tid, card__is_used=False).count()
+    inactive_cards = StationCardMapping.objects.filter(station=request.user, tid=request.user.station_profile.tid, card__is_used=True).count()
     
     # VIP 고객수 (현재 주유소에 등록된 고객수)
     total_customers = CustomerStationRelation.objects.filter(station=request.user, is_active=True).count()
@@ -391,7 +391,7 @@ def station_management(request):
         return redirect('home')
     
     # 현재 주유소의 카드 매핑 수 조회
-    mappings = StationCardMapping.objects.filter(is_active=True)
+    mappings = StationCardMapping.objects.filter(station=request.user, tid=request.user.station_profile.tid, is_active=True)
     total_cards = mappings.count()
     active_cards = mappings.filter(card__is_used=False).count()
     inactive_cards = mappings.filter(card__is_used=True).count()
@@ -463,7 +463,7 @@ def station_cardmanage(request):
         return redirect('home')
     
     # 현재 주유소의 카드 매핑 수 조회
-    mappings = StationCardMapping.objects.filter(is_active=True)
+    mappings = StationCardMapping.objects.filter(station=request.user, tid=request.user.station_profile.tid, is_active=True)
     total_cards = mappings.count()
     
     # 카드 상태별 통계
@@ -476,6 +476,8 @@ def station_cardmanage(request):
     
     # 최근 등록된 카드 3장 가져오기
     recent_cards = StationCardMapping.objects.select_related('card').filter(
+        station=request.user,
+        tid=request.user.station_profile.tid,
         is_active=True
     ).order_by('-registered_at')[:3]
     
@@ -700,6 +702,8 @@ def get_cards(request):
     try:
         # 현재 주유소에 등록된 카드 매핑 조회
         mappings = StationCardMapping.objects.select_related('card').filter(
+            station=request.user,
+            tid=request.user.station_profile.tid,
             is_active=True
         ).order_by('-registered_at')
         
@@ -788,6 +792,7 @@ def register_cards_single(request):
             # 카드와 주유소 매핑 생성
             logger.info(f"매핑 생성 시도: 주유소={request.user.username}, 카드={card_number}")
             mapping, mapping_created = StationCardMapping.objects.get_or_create(
+                station=request.user,
                 tid=tid,
                 card=card,
                 defaults={'is_active': True}
@@ -940,6 +945,7 @@ def register_cards_bulk(request):
                     # 카드와 주유소 매핑 생성
                     logger.debug(f"매핑 생성 시도: 카드={card_number}, TID={tid}")
                     mapping, mapping_created = StationCardMapping.objects.get_or_create(
+                        station=request.user,
                         tid=tid,
                         card=card,
                         defaults={'is_active': True}
@@ -1023,6 +1029,7 @@ def update_card_status(request):
                 
                 # 현재 주유소의 카드 매핑 확인
                 mapping = StationCardMapping.objects.get(
+                    station=request.user,
                     tid=tid,
                     card=card,
                     is_active=True
@@ -1104,8 +1111,9 @@ def delete_card(request):
             # 카드 매핑 삭제
             mapping = get_object_or_404(
                 StationCardMapping,
-                card=card,
-                station=request.user
+                station=request.user,
+                tid=request.user.station_profile.tid,
+                card=card
             )
             mapping.delete()
             
@@ -1499,28 +1507,27 @@ def issue_coupon(request):
 @require_http_methods(["GET"])
 @login_required
 def get_unused_cards(request):
-    """미사용 카드 목록 조회"""
+    """미사용 카드 목록 조회 (주유소+TID별)"""
     logger.info("=== 미사용 카드 목록 조회 시작 ===")
     logger.info(f"요청 사용자: {request.user.username}")
-    
     try:
-        # 미사용 카드 조회
-        unused_cards = PointCard.objects.filter(is_used=False).order_by('-created_at')
-        logger.debug(f"미사용 카드 수: {unused_cards.count()}")
-        
-        # 카드 정보 변환
+        # 현재 주유소+TID에 등록된 미사용 카드만 조회
+        mappings = StationCardMapping.objects.select_related('card').filter(
+            station=request.user,
+            tid=request.user.station_profile.tid,
+            is_active=True,
+            card__is_used=False
+        ).order_by('-registered_at')
         cards_data = [{
-            'number': card.number,
-            'tids': card.tids,
-            'created_at': card.created_at.strftime('%Y-%m-%d %H:%M')
-        } for card in unused_cards]
-        
+            'number': mapping.card.number,
+            'tids': mapping.card.tids,
+            'created_at': mapping.registered_at.strftime('%Y-%m-%d %H:%M')
+        } for mapping in mappings]
         logger.info("=== 미사용 카드 목록 조회 완료 ===")
         return JsonResponse({
             'status': 'success',
             'cards': cards_data
         })
-        
     except Exception as e:
         logger.error(f"미사용 카드 목록 조회 중 오류: {str(e)}", exc_info=True)
         return JsonResponse({
@@ -1614,6 +1621,7 @@ def register_card(request):
             
             # 주유소-카드 매핑 생성
             StationCardMapping.objects.create(
+                station=request.user,
                 tid=tid,
                 card=new_card,
                 registered_at=timezone.now(),
@@ -1743,14 +1751,19 @@ def register_customer(request):
                         logger.warning(f"기존 고객 조회 중 오류: {str(e)}")
 
                     # 3. 폰번호-카드 연동 생성
-                    phone_card_mapping = PhoneCardMapping.objects.create(
-                        phone_number=phone,
-                        membership_card=card,
-                        station=request.user,
-                        is_used=False
-                    )
-                    logger.info(f"폰번호-카드 연동 생성 완료: {phone} - {card_number}")
-                    
+                    if not existing_customer:
+                        # 회원가입 고객이 없을 때만 미회원 매핑 생성
+                        phone_card_mapping = PhoneCardMapping.objects.create(
+                            phone_number=phone,
+                            membership_card=card,
+                            station=request.user,
+                            is_used=False
+                        )
+                        logger.info(f"폰번호-카드 연동 생성 완료: {phone} - {card_number}")
+                    else:
+                        # 이미 회원가입 고객이 있으면 미회원 매핑을 생성하지 않음
+                        logger.info("이미 회원가입된 고객이므로 미회원 매핑을 생성하지 않음")
+
                     # 4. 기존 고객이 있다면 해당 고객의 프로필에 카드번호 등록
                     if existing_customer:
                         try:

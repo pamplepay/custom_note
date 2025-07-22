@@ -109,6 +109,15 @@ class StationCardMapping(models.Model):
         verbose_name='포인트카드',
         related_name='mappings'
     )
+    station = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='주유소',
+        limit_choices_to={'user_type': 'STATION'},
+        related_name='card_mappings',
+        null=True,  # 기존 데이터 호환을 위해 null 허용
+        blank=True
+    )
     registered_at = models.DateTimeField(default=timezone.now, verbose_name='등록일')
     is_active = models.BooleanField(default=True, verbose_name='활성화 여부')
     tid = models.CharField(max_length=50, blank=True, null=True, verbose_name='주유소 TID')

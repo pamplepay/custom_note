@@ -48,6 +48,18 @@
                             </div>
                         </div>
                         <div class="mb-3">
+                            <label for="primary_station_id" class="form-label">주거래 주유소</label>
+                            <select class="form-control" id="primary_station_id" name="primary_station_id">
+                                <option value="">선택 안함</option>
+                                {% for relation in registered_stations %}
+                                <option value="{{ relation.station.id }}" {% if primary_station and relation.station.id == primary_station.station.id %}selected{% endif %}>
+                                    {{ relation.station.station_profile.station_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">연결된 주유소 중 한 곳을 주거래로 지정할 수 있습니다.</div>
+                        </div>
+                        <div class="mb-3">
                             <label for="group" class="form-label">그룹 설정</label>
                             <select class="form-control" id="group" name="group">
                                 <option value="">그룹 선택 안함</option>

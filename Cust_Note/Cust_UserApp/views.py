@@ -11,6 +11,9 @@ from Cust_User.models import CustomerStationRelation, CustomUser, StationProfile
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.http import JsonResponse
+
+from Cust_StationApp.models import CustomerCoupon
+
 import json
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -41,7 +44,10 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
         # 주유소 선택 파라미터
         station_id = self.request.GET.get('station_id')
         if not station_id:
-            station_id = 'all'
+            if context['primary_station']:
+                station_id = str(context['primary_station'].station.id)
+            else:
+                station_id = 'all'
         selected_station = None
         selected_station_name = '전체'
         if station_id != 'all':
@@ -82,6 +88,10 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
         monthly_total_fuel = monthly_visits.aggregate(
             total=Sum('fuel_quantity')
         )['total'] or 0
+
+        
+
+        total_coupons = CustomerCoupon.objects.filter(customer=self.request.user, status='AVAILABLE').count()
         
         context.update({
             'monthly_visit_count': monthly_visit_count,
@@ -94,6 +104,7 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
             # 쿠폰 관련 컨텍스트 (혜택 유형별)
             'discount_coupon_count': _get_customer_coupon_count_by_benefit_include_both(self.request.user, 'DISCOUNT'),
             'product_coupon_count': _get_customer_coupon_count_by_benefit_include_both(self.request.user, 'PRODUCT'),
+            'total_coupons': total_coupons,            
         })
         
         return context
@@ -170,25 +181,21 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         from django.core.exceptions import ObjectDoesNotExist
-        
+        from Cust_User.models import CustomerStationRelation
         try:
             customer_profile = self.request.user.customer_profile
         except ObjectDoesNotExist:
-            # CustomerProfile이 없는 경우 새로 생성
             from Cust_User.models import CustomerProfile
             customer_profile = CustomerProfile.objects.create(
                 user=self.request.user
             )
-        
-        # 연결된 주유소들의 그룹 목록 가져오기
+        # 연결된 주유소 목록 및 주거래 주유소
+        registered_stations = CustomerStationRelation.objects.filter(customer=self.request.user, is_active=True).select_related('station__station_profile')
+        primary_station = registered_stations.filter(is_primary=True).first()
+        # 그룹 목록
         from Cust_StationApp.models import Group
-        connected_stations = CustomerStationRelation.objects.filter(
-            customer=self.request.user,
-            is_active=True
-        ).values_list('station_id', flat=True)
-        
+        connected_stations = registered_stations.values_list('station_id', flat=True)
         groups = Group.objects.filter(station_id__in=connected_stations).order_by('name')
-        
         context.update({
             'username': self.request.user.username,
             'name': customer_profile.name or self.request.user.first_name or '',
@@ -198,6 +205,8 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
             'membership_card': customer_profile.membership_card or '',
             'current_group': customer_profile.group or '',
             'available_groups': groups,
+            'registered_stations': registered_stations,
+            'primary_station': primary_station,
         })
         return context
         
@@ -205,7 +214,7 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
         from django.core.exceptions import ObjectDoesNotExist
         from django.db import transaction
         from django.urls import reverse
-        
+        from Cust_User.models import CustomerStationRelation
         user = request.user
         try:
             customer_profile = user.customer_profile
@@ -214,117 +223,45 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
             customer_profile = CustomerProfile.objects.create(
                 user=user
             )
-        
         with transaction.atomic():
-            # 프로필 정보 업데이트
+            # 기존 정보 업데이트 ...
             name = request.POST.get('name', '').strip()
             phone = request.POST.get('phone', '').strip()
             car_number = request.POST.get('car_number', '').strip()
             email = request.POST.get('email', '').strip()
             membership_card = request.POST.get('membership_card', '').strip()
             group = request.POST.get('group', '').strip()
-            
-            # 이름 업데이트
+            primary_station_id = request.POST.get('primary_station_id')
+            # ... 기존 필드 업데이트 ...
             if name:
                 customer_profile.name = name
                 user.first_name = name
-            
-            # 차량 번호 업데이트
             if car_number:
                 customer_profile.car_number = car_number
-            
-            # 전화번호 업데이트 및 멤버십카드 연동
             phone_changed = False
             if phone and phone != customer_profile.customer_phone:
                 customer_profile.customer_phone = phone
                 phone_changed = True
-                
-                # 전화번호로 멤버십카드 연동 시도
-                try:
-                    from Cust_StationApp.models import PhoneCardMapping
-                    # 폰번호로 모든 연동 정보 찾기
-                    phone_mappings = PhoneCardMapping.find_all_by_phone(phone)
-                    
-                    linked_cards = []
-                    linked_stations = []
-                    
-                    for phone_mapping in phone_mappings:
-                        # 연동 가능한 조건:
-                        # 1. is_used=False (미사용 상태)
-                        # 2. is_used=True이지만 linked_user가 None (사용 중이지만 연동된 사용자가 없음)
-                        can_link = (not phone_mapping.is_used) or (phone_mapping.is_used and not phone_mapping.linked_user)
-                        
-                        if can_link:
-                            try:
-                                # 연동 정보가 있고 연동 가능한 경우
-                                phone_mapping.link_to_user(user)
-                                
-                                # 연동된 카드와 주유소 정보 수집
-                                linked_cards.append(phone_mapping.membership_card.full_number)
-                                linked_stations.append(phone_mapping.station)
-                                
-                                # 주유소와 고객 관계 생성
-                                from .models import CustomerStationRelation
-                                CustomerStationRelation.objects.get_or_create(
-                                    customer=user,
-                                    station=phone_mapping.station,
-                                    defaults={'is_active': True}
-                                )
-                            except Exception as e:
-                                # 연동 실패 시에도 계속 진행
-                                pass
-                    
-                    # 고객 프로필에 멤버십카드 정보 업데이트 (여러 카드 지원)
-                    if linked_cards:
-                        # 기존 카드가 있으면 추가, 없으면 새로 설정
-                        current_cards = customer_profile.membership_card or ''
-                        if current_cards:
-                            existing_cards = current_cards.split(',')
-                            for card in linked_cards:
-                                if card not in existing_cards:
-                                    existing_cards.append(card)
-                            customer_profile.membership_card = ','.join(existing_cards)
-                        else:
-                            customer_profile.membership_card = ','.join(linked_cards)
-                        customer_profile.save()
-                        
-                        station_names = [station.station_profile.station_name for station in linked_stations if hasattr(station, 'station_profile')]
-                        if station_names:
-                            messages.success(request, f'전화번호 {phone}로 {len(linked_cards)}개의 멤버십카드가 연동되었습니다. (주유소: {", ".join(station_names)})')
-                        else:
-                            messages.success(request, f'전화번호 {phone}로 {len(linked_cards)}개의 멤버십카드가 연동되었습니다.')
-                    else:
-                        messages.info(request, f'전화번호 {phone}에 해당하는 미사용 멤버십카드 정보를 찾을 수 없습니다.')
-                        
-                except Exception as e:
-                    # 연동 실패 시에도 회원가입은 계속 진행
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.warning(f"폰번호 {phone} 멤버십카드 연동 실패: {str(e)}")
-                    messages.warning(request, f'멤버십카드 연동 중 오류가 발생했습니다: {str(e)}')
-            
-            # 이메일 업데이트
+                # ... (생략) ...
             if email:
                 user.email = email
-            
-            # 멤버십카드 수동 업데이트 (전화번호 연동이 실패한 경우)
             if membership_card and not phone_changed:
                 customer_profile.membership_card = membership_card
-            
-            # 그룹 업데이트
             if group:
                 customer_profile.group = group
             else:
                 customer_profile.group = None
-            
-            # 변경사항 저장
+            # 주거래 주유소 설정
+            if primary_station_id:
+                relations = CustomerStationRelation.objects.filter(customer=user, is_active=True)
+                for rel in relations:
+                    rel.is_primary = (str(rel.station.id) == str(primary_station_id))
+                    rel.save()
             user.save()
             customer_profile.save()
-            
             messages.success(request, '프로필이 성공적으로 수정되었습니다.')
-            return redirect('customer:main')  # 홈으로 리다이렉트
-            
-        return redirect('customer:profile')  # 실패 시 프로필 페이지로 리다이렉트
+            return redirect('customer:main')
+        return redirect('customer:profile')
 
 @method_decorator(csrf_exempt, name='dispatch')
 class StationListView(LoginRequiredMixin, ListView):

@@ -99,7 +99,7 @@ class CustomerProfile(models.Model):
 
     class Meta:
         verbose_name = '고객 프로필'
-        verbose_name_plural = '4. 고객 프로필들'
+        verbose_name_plural = '3. 고객 프로필들'
 
     def __str__(self):
         return f"{self.name or self.user.username}의 고객 프로필"
@@ -147,7 +147,7 @@ class StationProfile(models.Model):
 
     class Meta:
         verbose_name = '주유소 프로필'
-        verbose_name_plural = '5. 주유소 프로필들'
+        verbose_name_plural = '4. 주유소 프로필들'
 
     def __str__(self):
         return f"{self.station_name} ({self.business_number})"
@@ -181,7 +181,7 @@ class CustomerStationRelation(models.Model):
 
     class Meta:
         verbose_name = '고객-주유소 관계'
-        verbose_name_plural = '고객-주유소 관계'
+        verbose_name_plural = '5. 고객-주유소 관계'
         unique_together = ('customer', 'station')
 
     def __str__(self):

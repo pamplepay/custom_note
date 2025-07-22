@@ -497,48 +497,58 @@
 
                     <!-- 회원가입한 고객 목록 -->
                     <div class="mb-4">
-                        <h5 class="mb-3">
-                            <i class="fas fa-user-check text-success me-2"></i>
-                            회원가입 고객 ({{ total_registered_count }}명)
-                        </h5>
-                        <div class="accordion" id="registeredCustomerAccordion">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0">
+                                <i class="fas fa-user-check text-success me-2"></i>
+                                회원가입 고객 ({{ total_registered_count }}명)
+                            </h5>
+                            <div class="btn-group" role="group">
+                                <button id="show-registered-btn" class="btn btn-sm btn-outline-success" style="display: inline-block;">
+                                    <i class="fas fa-eye me-1"></i>보이기
+                                </button>
+                                <button id="hide-registered-btn" class="btn btn-sm btn-outline-secondary" style="display: none;">
+                                    <i class="fas fa-eye-slash me-1"></i>숨기기
+                                </button>
+                            </div>
+                        </div>
+                        <div id="registered-customer-section" class="accordion d-none">
                             {% for customer in registered_customers %}
-                            <div class="card border-0 shadow-sm mb-3">
-                                <div class="card-body p-0">
-                                    <div class="accordion-item border-0">
-                                        <div class="d-flex justify-content-between align-items-center p-3 customer-card-header" 
-                                             style="cursor: pointer;" 
-                                             data-customer-id="{{ customer.id }}">
+                        <div class="card border-0 shadow-sm mb-3">
+                            <div class="card-body p-0">
+                                <div class="accordion-item border-0">
+                                    <div class="d-flex justify-content-between align-items-center p-3 customer-card-header" 
+                                         style="cursor: pointer;" 
+                                         data-customer-id="{{ customer.id }}">
                                             <div class="d-flex align-items-center flex-grow-1">
                                                 <i class="fas fa-user-check text-success me-3 fs-4"></i>
-                                                <div class="flex-grow-1">
+                                            <div class="flex-grow-1">
                                                     <h6 class="mb-0">ID: {{ customer.customer.username|default:'-' }} </h6>
                                                     <small class="text-muted">                                                         
                                                         카드: {{ customer.card_number|default:'-' }}
                                                     </small>
-                                                </div>
-                                            </div>
-                                            <div class="d-flex align-items-center ms-3 flex-shrink-0">
-                                                <span class="badge bg-success me-2">회원가입</span>
-                                                <button class="btn btn-link text-decoration-none p-2 toggle-accordion" 
-                                                        type="button" 
-                                                        data-customer-id="{{ customer.id }}"
-                                                        aria-expanded="false"
-                                                        style="border-radius: 50%; transition: all 0.2s ease;">
-                                                    <i class="fas fa-chevron-down text-muted"></i>
-                                                </button>
                                             </div>
                                         </div>
-                                        
-                                        <div id="customerCollapse-{{ customer.id }}" class="accordion-collapse collapse">
-                                            <div class="accordion-body px-3 pb-3 pt-0">
-                                                <div class="border-top pt-3">
-                                                    <div class="row g-3">
+                                            <div class="d-flex align-items-center ms-3 flex-shrink-0">
+                                                <span class="badge bg-success me-2">회원가입</span>
+                                            <button class="btn btn-link text-decoration-none p-2 toggle-accordion" 
+                                                    type="button" 
+                                                    data-customer-id="{{ customer.id }}"
+                                                    aria-expanded="false"
+                                                    style="border-radius: 50%; transition: all 0.2s ease;">
+                                                <i class="fas fa-chevron-down text-muted"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="customerCollapse-{{ customer.id }}" class="accordion-collapse collapse">
+                                        <div class="accordion-body px-3 pb-3 pt-0">
+                                            <div class="border-top pt-3">
+                                                <div class="row g-3">
                                                         <div class="col-12">
-                                                            <div class="d-flex justify-content-between align-items-center">
+                                                        <div class="d-flex justify-content-between align-items-center">
                                                                 <span class="text-muted">고객 ID</span>
                                                                 <span>{{ customer.customer.username|default:'-' }}</span>
-                                                            </div>
+                                                        </div>
                                                         </div>
                                                         <div class="col-12">
                                                             <div class="d-flex justify-content-between align-items-center">
@@ -547,29 +557,28 @@
                                                             </div>
                                                         </div>
                                                         <div class="col-12">
-                                                            <div class="d-flex justify-content-between align-items-center">
-                                                                <span class="text-muted">최근 방문</span>
-                                                                <span>{{ customer.last_visit|default:'-' }}</span>
-                                                            </div>
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <span class="text-muted">최근 방문</span>
+                                                            <span>{{ customer.last_visit|default:'-' }}</span>
                                                         </div>
-                                                        <div class="col-12">
-                                                            <div class="d-flex justify-content-between align-items-center">
-                                                                <span class="text-muted">총 방문 횟수</span>
-                                                                <span>{{ customer.total_visit_count|default:'0' }}회</span>
-                                                            </div>
                                                         </div>
-                                                        <div class="col-12">
-                                                            <div class="d-flex justify-content-between align-items-center">
-                                                                <span class="text-muted">총 주유 금액</span>
-                                                                <span>{{ customer.total_fuel_amount|default:'0'|floatformat:0 }}원</span>
-                                                            </div>
+                                                    <div class="col-12">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <span class="text-muted">총 방문 횟수</span>
+                                                            <span>{{ customer.total_visit_count|default:'0' }}회</span>
                                                         </div>
-                                                        <div class="col-12 mt-3">
-                                                            <div class="btn-group w-100">
-                                                                <button class="btn btn-sm btn-outline-primary edit-customer" data-customer-id="{{ customer.id }}">
-                                                                    수정
-                                                                </button>
-                                                            </div>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <span class="text-muted">총 주유 금액</span>
+                                                            <span>{{ customer.total_fuel_amount|default:'0'|floatformat:0 }}원</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-12 mt-3">
+                                                        <div class="btn-group w-100">
+                                                            <button class="btn btn-sm btn-outline-primary edit-customer" data-customer-id="{{ customer.id }}">
+                                                                수정
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -578,22 +587,33 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
                             {% empty %}
                             <div class="text-center py-4">
                                 <i class="fas fa-user-check text-muted fa-3x mb-3"></i>
                                 <p class="text-muted mb-0">회원가입한 고객이 없습니다.</p>
                             </div>
-                            {% endfor %}
+                        {% endfor %}
                         </div>
                     </div>
 
                     <!-- 미회원가입 고객 목록 -->
                     <div class="mb-4">
-                        <h5 class="mb-3">
-                            <i class="fas fa-user-clock text-warning me-2"></i>
-                            미회원가입 고객 ({{ total_unregistered_count }}명)
-                        </h5>
-                        <div class="accordion" id="unregisteredCustomerAccordion">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0">
+                                <i class="fas fa-user-clock text-warning me-2"></i>
+                                미회원가입 고객 ({{ total_unregistered_count }}명)
+                            </h5>
+                            <div class="btn-group" role="group">
+                                <button id="show-unregistered-btn" class="btn btn-sm btn-outline-warning" style="display: inline-block;">
+                                    <i class="fas fa-eye me-1"></i>보이기
+                                </button>
+                                <button id="hide-unregistered-btn" class="btn btn-sm btn-outline-secondary" style="display: none;">
+                                    <i class="fas fa-eye-slash me-1"></i>숨기기
+                                </button>
+                            </div>
+                        </div>
+                        <div id="unregistered-customer-section" class="accordion d-none">
                             {% for customer in unregistered_customers %}
                             <div class="card border-0 shadow-sm mb-3">
                                 <div class="card-body p-0">
@@ -1079,11 +1099,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!registerModal.classList.contains('show')) {
                 const cardsList = this.querySelector('#unusedCardsList');
                 if (cardsList) {
-                                    cardsList.innerHTML = `
+                    cardsList.innerHTML = `
                     <li class="list-group-item text-center text-muted">
                         <i class="fas fa-info-circle me-2"></i>새로고침 버튼을 눌러 카드 목록을 불러오세요
-                    </li>
-                `;
+                        </li>
+                    `;
                 }
             }
         });
@@ -1205,17 +1225,17 @@ function openCardSelectionModal() {
     isCardModalOpen = true;  // 모달 상태 업데이트
     
     // 모달 표시 (카드목록은 새로고침 버튼을 눌렀을 때만 가져옴)
-    const modalElement = document.getElementById('cardManageModal');
-    const modal = new bootstrap.Modal(modalElement);
-    modal.show();
+        const modalElement = document.getElementById('cardManageModal');
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
     
     // 카드목록 초기화 (빈 상태로 시작)
-    const cardList = document.getElementById('unusedCardsList');
-    cardList.innerHTML = `
+        const cardList = document.getElementById('unusedCardsList');
+        cardList.innerHTML = `
         <li class="list-group-item text-center text-muted">
             <i class="fas fa-info-circle me-2"></i>새로고침 버튼을 눌러 카드 목록을 불러오세요
-        </li>
-    `;
+            </li>
+        `;
 }
 
 // 멤버십 카드 선택 처리
@@ -1374,11 +1394,11 @@ async function checkDuplicate(type) {
                     const customerInfo = customerData.data;
                     if (customerInfo.is_registered_here) {
                         // 이미 이 주유소에 등록된 고객
-                        resultHtml += `
-                            <div class="alert alert-warning mb-2">
-                                <i class="fas fa-exclamation-triangle me-2"></i>${customerData.message}
-                            </div>
-                        `;
+                    resultHtml += `
+                        <div class="alert alert-warning mb-2">
+                            <i class="fas fa-exclamation-triangle me-2"></i>${customerData.message}
+                        </div>
+                    `;
                         document.getElementById('card_number').disabled = true;
                         document.querySelector('button[type="submit"]').disabled = true;
                     } else {
@@ -1390,8 +1410,8 @@ async function checkDuplicate(type) {
                                 <small class="text-muted">카드 등록 시 자동으로 연동됩니다.</small>
                             </div>
                         `;
-                        document.getElementById('card_number').disabled = false;
-                        document.querySelector('button[type="submit"]').disabled = false;
+                    document.getElementById('card_number').disabled = false;
+                    document.querySelector('button[type="submit"]').disabled = false;
                     }
                 } else {
                     // 신규 고객
@@ -2057,9 +2077,9 @@ function updateRegisteredCustomers(customers) {
     const registeredAccordion = document.getElementById('registeredCustomerAccordion');
     if (!registeredAccordion) return;
 
-    // 기존 고객 카드 제거
+        // 기존 고객 카드 제거
     const existingCards = registeredAccordion.querySelectorAll('.card');
-    existingCards.forEach(card => card.remove());
+        existingCards.forEach(card => card.remove());
 
     if (customers && customers.length > 0) {
         customers.forEach(customer => {
@@ -2155,24 +2175,24 @@ function createRegisteredCustomerCard(customer) {
                                 </div>
                                 <div class="col-12 mt-3">
                                     <div class="btn-group w-100">
-                                        <button class="btn btn-sm btn-outline-primary edit-customer" data-customer-id="${customer.id}">
-                                            수정
-                                        </button>
+                                <button class="btn btn-sm btn-outline-primary edit-customer" data-customer-id="${customer.id}">
+                                    수정
+                                </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
+                            </div>
+                        </div>
+                    </div>
+                `;
+
     // 이벤트 리스너 추가 (편집 버튼만 유지)
     const editBtn = card.querySelector('.edit-customer');
-    if (editBtn) {
-        editBtn.addEventListener('click', () => editCustomer(customer.id));
-    }
+                if (editBtn) {
+                    editBtn.addEventListener('click', () => editCustomer(customer.id));
+                }
     
     // 아코디언 토글은 이벤트 위임으로 처리하므로 별도 리스너 불필요
     
@@ -2458,7 +2478,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const customerId = toggleButton.dataset.customerId;
             console.log('토글할 고객 ID:', customerId);
             if (customerId) {
-                toggleAccordion(customerId);
+            toggleAccordion(customerId);
             } else {
                 console.error('customerId가 없습니다:', toggleButton);
             }
@@ -2471,7 +2491,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const customerId = cardHeader.dataset.customerId;
             console.log('토글할 고객 ID:', customerId);
             if (customerId) {
-                toggleAccordion(customerId);
+            toggleAccordion(customerId);
             } else {
                 console.error('customerId가 없습니다:', cardHeader);
             }
@@ -2766,6 +2786,188 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 선택된 카드의 상세 정보 표시
         searchCardByNumber();
+    }
+    
+    // 고객 목록 보이기/숨기기 기능 - 즉시 실행
+    function setupCustomerListToggle() {
+        console.log('고객 목록 보이기/숨기기 기능 초기화 시작');
+        
+        // 회원가입 고객 목록 보이기/숨기기
+        const showRegisteredBtn = document.getElementById('show-registered-btn');
+        const hideRegisteredBtn = document.getElementById('hide-registered-btn');
+        const registeredSection = document.getElementById('registered-customer-section');
+        
+        console.log('회원가입 고객 요소들:', {
+            showRegisteredBtn: showRegisteredBtn,
+            hideRegisteredBtn: hideRegisteredBtn,
+            registeredSection: registeredSection
+        });
+        
+        if (showRegisteredBtn && hideRegisteredBtn && registeredSection) {
+            console.log('회원가입 고객 목록 이벤트 리스너 설정');
+            
+            // registeredSection.classList.remove('d-none');
+            // registeredSection.classList.add('d-block');
+            
+            // 기존 이벤트 리스너 제거
+            showRegisteredBtn.onclick = null;
+            hideRegisteredBtn.onclick = null;
+            
+            // 보이기 버튼 클릭 - 더 확실한 방식으로 변경
+            showRegisteredBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('회원가입 고객 목록 보이기 버튼 클릭됨');
+                console.log('클릭 전 registeredSection:', registeredSection);
+                console.log('클릭 전 display:', registeredSection.style.display);
+                
+                // d-none 클래스 제거
+                registeredSection.classList.remove('d-none');
+                // 여러 방법으로 표시 처리
+                registeredSection.style.display = 'block';
+                registeredSection.style.visibility = 'visible';
+                registeredSection.style.height = 'auto';
+                registeredSection.style.overflow = 'visible';
+                
+                showRegisteredBtn.style.display = 'none';
+                hideRegisteredBtn.style.display = 'inline-block';
+                
+                console.log('클릭 후 display:', registeredSection.style.display);
+                console.log('회원가입 고객 목록 표시됨');
+                
+                // 1초 후 다시 확인
+                setTimeout(function() {
+                    console.log('1초 후 display:', registeredSection.style.display);
+                    console.log('1초 후 computed display:', window.getComputedStyle(registeredSection).display);
+                }, 1000);
+                
+                return false;
+            };
+            
+            // 숨기기 버튼 클릭 - 더 확실한 방식으로 변경
+            hideRegisteredBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('회원가입 고객 목록 숨기기 버튼 클릭됨');
+                console.log('클릭 전 registeredSection:', registeredSection);
+                console.log('클릭 전 display:', registeredSection.style.display);
+                
+                // 여러 방법으로 숨김 처리
+                registeredSection.style.display = 'none';
+                registeredSection.style.visibility = 'hidden';
+                registeredSection.style.height = '0px';
+                registeredSection.style.overflow = 'hidden';
+                
+                hideRegisteredBtn.style.display = 'none';
+                showRegisteredBtn.style.display = 'inline-block';
+                
+                console.log('클릭 후 display:', registeredSection.style.display);
+                console.log('회원가입 고객 목록 숨겨짐');
+                
+                // 1초 후 다시 확인
+                setTimeout(function() {
+                    console.log('1초 후 display:', registeredSection.style.display);
+                    console.log('1초 후 computed display:', window.getComputedStyle(registeredSection).display);
+                }, 1000);
+                
+                return false;
+            };
+        } else {
+            console.error('회원가입 고객 요소를 찾을 수 없음');
+        }
+        
+        // 미회원가입 고객 목록 보이기/숨기기
+        const showUnregisteredBtn = document.getElementById('show-unregistered-btn');
+        const hideUnregisteredBtn = document.getElementById('hide-unregistered-btn');
+        const unregisteredSection = document.getElementById('unregistered-customer-section');
+        
+        console.log('미회원가입 고객 요소들:', {
+            showUnregisteredBtn: showUnregisteredBtn,
+            hideUnregisteredBtn: hideUnregisteredBtn,
+            unregisteredSection: unregisteredSection
+        });
+        
+        if (showUnregisteredBtn && hideUnregisteredBtn && unregisteredSection) {
+            console.log('미회원가입 고객 목록 이벤트 리스너 설정');
+            
+            // unregisteredSection.classList.remove('d-none');
+            // unregisteredSection.classList.add('d-block');
+            
+            // 기존 이벤트 리스너 제거
+            showUnregisteredBtn.onclick = null;
+            hideUnregisteredBtn.onclick = null;
+            
+            // 보이기 버튼 클릭 - 더 확실한 방식으로 변경
+            showUnregisteredBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('미회원가입 고객 목록 보이기 버튼 클릭됨');
+                console.log('클릭 전 unregisteredSection:', unregisteredSection);
+                console.log('클릭 전 display:', unregisteredSection.style.display);
+                
+                // d-none 클래스 제거
+                unregisteredSection.classList.remove('d-none');
+                // 여러 방법으로 표시 처리
+                unregisteredSection.style.display = 'block';
+                unregisteredSection.style.visibility = 'visible';
+                unregisteredSection.style.height = 'auto';
+                unregisteredSection.style.overflow = 'visible';
+                
+                showUnregisteredBtn.style.display = 'none';
+                hideUnregisteredBtn.style.display = 'inline-block';
+                
+                console.log('클릭 후 display:', unregisteredSection.style.display);
+                console.log('미회원가입 고객 목록 표시됨');
+                
+                // 1초 후 다시 확인
+                setTimeout(function() {
+                    console.log('1초 후 display:', unregisteredSection.style.display);
+                    console.log('1초 후 computed display:', window.getComputedStyle(unregisteredSection).display);
+                }, 1000);
+                
+                return false;
+            };
+            
+            // 숨기기 버튼 클릭 - 더 확실한 방식으로 변경
+            hideUnregisteredBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('미회원가입 고객 목록 숨기기 버튼 클릭됨');
+                console.log('클릭 전 unregisteredSection:', unregisteredSection);
+                console.log('클릭 전 display:', unregisteredSection.style.display);
+                
+                // 여러 방법으로 숨김 처리
+                unregisteredSection.style.display = 'none';
+                unregisteredSection.style.visibility = 'hidden';
+                unregisteredSection.style.height = '0px';
+                unregisteredSection.style.overflow = 'hidden';
+                
+                hideUnregisteredBtn.style.display = 'none';
+                showUnregisteredBtn.style.display = 'inline-block';
+                
+                console.log('클릭 후 display:', unregisteredSection.style.display);
+                console.log('미회원가입 고객 목록 숨겨짐');
+                
+                // 1초 후 다시 확인
+                setTimeout(function() {
+                    console.log('1초 후 display:', unregisteredSection.style.display);
+                    console.log('1초 후 computed display:', window.getComputedStyle(unregisteredSection).display);
+                }, 1000);
+                
+                return false;
+            };
+        } else {
+            console.error('미회원가입 고객 요소를 찾을 수 없음');
+        }
+        
+        console.log('고객 목록 보이기/숨기기 기능 초기화 완료');
+    }
+    
+    // DOM 로드 완료 후 실행
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupCustomerListToggle);
+    } else {
+        setupCustomerListToggle();
     }
 });
 </script>

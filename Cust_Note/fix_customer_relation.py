@@ -33,7 +33,7 @@ def fix_customer_relation():
     
     for mapping in phone_mappings:
         print(f'매핑 ID: {mapping.id}, 카드: {mapping.membership_card.full_number}, 사용여부: {mapping.is_used}, 연동사용자: {mapping.linked_user.username if mapping.linked_user else "없음"}')
-        
+            
         # 사용 중이지만 연동된 사용자가 없는 경우 수정
         if mapping.is_used and not mapping.linked_user:
             try:
@@ -48,7 +48,7 @@ def fix_customer_relation():
             try:
                 mapping.link_to_user(user)
                 print(f'매핑 ID {mapping.id}를 netalf02 사용자와 연동했습니다.')
-            except Exception as e:
+    except Exception as e:
                 print(f'매핑 ID {mapping.id} 연동 실패: {e}')
     
     # 4. 연동 결과 확인

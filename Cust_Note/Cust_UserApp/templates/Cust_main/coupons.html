@@ -9,18 +9,23 @@
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow-sm border-0 bg-gradient-primary text-white">
-                <div class="card-body">
+                <div class="card-body text-center">
                     <h1 class="card-title h3 mb-3">
                         <i class="fas fa-ticket-alt me-2"></i>내 쿠폰
                     </h1>
-                    <p class="card-text mb-0">{{ user.username }}님이 보유한 쿠폰을 확인하세요.</p>
+                    <div class="d-flex flex-wrap gap-2 justify-content-center mb-2">
+                        <span class="badge bg-light text-primary fw-bold" style="font-size:1rem;">전체 {{ total_coupons|default:0 }}개</span>
+                        <span class="badge bg-light text-success fw-bold" style="font-size:1rem;">세차 {{ discount_coupons|default:0 }}개</span>
+                        <span class="badge bg-light text-info fw-bold" style="font-size:1rem;">상품 {{ product_coupons|default:0 }}개</span>
+                    </div>
+                    <p class="card-text mb-0 d-none d-md-block">{{ user.username }}님이 보유한 쿠폰을 확인하세요.</p>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- 쿠폰 통계 -->
-    <div class="row mb-4">
+    <!-- <div class="row mb-4">
         <div class="col-md-4 mb-3">
             <div class="card shadow-sm h-100 border-0">
                 <div class="card-body text-center">
@@ -32,29 +37,29 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6 mb-3">
+        <div class="col-md-4 mb-3">
             <div class="card shadow-sm h-100 border-0">
                 <div class="card-body text-center">
                     <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
                         <i class="fas fa-car fa-2x text-success"></i>
                     </div>
-                    <h5 class="card-title">세차 할인</h5>
+                    <h5 class="card-title">세차 쿠폰</h5>
                     <h3 class="text-success mb-0">{{ discount_coupons|default:0 }}개</h3>
                 </div>
             </div>
         </div>
-        <div class="col-md-6 mb-3">
+        <div class="col-md-4 mb-3">
             <div class="card shadow-sm h-100 border-0">
                 <div class="card-body text-center">
                     <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
                         <i class="fas fa-gift fa-2x text-info"></i>
                     </div>
-                    <h5 class="card-title">무료 상품</h5>
+                    <h5 class="card-title">상품 쿠폰</h5>
                     <h3 class="text-info mb-0">{{ product_coupons|default:0 }}개</h3>
                 </div>
             </div>
         </div>
-    </div>
+    </div> -->
 
     <!-- 세차 할인 쿠폰 섹션 -->
     <div class="row mb-4">
@@ -62,7 +67,7 @@
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white border-0">
                     <h5 class="mb-0">
-                        <i class="fas fa-car me-2 text-success"></i>세차 할인 쿠폰
+                        <i class="fas fa-car me-2 text-success"></i>세차 쿠폰
                     </h5>
                 </div>
                 <div class="card-body">
@@ -147,7 +152,7 @@
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white border-0">
                     <h5 class="mb-0">
-                        <i class="fas fa-gift me-2 text-info"></i>무료 상품 쿠폰
+                        <i class="fas fa-gift me-2 text-info"></i>상품 쿠폰
                     </h5>
                 </div>
                 <div class="card-body">
