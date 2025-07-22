@@ -747,7 +747,7 @@
                                 </button>
                         </div>
                         <div class="form-text text-muted mt-2">
-                            <i class="fas fa-info-circle me-1"></i>숫자만 입력해주세요 (예: 01012345678). 주유소에서 등록한 전화번호를 입력하면 멤버십카드가 자동으로 연동됩니다.
+                            <i class="fas fa-info-circle me-1"></i>숫자만 입력해주세요 (예: 01012345678)
                         </div>
                         <div id="phoneCheckResult" class="mt-2" style="display: none;">
                             <!-- 조회 결과가 여기에 표시됩니다 -->
@@ -892,7 +892,7 @@
                                 <input type="text" 
                                        id="search-card-number" 
                                        class="form-control" 
-                                       placeholder="검색할 카드번호 입력 (16자리)" 
+                                       placeholder="뒷자리 4자리 입력" 
                                        maxlength="16">
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
@@ -956,7 +956,7 @@
                                 <input type="text" 
                                        id="card-number" 
                                        class="form-control" 
-                                       placeholder="멤버십 카드 번호 입력 (16자리)" 
+                                       placeholder="미등록 멤버십 카드 번호 입력(16자리)" 
                                        maxlength="16" 
                                        required>
                             </div>
@@ -1084,7 +1084,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (cardsList) {
                 cardsList.innerHTML = `
                     <li class="list-group-item text-center text-muted">
-                        <i class="fas fa-info-circle me-2"></i>새로고침 버튼을 눌러 카드 목록을 불러오세요
+                        <i class="fas fa-info-circle me-2"></i>카드 목록 불러오기를 하여 목록에서 선택할 수 있습니다.
                     </li>
                 `;
             }

@@ -1510,20 +1510,49 @@ def get_unused_cards(request):
     """미사용 카드 목록 조회 (주유소+TID별)"""
     logger.info("=== 미사용 카드 목록 조회 시작 ===")
     logger.info(f"요청 사용자: {request.user.username}")
+    
+    # 주유소 사용자 권한 확인
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 카드 목록 조회 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
     try:
+        # 주유소 프로필 확인
+        if not hasattr(request.user, 'station_profile') or not request.user.station_profile:
+            logger.error(f"주유소 프로필을 찾을 수 없음: {request.user.username}")
+            return JsonResponse({
+                'status': 'error',
+                'message': '주유소 프로필 정보가 없습니다. 관리자에게 문의하세요.'
+            }, status=400)
+        
+        # TID 확인
+        tid = request.user.station_profile.tid
+        if not tid:
+            logger.error(f"주유소 TID가 설정되지 않음: {request.user.username}")
+            return JsonResponse({
+                'status': 'error',
+                'message': '주유소 TID가 설정되지 않았습니다. 프로필을 확인해주세요.'
+            }, status=400)
+        
+        logger.info(f"주유소 TID: {tid}")
+        
         # 현재 주유소+TID에 등록된 미사용 카드만 조회
         mappings = StationCardMapping.objects.select_related('card').filter(
             station=request.user,
-            tid=request.user.station_profile.tid,
+            tid=tid,
             is_active=True,
             card__is_used=False
         ).order_by('-registered_at')
+        
         cards_data = [{
             'number': mapping.card.number,
             'tids': mapping.card.tids,
             'created_at': mapping.registered_at.strftime('%Y-%m-%d %H:%M')
         } for mapping in mappings]
+        
+        logger.info(f"조회된 미사용 카드 수: {len(cards_data)}")
         logger.info("=== 미사용 카드 목록 조회 완료 ===")
+        
         return JsonResponse({
             'status': 'success',
             'cards': cards_data

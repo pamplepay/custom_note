@@ -10,8 +10,84 @@
             <div class="card shadow-sm">
                 <div class="card-body">
                     <h1 class="card-title h3 mb-4">주유 기록</h1>
+                    
+                    <!-- 주유소 선택 섹션 -->
+                    {% if registered_stations %}
+                    <!-- PC: 상세 주유소 선택 -->
+                    <div class="row mb-3 d-none d-md-block">
+                        <div class="col-12">
+                            <div class="card border-0 bg-light">
+                                <div class="card-body py-2">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-gas-pump me-2 text-primary"></i>현재 주유소
+                                        </h6>
+                                        <form method="get" id="station-select-form" class="d-inline-block ms-2">
+                                            <input type="hidden" name="year" value="{{ year }}">
+                                            <input type="hidden" name="month" value="{{ month }}">
+                                            <select name="station_id" class="form-select form-select-sm" style="width:auto;display:inline-block;" onchange="document.getElementById('station-select-form').submit();">
+                                                <option value="all" {% if selected_station_id == 'all' %}selected{% endif %}>전체 주유소</option>
+                                                {% for relation in registered_stations %}
+                                                    <option value="{{ relation.station.id }}" {% if selected_station_id|stringformat:'s' == relation.station.id|stringformat:'s' %}selected{% endif %}>{{ relation.station.station_profile.station_name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </form>
+                                        <!-- <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="resetStationSelection()" title="주거래 주유소로 초기화">
+                                            <i class="fas fa-undo"></i>
+                                        </button> -->
+                                    </div>
+                                    {% if selected_station %}
+                                        <small class="text-muted mt-1 d-block">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            <strong>{{ selected_station.station_profile.station_name }}</strong>의 주유 기록을 확인하고 있습니다.
+                                        </small>
+                                    {% else %}
+                                        <small class="text-muted mt-1 d-block">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            모든 주유소의 주유 기록을 확인하고 있습니다.
+                                        </small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 모바일: 간단한 주유소 선택 -->
+                    <div class="row mb-3 d-md-none">
+                        <div class="col-12">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="text-muted small">
+                                    {% if selected_station %}
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-gas-pump me-2 text-primary"></i>주유소
+                                    </h5>
+                                    {% else %}
+                                        <i class="fas fa-gas-pump me-1"></i>전체 주유소
+                                    {% endif %}
+                                </span>
+                                <div class="d-flex gap-1">
+                                    <form method="get" id="mobile-station-select-form">
+                                        <input type="hidden" name="year" value="{{ year }}">
+                                        <input type="hidden" name="month" value="{{ month }}">
+                                        <select name="station_id" class="form-select form-select-sm" style="width:auto;font-size:0.875rem;" onchange="document.getElementById('mobile-station-select-form').submit();">
+                                            <option value="all" {% if selected_station_id == 'all' %}selected{% endif %}>전체</option>
+                                            {% for relation in registered_stations %}
+                                                <option value="{{ relation.station.id }}" {% if selected_station_id|stringformat:'s' == relation.station.id|stringformat:'s' %}selected{% endif %}>{{ relation.station.station_profile.station_name|truncatechars:8 }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </form>
+                                    <!-- <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetStationSelection()" title="초기화">
+                                        <i class="fas fa-undo"></i>
+                                    </button> -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
                     <!-- 월별 선택 드롭다운 -->
                     <form method="get" class="mb-3" id="month-select-form">
+                        <input type="hidden" name="station_id" value="{{ selected_station_id }}">
                         <div class="row g-2 align-items-center">
                             <div class="col-auto">
                                 <select name="year" class="form-select" onchange="document.getElementById('month-select-form').submit();">
@@ -117,4 +193,34 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 주유소 선택 초기화 함수
+function resetStationSelection() {
+    fetch('{% url "customer:reset_station_selection" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 성공 시 현재 페이지의 파라미터 유지하면서 새로고침
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.set('station_id', data.station_id);
+            window.location.href = currentUrl.toString();
+        } else {
+            alert('주유소 선택 초기화 중 오류가 발생했습니다: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('주유소 선택 초기화 중 오류가 발생했습니다.');
+    });
+}
+</script>
 {% endblock %} 

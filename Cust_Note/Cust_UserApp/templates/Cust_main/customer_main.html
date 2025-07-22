@@ -61,6 +61,9 @@
                                 {% endfor %}
                             </select>
                         </form>
+                        <!-- <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="resetStationSelection()" title="주거래 주유소로 초기화">
+                            <i class="fas fa-undo"></i>
+                        </button> -->
                     </div>
                 </div>
                 <div class="card-body p-0">
@@ -329,6 +332,30 @@
 
 {% block extra_js %}
 <script>
+// 주유소 선택 초기화 함수
+function resetStationSelection() {
+    fetch('{% url "customer:reset_station_selection" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 성공 시 페이지 새로고침
+            window.location.reload();
+        } else {
+            alert('주유소 선택 초기화 중 오류가 발생했습니다: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('주유소 선택 초기화 중 오류가 발생했습니다.');
+    });
+}
+
 // 위치 확인 및 쿠폰 발행 가능 주유소 확인 함수
 function checkLocationForCoupons() {
     const statusDiv = document.getElementById('location-status');

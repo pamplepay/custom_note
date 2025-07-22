@@ -24,6 +24,47 @@
         </div>
     </div>
 
+    <!-- 주유소 선택 섹션 -->
+    {% if registered_stations %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-gas-pump me-2 text-primary"></i>주유소
+                        </h5>
+                        <form method="get" id="station-select-form" class="d-inline-block ms-2">
+                            <select name="station_id" class="form-select form-select-sm" style="width:auto;display:inline-block;" onchange="document.getElementById('station-select-form').submit();">
+                                <option value="all" {% if selected_station_id == 'all' %}selected{% endif %}>전체 주유소</option>
+                                {% for relation in registered_stations %}
+                                    <option value="{{ relation.station.id }}" {% if selected_station_id|stringformat:'s' == relation.station.id|stringformat:'s' %}selected{% endif %}>{{ relation.station.station_profile.station_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                        <!-- <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="resetStationSelection()" title="주거래 주유소로 초기화">
+                            <i class="fas fa-undo"></i>
+                        </button> -->
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if selected_station %}
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>{{ selected_station.station_profile.station_name }}</strong>의 쿠폰을 확인하고 있습니다.
+                        </p>
+                    {% else %}
+                        <p class="text-muted mb-0">
+                            <i class="fas fa-info-circle me-1"></i>
+                            모든 주유소의 쿠폰을 확인하고 있습니다.
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- 쿠폰 통계 -->
     <!-- <div class="row mb-4">
         <div class="col-md-4 mb-3">
@@ -308,6 +349,30 @@
 </style>
 
 <script>
+// 주유소 선택 초기화 함수
+function resetStationSelection() {
+    fetch('{% url "customer:reset_station_selection" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 성공 시 페이지 새로고침
+            window.location.reload();
+        } else {
+            alert('주유소 선택 초기화 중 오류가 발생했습니다: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('주유소 선택 초기화 중 오류가 발생했습니다.');
+    });
+}
+
 function useCoupon(couponId, couponTitle) {
     if (!confirm(`"${couponTitle}" 쿠폰을 사용하시겠습니까?\n\n사용 후에는 취소할 수 없습니다.`)) {
         return;

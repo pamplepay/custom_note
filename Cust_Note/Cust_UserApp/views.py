@@ -41,13 +41,37 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
             is_primary=True
         ).first()
 
-        # 주유소 선택 파라미터
+        # 주거래 주유소 정보 로깅
+        if context['primary_station']:
+            print(f"현재 주거래 주유소: {context['primary_station'].station.station_profile.station_name}")
+        else:
+            print("주거래 주유소가 설정되지 않음")
+
+        # 주유소 선택 파라미터 (세션 기반)
         station_id = self.request.GET.get('station_id')
-        if not station_id:
+        
+        # 세션에서 저장된 주유소 선택 확인
+        session_station_id = self.request.session.get('selected_station_id')
+        
+        if station_id:
+            # URL 파라미터로 주유소가 선택된 경우 세션에 저장
+            self.request.session['selected_station_id'] = station_id
+            print(f"URL 파라미터로 주유소 선택: {station_id}")
+        elif session_station_id:
+            # 세션에 저장된 주유소가 있는 경우 사용
+            station_id = session_station_id
+            print(f"세션에서 주유소 선택 복원: {station_id}")
+        else:
+            # 기본값: 주거래 주유소 또는 전체
             if context['primary_station']:
                 station_id = str(context['primary_station'].station.id)
+                self.request.session['selected_station_id'] = station_id
+                print(f"주거래 주유소를 기본 선택: {station_id}")
             else:
                 station_id = 'all'
+                self.request.session['selected_station_id'] = station_id
+                print("전체 주유소를 기본 선택")
+        
         selected_station = None
         selected_station_name = '전체'
         if station_id != 'all':
@@ -57,10 +81,22 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
                     if str(relation.station.id) == str(station_id):
                         selected_station = relation.station
                         selected_station_name = relation.station.station_profile.station_name
+                        print(f"선택된 주유소: {selected_station_name} (ID: {station_id})")
                         break
-            except Exception:
+                if not selected_station:
+                    print(f"주유소 ID {station_id}를 찾을 수 없음")
+                    # 잘못된 주유소 ID인 경우 세션에서 제거
+                    self.request.session.pop('selected_station_id', None)
+                    station_id = 'all'
+                    selected_station_name = '전체'
+            except Exception as e:
+                print(f"주유소 선택 중 오류: {e}")
                 selected_station = None
                 selected_station_name = '전체'
+                # 오류 발생 시 세션에서 제거
+                self.request.session.pop('selected_station_id', None)
+        else:
+            print("전체 주유소 선택됨")
         
         from .models import CustomerVisitHistory
         from datetime import datetime, date
@@ -91,7 +127,23 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
 
         
 
-        total_coupons = CustomerCoupon.objects.filter(customer=self.request.user, status='AVAILABLE').count()
+        # 쿠폰 정보 조회 (주유소별 필터링 적용)
+        if selected_station:
+            # 특정 주유소 선택 시: 해당 주유소의 쿠폰만 조회
+            total_coupons = CustomerCoupon.objects.filter(
+                customer=self.request.user, 
+                status='AVAILABLE',
+                coupon_template__station=selected_station
+            ).count()
+            discount_coupon_count = _get_customer_coupon_count_by_benefit_include_both_station(self.request.user, 'DISCOUNT', selected_station)
+            product_coupon_count = _get_customer_coupon_count_by_benefit_include_both_station(self.request.user, 'PRODUCT', selected_station)
+            print(f"선택된 주유소 쿠폰 - 할인: {discount_coupon_count}, 상품: {product_coupon_count}, 전체: {total_coupons}")
+        else:
+            # 전체 선택 시: 모든 주유소의 쿠폰 조회
+            total_coupons = CustomerCoupon.objects.filter(customer=self.request.user, status='AVAILABLE').count()
+            discount_coupon_count = _get_customer_coupon_count_by_benefit_include_both(self.request.user, 'DISCOUNT')
+            product_coupon_count = _get_customer_coupon_count_by_benefit_include_both(self.request.user, 'PRODUCT')
+            print(f"전체 주유소 쿠폰 - 할인: {discount_coupon_count}, 상품: {product_coupon_count}, 전체: {total_coupons}")
         
         context.update({
             'monthly_visit_count': monthly_visit_count,
@@ -102,8 +154,8 @@ class CustomerMainView(LoginRequiredMixin, TemplateView):
             'selected_station': selected_station,
             'selected_station_name': selected_station_name,
             # 쿠폰 관련 컨텍스트 (혜택 유형별)
-            'discount_coupon_count': _get_customer_coupon_count_by_benefit_include_both(self.request.user, 'DISCOUNT'),
-            'product_coupon_count': _get_customer_coupon_count_by_benefit_include_both(self.request.user, 'PRODUCT'),
+            'discount_coupon_count': discount_coupon_count,
+            'product_coupon_count': product_coupon_count,
             'total_coupons': total_coupons,            
         })
         
@@ -126,6 +178,73 @@ class CustomerRecordsView(LoginRequiredMixin, TemplateView):
         from datetime import datetime
         from django.db.models import F
 
+        # 주유소 선택 파라미터 처리 (세션 기반)
+        station_id = self.request.GET.get('station_id')
+        
+        # 세션에서 저장된 주유소 선택 확인
+        session_station_id = self.request.session.get('selected_station_id')
+        
+        if station_id:
+            # URL 파라미터로 주유소가 선택된 경우 세션에 저장
+            self.request.session['selected_station_id'] = station_id
+            print(f"주유노트 페이지 - URL 파라미터로 주유소 선택: {station_id}")
+        elif session_station_id:
+            # 세션에 저장된 주유소가 있는 경우 사용
+            station_id = session_station_id
+            print(f"주유노트 페이지 - 세션에서 주유소 선택 복원: {station_id}")
+        else:
+            # 기본값: 주거래 주유소 또는 전체
+            from Cust_User.models import CustomerStationRelation
+            primary_relation = CustomerStationRelation.objects.filter(
+                customer=self.request.user,
+                is_primary=True,
+                is_active=True
+            ).first()
+            
+            if primary_relation:
+                station_id = str(primary_relation.station.id)
+                self.request.session['selected_station_id'] = station_id
+                print(f"주유노트 페이지 - 주거래 주유소를 기본 선택: {station_id}")
+            else:
+                station_id = 'all'
+                self.request.session['selected_station_id'] = station_id
+                print("주유노트 페이지 - 전체 주유소를 기본 선택")
+        
+        selected_station = None
+        if station_id and station_id != 'all':
+            try:
+                # 연결된 주유소 중에서 선택
+                from Cust_User.models import CustomerStationRelation
+                relation = CustomerStationRelation.objects.filter(
+                    customer=self.request.user,
+                    station_id=station_id,
+                    is_active=True
+                ).select_related('station__station_profile').first()
+                
+                if relation:
+                    selected_station = relation.station
+                    print(f"주유노트 페이지 - 선택된 주유소: {selected_station.station_profile.station_name}")
+                else:
+                    print(f"주유노트 페이지 - 주유소 ID {station_id}를 찾을 수 없음")
+                    # 잘못된 주유소 ID인 경우 세션에서 제거
+                    self.request.session.pop('selected_station_id', None)
+                    station_id = 'all'
+            except Exception as e:
+                print(f"주유노트 페이지 - 주유소 선택 중 오류: {e}")
+                # 오류 발생 시 세션에서 제거
+                self.request.session.pop('selected_station_id', None)
+                station_id = 'all'
+        
+        # 연결된 주유소 목록
+        from Cust_User.models import CustomerStationRelation
+        context['registered_stations'] = CustomerStationRelation.objects.filter(
+            customer=self.request.user,
+            is_active=True
+        ).select_related('station__station_profile')
+        
+        context['selected_station_id'] = station_id or 'all'
+        context['selected_station'] = selected_station
+
         # year, month GET 파라미터 처리
         now = datetime.now()
         year = self.request.GET.get('year')
@@ -139,20 +258,34 @@ class CustomerRecordsView(LoginRequiredMixin, TemplateView):
         except (TypeError, ValueError):
             month = now.month
 
-        # 해당 월의 방문 기록만 필터링
+        # 해당 월의 방문 기록만 필터링 (주유소별 필터링 적용)
+        visit_filter = {
+            'customer': self.request.user,
+            'visit_date__year': year,
+            'visit_date__month': month
+        }
+        
+        if selected_station:
+            visit_filter['station'] = selected_station
+            print(f"주유노트 조회 - 주유소 필터링: {selected_station.station_profile.station_name}")
+        else:
+            print("주유노트 조회 - 전체 주유소")
+        
         visit_records = CustomerVisitHistory.objects.filter(
-            customer=self.request.user,
-            visit_date__year=year,
-            visit_date__month=month
+            **visit_filter
         ).select_related('station').order_by('-visit_date', '-visit_time')
 
         # 해당 월의 총 주유금액
         from django.db.models import Sum
         monthly_total_amount = visit_records.aggregate(total=Sum('sale_amount'))['total'] or 0
 
-        # 사용자가 기록한 월 목록(최신순)
+        # 사용자가 기록한 월 목록(최신순) - 주유소별 필터링 적용
+        month_filter = {'customer': self.request.user}
+        if selected_station:
+            month_filter['station'] = selected_station
+        
         month_list = CustomerVisitHistory.objects.filter(
-            customer=self.request.user
+            **month_filter
         ).annotate(
             year_val=F('visit_date__year'),
             month_val=F('visit_date__month')
@@ -257,6 +390,23 @@ class CustomerProfileView(LoginRequiredMixin, TemplateView):
                 for rel in relations:
                     rel.is_primary = (str(rel.station.id) == str(primary_station_id))
                     rel.save()
+                
+                # 주거래 주유소가 변경된 경우 로그 추가
+                primary_relation = relations.filter(is_primary=True).first()
+                if primary_relation:
+                    messages.success(request, f'주거래 주유소가 {primary_relation.station.station_profile.station_name}로 변경되었습니다.')
+                else:
+                    messages.success(request, '주거래 주유소가 해제되었습니다.')
+            else:
+                # 주거래 주유소 해제
+                relations = CustomerStationRelation.objects.filter(customer=user, is_active=True)
+                for rel in relations:
+                    if rel.is_primary:
+                        rel.is_primary = False
+                        rel.save()
+                        messages.success(request, '주거래 주유소가 해제되었습니다.')
+                        break
+            
             user.save()
             customer_profile.save()
             messages.success(request, '프로필이 성공적으로 수정되었습니다.')
@@ -378,6 +528,50 @@ def get_customer_groups(request):
             'message': '그룹 목록을 불러오는 중 오류가 발생했습니다.'
         }, status=500)
 
+@csrf_exempt
+@login_required
+def reset_station_selection(request):
+    """주유소 선택 초기화 (주거래 주유소로 리셋)"""
+    if request.user.user_type != 'CUSTOMER':
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from Cust_User.models import CustomerStationRelation
+        
+        # 주거래 주유소 찾기
+        primary_relation = CustomerStationRelation.objects.filter(
+            customer=request.user,
+            is_primary=True,
+            is_active=True
+        ).first()
+        
+        if primary_relation:
+            station_id = str(primary_relation.station.id)
+            request.session['selected_station_id'] = station_id
+            print(f"주유소 선택 초기화 - 주거래 주유소로 설정: {station_id}")
+            return JsonResponse({
+                'status': 'success',
+                'message': '주거래 주유소로 초기화되었습니다.',
+                'station_id': station_id,
+                'station_name': primary_relation.station.station_profile.station_name
+            })
+        else:
+            # 주거래 주유소가 없는 경우 전체로 설정
+            request.session['selected_station_id'] = 'all'
+            print("주유소 선택 초기화 - 전체 주유소로 설정")
+            return JsonResponse({
+                'status': 'success',
+                'message': '전체 주유소로 초기화되었습니다.',
+                'station_id': 'all',
+                'station_name': '전체'
+            })
+            
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': '주유소 선택 초기화 중 오류가 발생했습니다.'
+        }, status=500)
+
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomerCouponsView(LoginRequiredMixin, TemplateView):
     template_name = 'Cust_main/coupons.html'
@@ -391,6 +585,73 @@ class CustomerCouponsView(LoginRequiredMixin, TemplateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        
+        # 주유소 선택 파라미터 처리 (세션 기반)
+        station_id = self.request.GET.get('station_id')
+        
+        # 세션에서 저장된 주유소 선택 확인
+        session_station_id = self.request.session.get('selected_station_id')
+        
+        if station_id:
+            # URL 파라미터로 주유소가 선택된 경우 세션에 저장
+            self.request.session['selected_station_id'] = station_id
+            print(f"쿠폰 페이지 - URL 파라미터로 주유소 선택: {station_id}")
+        elif session_station_id:
+            # 세션에 저장된 주유소가 있는 경우 사용
+            station_id = session_station_id
+            print(f"쿠폰 페이지 - 세션에서 주유소 선택 복원: {station_id}")
+        else:
+            # 기본값: 주거래 주유소 또는 전체
+            from Cust_User.models import CustomerStationRelation
+            primary_relation = CustomerStationRelation.objects.filter(
+                customer=self.request.user,
+                is_primary=True,
+                is_active=True
+            ).first()
+            
+            if primary_relation:
+                station_id = str(primary_relation.station.id)
+                self.request.session['selected_station_id'] = station_id
+                print(f"쿠폰 페이지 - 주거래 주유소를 기본 선택: {station_id}")
+            else:
+                station_id = 'all'
+                self.request.session['selected_station_id'] = station_id
+                print("쿠폰 페이지 - 전체 주유소를 기본 선택")
+        
+        selected_station = None
+        if station_id and station_id != 'all':
+            try:
+                # 연결된 주유소 중에서 선택
+                from Cust_User.models import CustomerStationRelation
+                relation = CustomerStationRelation.objects.filter(
+                    customer=self.request.user,
+                    station_id=station_id,
+                    is_active=True
+                ).select_related('station__station_profile').first()
+                
+                if relation:
+                    selected_station = relation.station
+                    print(f"쿠폰 페이지 - 선택된 주유소: {selected_station.station_profile.station_name}")
+                else:
+                    print(f"쿠폰 페이지 - 주유소 ID {station_id}를 찾을 수 없음")
+                    # 잘못된 주유소 ID인 경우 세션에서 제거
+                    self.request.session.pop('selected_station_id', None)
+                    station_id = 'all'
+            except Exception as e:
+                print(f"쿠폰 페이지 - 주유소 선택 중 오류: {e}")
+                # 오류 발생 시 세션에서 제거
+                self.request.session.pop('selected_station_id', None)
+                station_id = 'all'
+        
+        # 연결된 주유소 목록
+        from Cust_User.models import CustomerStationRelation
+        context['registered_stations'] = CustomerStationRelation.objects.filter(
+            customer=self.request.user,
+            is_active=True
+        ).select_related('station__station_profile')
+        
+        context['selected_station_id'] = station_id or 'all'
+        context['selected_station'] = selected_station
         
         # 임시 쿠폰 데이터 (실제 구현 시에는 데이터베이스에서 가져와야 함)
         # 세차 쿠폰 예시 데이터
@@ -441,18 +702,24 @@ class CustomerCouponsView(LoginRequiredMixin, TemplateView):
             },
         ]
         
-        # 통계 계산
-        total_coupons = len(car_wash_coupon_list) + len(product_coupon_list)
-        car_wash_coupons = len([c for c in car_wash_coupon_list if not c['is_expired'] and not c['is_used']])
-        product_coupons = len([c for c in product_coupon_list if not c['is_expired'] and not c['is_used']])
-        
         # 실제 쿠폰 데이터로 교체
         from Cust_StationApp.models import CustomerCoupon
         
         # 고객의 실제 쿠폰 조회 (사용 완료된 쿠폰 제외)
+        coupon_filter = {
+            'customer': self.request.user,
+            'status__in': ['AVAILABLE', 'EXPIRED']  # 사용 가능하거나 만료된 쿠폰만 표시
+        }
+        
+        # 주유소별 필터링 적용
+        if selected_station:
+            coupon_filter['coupon_template__station'] = selected_station
+            print(f"쿠폰 조회 - 주유소 필터링: {selected_station.station_profile.station_name}")
+        else:
+            print("쿠폰 조회 - 전체 주유소")
+        
         customer_coupons = CustomerCoupon.objects.filter(
-            customer=self.request.user,
-            status__in=['AVAILABLE', 'EXPIRED']  # 사용 가능하거나 만료된 쿠폰만 표시
+            **coupon_filter
         ).select_related('coupon_template', 'coupon_template__coupon_type').order_by('-issued_date')
         
         # 혜택 유형별 분류
@@ -557,6 +824,24 @@ def _get_customer_coupon_count_by_benefit_include_both(user, benefit_type):
         customer=user,
         status='AVAILABLE',
         coupon_template__benefit_type__in=benefit_types
+    ).count()
+
+def _get_customer_coupon_count_by_benefit_include_both_station(user, benefit_type, station):
+    """고객의 특정 주유소에서 특정 혜택 유형 쿠폰 개수 조회 (BOTH 타입 포함, 사용 가능한 것만)"""
+    from Cust_StationApp.models import CustomerCoupon
+    
+    if benefit_type == 'DISCOUNT':
+        benefit_types = ['DISCOUNT', 'BOTH']
+    elif benefit_type == 'PRODUCT':
+        benefit_types = ['PRODUCT', 'BOTH']
+    else:
+        benefit_types = [benefit_type]
+    
+    return CustomerCoupon.objects.filter(
+        customer=user,
+        status='AVAILABLE',
+        coupon_template__benefit_type__in=benefit_types,
+        coupon_template__station=station
     ).count()
 
 @csrf_exempt
