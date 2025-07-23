@@ -412,11 +412,14 @@ def station_management(request):
 
 @login_required
 def station_profile(request):
-    """주유소 프로필 페이지"""
+    """
+    주유소 프로필 페이지 (신규 TID 입력 및 TID 변경 시 데이터 연동)
+    - GET: 프로필 정보 표시
+    - POST: 프로필 정보 수정, TID 변경 시 기존 TID의 모든 데이터 tid를 신규 TID로 일괄 업데이트
+    """
     if not request.user.is_station:
         messages.error(request, '주유소 회원만 접근할 수 있습니다.')
         return redirect('home')
-    
     # 현재 주유소 프로필 가져오기 또는 생성
     try:
         station_profile = request.user.station_profile
@@ -424,7 +427,7 @@ def station_profile(request):
         from Cust_User.models import StationProfile
         station_profile = StationProfile(user=request.user)
         station_profile.save()
-    
+    old_tid = station_profile.tid
     if request.method == 'POST':
         # POST 요청 처리
         station_profile.station_name = request.POST.get('station_name')
@@ -433,15 +436,28 @@ def station_profile(request):
         station_profile.business_number = request.POST.get('business_number')
         station_profile.oil_company_code = request.POST.get('oil_company_code')
         station_profile.agency_code = request.POST.get('agency_code')
-        station_profile.tid = request.POST.get('tid')
-        
+        new_tid = request.POST.get('tid')
+        tid_changed = old_tid and new_tid and old_tid != new_tid
+        station_profile.tid = new_tid
         try:
             station_profile.save()
-            messages.success(request, '주유소 정보가 성공적으로 업데이트되었습니다.')
+            # TID가 변경된 경우 기존 TID의 모든 데이터 tid를 신규 TID로 일괄 업데이트
+            if tid_changed:
+                from django.db import transaction
+                from .models import StationCardMapping, SalesData, ExcelSalesData, SalesStatistics, MonthlySalesStatistics
+                from Cust_UserApp.models import CustomerVisitHistory
+                with transaction.atomic():
+                    StationCardMapping.objects.filter(tid=old_tid).update(tid=new_tid)
+                    ExcelSalesData.objects.filter(tid=old_tid).update(tid=new_tid)
+                    SalesStatistics.objects.filter(tid=old_tid).update(tid=new_tid)
+                    MonthlySalesStatistics.objects.filter(tid=old_tid).update(tid=new_tid)
+                    CustomerVisitHistory.objects.filter(tid=old_tid).update(tid=new_tid)
+                messages.success(request, f'TID가 {old_tid} → {new_tid}로 변경되었고, 기존 데이터가 모두 연동되었습니다.')
+            else:
+                messages.success(request, '주유소 정보가 성공적으로 업데이트되었습니다.')
             return redirect('station:profile')
         except Exception as e:
             messages.error(request, f'정보 업데이트 중 오류가 발생했습니다: {str(e)}')
-    
     # GET 요청 처리
     context = {
         'station_name': station_profile.station_name,
@@ -452,7 +468,6 @@ def station_profile(request):
         'agency_code': station_profile.agency_code,
         'tid': station_profile.tid,
     }
-    
     return render(request, 'Cust_Station/station_profile.html', context)
 
 @login_required
@@ -1208,22 +1223,34 @@ def station_couponmanage(request):
         issued_date__date__gte=week_start
     ).count()
     
-    # 전체 발행 쿠폰 리스트 (최대 100개, 최신순)
+    # 전체 발행 쿠폰 리스트 (최대 100개, 최신순) - 고객 프로필 정보 포함
     all_coupons = CustomerCoupon.objects.filter(
         coupon_template__station=request.user
-    ).select_related('coupon_template', 'customer').order_by('-issued_date')[:100]
+    ).select_related(
+        'coupon_template', 
+        'customer',
+        'customer__customer_profile'
+    ).order_by('-issued_date')[:100]
 
-    # 사용된 쿠폰 리스트 (최대 100개)
+    # 사용된 쿠폰 리스트 (최대 100개) - 고객 프로필 정보 포함
     used_coupons_list = CustomerCoupon.objects.filter(
         coupon_template__station=request.user,
         status='USED'
-    ).select_related('coupon_template', 'customer').order_by('-used_date', '-issued_date')[:100]
+    ).select_related(
+        'coupon_template', 
+        'customer',
+        'customer__customer_profile'
+    ).order_by('-used_date', '-issued_date')[:100]
 
-    # 미사용 쿠폰 리스트 (최대 100개)
+    # 미사용 쿠폰 리스트 (최대 100개) - 고객 프로필 정보 포함
     unused_coupons_list = CustomerCoupon.objects.filter(
         coupon_template__station=request.user,
         status='AVAILABLE'
-    ).select_related('coupon_template', 'customer').order_by('-issued_date')[:100]
+    ).select_related(
+        'coupon_template', 
+        'customer',
+        'customer__customer_profile'
+    ).order_by('-issued_date')[:100]
     
     context = {
         'station_name': request.user.username,
@@ -3622,14 +3649,22 @@ def search_cards_by_number_partial(request):
 @require_GET
 @login_required
 def api_visit_history(request):
+    """
+    [고객 방문 이력 조회 API]
+    - GET 파라미터: customer_id
+    - 해당 고객의 방문 이력(날짜, 시간, 금액, 유종 등) 리스트 반환
+    - 오류 시 JSON 에러 반환
+    """
     from Cust_UserApp.models import CustomerVisitHistory  # import 누락 방지
     import logging
     logger = logging.getLogger(__name__)
     customer_id = request.GET.get('customer_id')
     logger.info(f"[api_visit_history] customer_id: {customer_id}")
+    # 주유소 회원만 접근 가능
     if not request.user.is_station:
         logger.warning("[api_visit_history] 비회원 주유소 접근")
         return JsonResponse({'error': '주유소 회원만 접근할 수 있습니다.'}, status=403)
+    # 필수 파라미터 체크
     if not customer_id:
         logger.warning("[api_visit_history] 고객 ID 없음")
         return JsonResponse({'error': '고객 ID가 필요합니다.'}, status=400)
@@ -3640,6 +3675,7 @@ def api_visit_history(request):
     except CustomUser.DoesNotExist:
         logger.warning(f"[api_visit_history] 고객({customer_id}) 없음")
         return JsonResponse({'error': '고객을 찾을 수 없습니다.'}, status=404)
+    # 방문 이력 쿼리 (해당 주유소 기준)
     visits = CustomerVisitHistory.objects.filter(
         customer=customer,
         station=request.user
