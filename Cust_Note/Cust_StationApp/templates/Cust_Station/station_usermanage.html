@@ -774,6 +774,22 @@
                         </div>
                     </div>
 
+                    <!-- 차량 번호 입력 그룹 (선택사항) -->
+                    <div class="mb-4">
+                        <label class="h6 mb-3">차량 번호 <span class="text-muted">(선택사항)</span></label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <div class="bg-light rounded p-2" style="width: 45px; height: 45px;">
+                                <i class="fas fa-car"></i>
+                            </div>
+                            <input type="text" class="form-control flex-grow-1" id="car_number" name="car_number" 
+                                   style="height: 45px;"
+                                   placeholder="차량번호 (예: 12가3456)" maxlength="20">
+                        </div>
+                        <div class="form-text text-muted mt-2">
+                            <i class="fas fa-info-circle me-1"></i>차량 번호를 입력하면 고객 정보에 저장됩니다 (선택사항)
+                        </div>
+                    </div>
+
                     <!-- 고객 그룹 선택 (비활성화) -->
                     <!-- 
                     <div class="mb-4">
@@ -1541,12 +1557,14 @@ function registerCustomer(e) {
     
     const phone = document.getElementById('phone').value;
     const cardNumber = document.getElementById('card_number').value;
+    const carNumber = document.getElementById('car_number').value.trim();
     // const group = document.getElementById('customer_group').value; // 그룹 기능 비활성화
     
     // 로깅 추가
     console.log('[DEBUG] 고객 등록 시도');
     console.log('[DEBUG] 전화번호:', phone);
     console.log('[DEBUG] 카드번호:', cardNumber);
+    console.log('[DEBUG] 차량번호:', carNumber);
     // console.log('[DEBUG] 그룹:', group); // 그룹 기능 비활성화
     
     // 전화번호 유효성 검사
@@ -1598,7 +1616,8 @@ function registerCustomer(e) {
     
     const data = {
         phone: cleanPhone,
-        card_number: cardNumber
+        card_number: cardNumber,
+        car_number: carNumber
         // group: group // 그룹 기능 비활성화
     };
     
@@ -1634,6 +1653,7 @@ function registerCustomer(e) {
             // 입력 필드 초기화
             document.getElementById('phone').value = '';
             document.getElementById('card_number').value = '';
+            document.getElementById('car_number').value = '';
             document.getElementById('phoneCheckResult').innerHTML = '';
             document.getElementById('phoneCheckResult').style.display = 'none';
             
@@ -1676,7 +1696,7 @@ function showToast(type, message) {
         const container = document.createElement('div');
         container.id = 'toastContainer';
         container.style.position = 'fixed';
-        container.style.top = '1rem';
+        container.style.top = '80px';  // 네브바 높이(약 60px) + 여백(20px)
         container.style.right = '1rem';
         container.style.zIndex = '1060';
         document.body.appendChild(container);
@@ -2254,6 +2274,7 @@ function createUnregisteredCustomerCard(customer) {
                         <div class="flex-grow-1">
                             <h6 class="mb-0">${maskPhoneNumber(customer.phone)}</h6>
                             <small class="text-muted">카드: ${customer.card_number || '-'}</small>
+                            ${customer.car_number ? `<br><small class="text-muted">차량: ${customer.car_number}</small>` : ''}
                         </div>
                     </div>
                     <div class="d-flex align-items-center ms-3 flex-shrink-0">

@@ -653,9 +653,9 @@ class GroupAdmin(admin.ModelAdmin):
 
 @admin.register(PhoneCardMapping)
 class PhoneCardMappingAdmin(admin.ModelAdmin):
-    list_display = ('phone_number', 'membership_card', 'station', 'is_used', 'linked_user', 'created_at')
+    list_display = ('phone_number', 'membership_card', 'station', 'car_number_display', 'is_used', 'linked_user', 'created_at')
     list_filter = ('is_used', 'created_at', 'station')
-    search_fields = ('phone_number', 'membership_card__number', 'station__username', 'linked_user__username')
+    search_fields = ('phone_number', 'membership_card__number', 'station__username', 'linked_user__username', 'car_number')
     readonly_fields = ('created_at', 'updated_at')
     raw_id_fields = ('membership_card', 'station', 'linked_user')
     list_per_page = 50
@@ -663,6 +663,9 @@ class PhoneCardMappingAdmin(admin.ModelAdmin):
     fieldsets = (
         ('기본 정보', {
             'fields': ('phone_number', 'membership_card', 'station')
+        }),
+        ('고객 정보', {
+            'fields': ('car_number',)
         }),
         ('연동 정보', {
             'fields': ('is_used', 'linked_user')
@@ -682,6 +685,12 @@ class PhoneCardMappingAdmin(admin.ModelAdmin):
         if obj and obj.is_used:  # 이미 연동된 경우
             return self.readonly_fields + ('phone_number', 'membership_card', 'station')
         return self.readonly_fields
+    
+    def car_number_display(self, obj):
+        """차량번호 표시 (비어있으면 '-' 표시)"""
+        return obj.car_number if obj.car_number else '-'
+    car_number_display.short_description = '차량번호'
+    car_number_display.admin_order_field = 'car_number'
     
     actions = ['unlink_users', 'bulk_delete_unused']
     

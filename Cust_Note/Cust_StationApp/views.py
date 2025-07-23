@@ -643,6 +643,7 @@ def station_usermanage(request):
             'id': f"unreg_{mapping.id}",  # 고유 ID 생성
             'phone': mapping.phone_number,
             'card_number': mapping.membership_card.full_number,
+            'car_number': mapping.car_number,  # 차량 번호 추가
             'last_visit': None,
             'total_visit_count': 0,
             'total_fuel_amount': 0,
@@ -1749,8 +1750,9 @@ def register_customer(request):
             
             phone = data.get('phone', '').strip()
             card_number = data.get('card_number', '').strip()
+            car_number = data.get('car_number', '').strip()
             
-            logger.info(f"입력값 확인 - 전화번호: {phone}, 카드번호: {card_number}")
+            logger.info(f"입력값 확인 - 전화번호: {phone}, 카드번호: {card_number}, 차량번호: {car_number}")
             
             # 입력값 검증
             if not phone or not card_number:
@@ -1782,18 +1784,37 @@ def register_customer(request):
                 with transaction.atomic():
                     # 1. 카드 확인 (기존 등록된 카드만 사용)
                     try:
-                        card_mapping = StationCardMapping.objects.select_for_update().select_related('card').get(
+                        # 중복 데이터가 있을 수 있으므로 first() 사용
+                        card_mapping = StationCardMapping.objects.select_for_update().select_related('card').filter(
                             card__number=card_number,
                             is_active=True
-                        )
+                        ).first()
+                        
+                        if not card_mapping:
+                            logger.warning(f"미등록 카드 - 카드번호: {card_number}")
+                            return JsonResponse({
+                                'status': 'error',
+                                'message': '등록되지 않은 카드번호입니다.'
+                            }, status=400)
+                        
                         card = card_mapping.card
-                        logger.info(f"기존 카드 발견: {card_number}")
-                    except StationCardMapping.DoesNotExist:
-                        logger.warning(f"미등록 카드 - 카드번호: {card_number}")
+                        logger.info(f"기존 카드 발견: {card_number} (매핑 ID: {card_mapping.id})")
+                        
+                        # 중복 데이터가 있는지 확인
+                        duplicate_count = StationCardMapping.objects.filter(
+                            card__number=card_number,
+                            is_active=True
+                        ).count()
+                        
+                        if duplicate_count > 1:
+                            logger.warning(f"중복 카드 매핑 발견 - 카드번호: {card_number}, 개수: {duplicate_count}")
+                            
+                    except Exception as e:
+                        logger.error(f"카드 조회 중 오류: {str(e)}", exc_info=True)
                         return JsonResponse({
                             'status': 'error',
-                            'message': '등록되지 않은 카드번호입니다.'
-                        }, status=400)
+                            'message': '카드 조회 중 오류가 발생했습니다.'
+                        }, status=500)
                     
                     if card.is_used:
                         logger.warning(f"이미 사용 중인 카드 사용 시도: {card_number}")
@@ -1831,22 +1852,45 @@ def register_customer(request):
 
                     # 3. 폰번호-카드 연동 생성
                     if not existing_customer:
+                        logger.info("신규 고객 등록 - 미회원 매핑 생성 시작")
                         # 회원가입 고객이 없을 때만 미회원 매핑 생성
-                        phone_card_mapping = PhoneCardMapping.objects.create(
-                            phone_number=phone,
-                            membership_card=card,
-                            station=request.user,
-                            is_used=False
-                        )
-                        logger.info(f"폰번호-카드 연동 생성 완료: {phone} - {card_number}")
+                        # 차량 번호가 빈 문자열이면 None으로 설정
+                        car_number_clean = car_number.strip() if car_number else None
+                        if car_number_clean == '':
+                            car_number_clean = None
+                        logger.info(f"차량 번호 처리 - 원본: '{car_number}', 정리됨: '{car_number_clean}'")
+                            
+                        try:
+                            phone_card_mapping = PhoneCardMapping.objects.create(
+                                phone_number=phone,
+                                membership_card=card,
+                                station=request.user,
+                                car_number=car_number_clean,
+                                is_used=False
+                            )
+                            logger.info(f"폰번호-카드 연동 생성 완료: {phone} - {card_number} (차량번호: {car_number_clean or '없음'})")
+                            logger.info(f"생성된 매핑 ID: {phone_card_mapping.id}")
+                        except Exception as e:
+                            logger.error(f"PhoneCardMapping 생성 중 오류: {str(e)}", exc_info=True)
+                            raise
                     else:
                         # 이미 회원가입 고객이 있으면 미회원 매핑을 생성하지 않음
                         logger.info("이미 회원가입된 고객이므로 미회원 매핑을 생성하지 않음")
 
                     # 4. 기존 고객이 있다면 해당 고객의 프로필에 카드번호 등록
                     if existing_customer:
+                        logger.info("기존 고객 프로필 업데이트 시작")
                         try:
+                            logger.info(f"기존 고객 정보 - 사용자: {existing_customer.user.username}, 기존 차량번호: {existing_customer.car_number or '없음'}")
                             existing_customer.membership_card = card_number
+                            # 차량 번호가 있으면 고객 프로필에 업데이트 (기존 차량번호가 없을 때만)
+                            car_number_clean = car_number.strip() if car_number else None
+                            logger.info(f"차량 번호 처리 - 원본: '{car_number}', 정리됨: '{car_number_clean}'")
+                            if car_number_clean and car_number_clean != '' and not existing_customer.car_number:
+                                existing_customer.car_number = car_number_clean
+                                logger.info(f"기존 고객 프로필에 차량번호 추가: {existing_customer.user.username} - {car_number_clean}")
+                            else:
+                                logger.info(f"차량 번호 업데이트 건너뜀 - 조건 불충족")
                             existing_customer.save()
                             logger.info(f"기존 고객 프로필에 카드번호 등록 완료: {existing_customer.user.username} - {card_number}")
                             
@@ -1880,36 +1924,52 @@ def register_customer(request):
                     # 응답 메시지 결정
                     if existing_customer:
                         message = f'폰번호와 멤버십카드가 성공적으로 연동되었습니다. 기존 고객 "{existing_customer.user.username}"님의 프로필에 카드가 등록되었습니다.'
+                        logger.info(f"기존 고객 연동 완료 - 사용자: {existing_customer.user.username}")
                     else:
                         message = '폰번호와 멤버십카드가 성공적으로 연동되었습니다. 고객이 회원가입 시 자동으로 연동됩니다.'
+                        logger.info("신규 고객 등록 완료 - 미회원 매핑 생성됨")
                     
                     logger.info("=== 고객 등록 프로세스 완료 ===")
+                    logger.info(f"최종 응답 메시지: {message}")
                     return JsonResponse({
                         'status': 'success',
                         'message': message
                     })
                     
             except IntegrityError as e:
-                logger.error(f"데이터베이스 무결성 오류: {str(e)}", exc_info=True)
+                logger.error("=== 데이터베이스 무결성 오류 발생 ===")
+                logger.error(f"오류 내용: {str(e)}")
+                logger.error(f"입력 데이터 - 전화번호: {phone}, 카드번호: {card_number}, 차량번호: {car_number}")
+                logger.error("스택 트레이스:", exc_info=True)
                 return JsonResponse({
                     'status': 'error',
                     'message': '고객 등록 중 무결성 오류가 발생했습니다. 이미 등록된 정보일 수 있습니다.'
                 }, status=400)
             except Exception as e:
-                logger.error(f"데이터베이스 처리 중 오류: {str(e)}", exc_info=True)
+                logger.error("=== 데이터베이스 처리 중 예상치 못한 오류 발생 ===")
+                logger.error(f"오류 내용: {str(e)}")
+                logger.error(f"입력 데이터 - 전화번호: {phone}, 카드번호: {card_number}, 차량번호: {car_number}")
+                logger.error("스택 트레이스:", exc_info=True)
                 return JsonResponse({
                     'status': 'error',
                     'message': '고객 등록 중 오류가 발생했습니다.'
                 }, status=500)
                 
         except json.JSONDecodeError as e:
-            logger.error(f"JSON 파싱 오류: {str(e)}", exc_info=True)
+            logger.error("=== JSON 파싱 오류 발생 ===")
+            logger.error(f"오류 내용: {str(e)}")
+            logger.error(f"요청 본문: {request.body}")
+            logger.error("스택 트레이스:", exc_info=True)
             return JsonResponse({
                 'status': 'error',
                 'message': '잘못된 요청 형식입니다.'
             }, status=400)
         except Exception as e:
-            logger.error(f"예상치 못한 오류: {str(e)}", exc_info=True)
+            logger.error("=== 예상치 못한 오류 발생 ===")
+            logger.error(f"오류 내용: {str(e)}")
+            logger.error(f"요청 메서드: {request.method}")
+            logger.error(f"요청 사용자: {request.user.username}")
+            logger.error("스택 트레이스:", exc_info=True)
             return JsonResponse({
                 'status': 'error',
                 'message': '서버 오류가 발생했습니다.'

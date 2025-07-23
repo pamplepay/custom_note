@@ -217,6 +217,13 @@ class PhoneCardMapping(models.Model):
         related_name='phone_card_mappings',
         limit_choices_to={'user_type': 'CUSTOMER'}
     )
+    car_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name='차량 번호',
+        help_text='고객의 차량 번호 (선택사항)'
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='등록일시')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일시')
 
@@ -233,7 +240,8 @@ class PhoneCardMapping(models.Model):
 
     def __str__(self):
         status = "연동됨" if self.is_used else "미연동"
-        return f"{self.phone_number} - {self.membership_card.full_number} ({status})"
+        car_info = f" - {self.car_number}" if self.car_number else ""
+        return f"{self.phone_number} - {self.membership_card.full_number}{car_info} ({status})"
 
     def clean(self):
         """데이터 검증"""
@@ -242,6 +250,12 @@ class PhoneCardMapping(models.Model):
         # 폰번호 형식 정리 (하이픈 제거)
         if self.phone_number:
             self.phone_number = self.phone_number.replace('-', '').replace(' ', '')
+        
+        # 차량 번호 정리 (빈 문자열이면 None으로 설정)
+        if self.car_number:
+            self.car_number = self.car_number.strip()
+            if self.car_number == '':
+                self.car_number = None
         
         # 같은 폰번호와 카드 조합이 이미 존재하는지 확인 (중복 등록 방지)
         existing_mapping = PhoneCardMapping.objects.filter(
@@ -313,6 +327,11 @@ class PhoneCardMapping(models.Model):
                     user.customer_profile.membership_card = f"{current_cards},{self.membership_card.full_number}"
             else:
                 user.customer_profile.membership_card = self.membership_card.full_number
+            
+            # 차량 번호가 있으면 고객 프로필에 복사 (기존 차량번호가 없을 때만)
+            if self.car_number and not user.customer_profile.car_number:
+                user.customer_profile.car_number = self.car_number
+            
             user.customer_profile.save()
         
         # 주유소와 고객 관계 생성
