@@ -1479,11 +1479,13 @@ def get_coupon_templates(request):
 @login_required
 @require_http_methods(["POST"])
 def send_coupon(request):
-    """쿠폰 발행"""
+    """수동 쿠폰 발행 (개선된 버전)"""
     if not request.user.is_station:
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
     
     try:
+        from .models import StationCouponQuota
+        
         template_id = request.POST.get('coupon_template_id')
         customer_ids = request.POST.getlist('customer_ids')
         target_type = request.POST.get('target_type')  # all, group, individual
@@ -1500,6 +1502,10 @@ def send_coupon(request):
         
         if not template.is_valid_today():
             return JsonResponse({'status': 'error', 'message': '유효하지 않은 쿠폰입니다.'})
+        
+        # 회원가입 쿠폰 수동 발행 차단
+        if template.coupon_type.type_code == 'SIGNUP':
+            return JsonResponse({'status': 'error', 'message': '회원가입 쿠폰은 수동으로 발행할 수 없습니다.'})
         
         # 발행 대상 고객 확인
         customers = []
@@ -1535,15 +1541,34 @@ def send_coupon(request):
         if not customers.exists():
             return JsonResponse({'status': 'error', 'message': '발행할 고객이 없습니다.'})
         
+        customer_count = customers.count()
+        
+        # 쿠폰 수량 체크 (자동 쿠폰 제외)
+        if template.coupon_type.type_code not in ['SIGNUP', 'CUMULATIVE', 'MONTHLY']:
+            quota = StationCouponQuota.objects.filter(station=request.user).first()
+            if not quota or not quota.can_issue_coupons(customer_count):
+                available_count = quota.remaining_quota if quota else 0
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': f'쿠폰 수량이 부족합니다. (요청: {customer_count}개, 잔여: {available_count}개)'
+                })
+        
         # 쿠폰 발행
         issued_count = 0
-        for customer in customers:
-            CustomerCoupon.objects.create(
-                customer=customer,
-                coupon_template=template,
-                status='AVAILABLE'
-            )
-            issued_count += 1
+        with transaction.atomic():
+            for customer in customers:
+                CustomerCoupon.objects.create(
+                    customer=customer,
+                    coupon_template=template,
+                    status='AVAILABLE'
+                )
+                issued_count += 1
+            
+            # 수동 쿠폰의 경우 수량 차감
+            if template.coupon_type.type_code not in ['SIGNUP', 'CUMULATIVE', 'MONTHLY']:
+                quota = StationCouponQuota.objects.filter(station=request.user).first()
+                if quota:
+                    quota.use_quota(issued_count)
         
         return JsonResponse({
             'status': 'success',
@@ -3758,3 +3783,1109 @@ def api_visit_history(request):
         })
     logger.info(f"[api_visit_history] records len: {len(records)}")
     return JsonResponse({'records': records})
+
+
+# ========== 자동 쿠폰 관련 API ==========
+
+@login_required
+@require_http_methods(["POST"])
+def configure_auto_coupons(request):
+    """자동 쿠폰 설정"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        coupon_type = request.POST.get('coupon_type')
+        
+        if coupon_type == 'signup':
+            return configure_signup_coupon(request)
+        elif coupon_type == 'cumulative':
+            return configure_cumulative_coupon(request)
+        elif coupon_type == 'monthly':
+            return configure_monthly_coupon(request)
+        else:
+            return JsonResponse({'status': 'error', 'message': '유효하지 않은 쿠폰 유형입니다.'})
+            
+    except Exception as e:
+        logger.error(f"자동 쿠폰 설정 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '설정 중 오류가 발생했습니다.'})
+
+
+def configure_signup_coupon(request):
+    """회원가입 쿠폰 설정"""
+    from .models import CouponType, CouponTemplate
+    from datetime import datetime
+    
+    enabled = request.POST.get('enabled') == 'true'
+    coupon_name = request.POST.get('coupon_name')
+    benefit_type = request.POST.get('benefit_type')
+    discount_amount = request.POST.get('discount_amount')
+    product_name = request.POST.get('product_name')
+    description = request.POST.get('description')
+    is_permanent = request.POST.get('is_permanent') == 'true'
+    valid_from = request.POST.get('valid_from')
+    valid_until = request.POST.get('valid_until')
+    
+    # 날짜 변환
+    valid_from_date = None
+    valid_until_date = None
+    if not is_permanent:
+        if valid_from:
+            try:
+                valid_from_date = datetime.strptime(valid_from, '%Y-%m-%d').date()
+            except ValueError:
+                valid_from_date = None
+        if valid_until:
+            try:
+                valid_until_date = datetime.strptime(valid_until, '%Y-%m-%d').date()
+            except ValueError:
+                valid_until_date = None
+    
+    if enabled and not all([coupon_name, benefit_type]):
+        return JsonResponse({'status': 'error', 'message': '필수 정보를 모두 입력해주세요.'})
+    
+    # 회원가입 쿠폰 유형 확인/생성
+    signup_type, created = CouponType.objects.get_or_create(
+        station=request.user,
+        type_code='SIGNUP',
+        defaults={
+            'type_name': '회원가입',
+            'is_default': True
+        }
+    )
+    
+    if enabled:
+        # 기존 회원가입 쿠폰 템플릿 비활성화
+        CouponTemplate.objects.filter(
+            station=request.user,
+            coupon_type=signup_type,
+            is_active=True
+        ).update(is_active=False)
+        
+        # 새 템플릿 생성 또는 업데이트
+        template, created = CouponTemplate.objects.update_or_create(
+            station=request.user,
+            coupon_type=signup_type,
+            coupon_name=coupon_name,
+            defaults={
+                'benefit_type': benefit_type,
+                'discount_amount': discount_amount if benefit_type in ['DISCOUNT', 'BOTH'] else None,
+                'product_name': product_name if benefit_type in ['PRODUCT', 'BOTH'] else None,
+                'description': description,
+                'is_permanent': is_permanent,
+                'valid_from': valid_from_date,
+                'valid_until': valid_until_date,
+                'is_active': True
+            }
+        )
+    else:
+        # 모든 회원가입 쿠폰 템플릿 비활성화
+        CouponTemplate.objects.filter(
+            station=request.user,
+            coupon_type=signup_type
+        ).update(is_active=False)
+    
+    return JsonResponse({
+        'status': 'success',
+        'message': f'회원가입 쿠폰이 {"활성화" if enabled else "비활성화"}되었습니다.'
+    })
+
+
+def configure_cumulative_coupon(request):
+    """누적매출 쿠폰 설정"""
+    from .models import CouponType, CouponTemplate, CumulativeSalesTracker
+    from datetime import datetime
+    
+    enabled = request.POST.get('enabled') == 'true'
+    coupon_name = request.POST.get('coupon_name')
+    benefit_type = request.POST.get('benefit_type')
+    discount_amount = request.POST.get('discount_amount')
+    product_name = request.POST.get('product_name')
+    description = request.POST.get('description')
+    threshold_amount = request.POST.get('threshold_amount')
+    is_permanent = request.POST.get('is_permanent') == 'true'
+    valid_from = request.POST.get('valid_from')
+    valid_until = request.POST.get('valid_until')
+    
+    # 날짜 변환
+    valid_from_date = None
+    valid_until_date = None
+    if not is_permanent:
+        if valid_from:
+            try:
+                valid_from_date = datetime.strptime(valid_from, '%Y-%m-%d').date()
+            except ValueError:
+                valid_from_date = None
+        if valid_until:
+            try:
+                valid_until_date = datetime.strptime(valid_until, '%Y-%m-%d').date()
+            except ValueError:
+                valid_until_date = None
+    
+    if enabled:
+        if not all([coupon_name, benefit_type]):
+            return JsonResponse({'status': 'error', 'message': '필수 정보를 모두 입력해주세요.'})
+        if not threshold_amount or int(threshold_amount) <= 0:
+            return JsonResponse({'status': 'error', 'message': '유효한 임계값을 입력해주세요.'})
+    
+    # 누적매출 쿠폰 유형 확인/생성
+    cumulative_type, created = CouponType.objects.get_or_create(
+        station=request.user,
+        type_code='CUMULATIVE',
+        defaults={
+            'type_name': '누적매출',
+            'is_default': True
+        }
+    )
+    
+    if enabled:
+        # 기존 누적매출 쿠폰 템플릿 비활성화
+        CouponTemplate.objects.filter(
+            station=request.user,
+            coupon_type=cumulative_type,
+            is_active=True
+        ).update(is_active=False)
+        
+        # 새 템플릿 생성 또는 업데이트
+        template, created = CouponTemplate.objects.update_or_create(
+            station=request.user,
+            coupon_type=cumulative_type,
+            coupon_name=coupon_name,
+            defaults={
+                'benefit_type': benefit_type,
+                'discount_amount': discount_amount if benefit_type in ['DISCOUNT', 'BOTH'] else None,
+                'product_name': product_name if benefit_type in ['PRODUCT', 'BOTH'] else None,
+                'description': description,
+                'is_permanent': is_permanent,
+                'valid_from': valid_from_date,
+                'valid_until': valid_until_date,
+                'is_active': True
+            }
+        )
+        
+        # 기존 추적기들의 임계값 업데이트
+        CumulativeSalesTracker.objects.filter(
+            station=request.user
+        ).update(threshold_amount=threshold_amount)
+        
+    else:
+        # 모든 누적매출 쿠폰 템플릿 비활성화
+        CouponTemplate.objects.filter(
+            station=request.user,
+            coupon_type=cumulative_type
+        ).update(is_active=False)
+    
+    return JsonResponse({
+        'status': 'success',
+        'message': f'누적매출 쿠폰이 {"활성화" if enabled else "비활성화"}되었습니다.'
+    })
+
+
+def configure_monthly_coupon(request):
+    """전월매출 쿠폰 설정"""
+    from .models import CouponType, CouponTemplate
+    from datetime import datetime
+    
+    enabled = request.POST.get('enabled') == 'true'
+    coupon_name = request.POST.get('coupon_name')
+    benefit_type = request.POST.get('benefit_type')
+    discount_amount = request.POST.get('discount_amount')
+    product_name = request.POST.get('product_name')
+    description = request.POST.get('description')
+    threshold_amount = request.POST.get('threshold_amount')
+    is_permanent = request.POST.get('is_permanent') == 'true'
+    valid_from = request.POST.get('valid_from')
+    valid_until = request.POST.get('valid_until')
+    
+    # 날짜 변환
+    valid_from_date = None
+    valid_until_date = None
+    if not is_permanent:
+        if valid_from:
+            try:
+                valid_from_date = datetime.strptime(valid_from, '%Y-%m-%d').date()
+            except ValueError:
+                valid_from_date = None
+        if valid_until:
+            try:
+                valid_until_date = datetime.strptime(valid_until, '%Y-%m-%d').date()
+            except ValueError:
+                valid_until_date = None
+    
+    if enabled:
+        if not all([coupon_name, benefit_type]):
+            return JsonResponse({'status': 'error', 'message': '필수 정보를 모두 입력해주세요.'})
+        if not threshold_amount or int(threshold_amount) <= 0:
+            return JsonResponse({'status': 'error', 'message': '유효한 기준 금액을 입력해주세요.'})
+    
+    # 전월매출 쿠폰 유형 확인/생성
+    monthly_type, created = CouponType.objects.get_or_create(
+        station=request.user,
+        type_code='MONTHLY',
+        defaults={
+            'type_name': '전월매출',
+            'is_default': True
+        }
+    )
+    
+    if enabled:
+        # 기존 전월매출 쿠폰 템플릿 비활성화
+        CouponTemplate.objects.filter(
+            station=request.user,
+            coupon_type=monthly_type,
+            is_active=True
+        ).update(is_active=False)
+        
+        # 새 템플릿 생성 또는 업데이트
+        template, created = CouponTemplate.objects.update_or_create(
+            station=request.user,
+            coupon_type=monthly_type,
+            coupon_name=coupon_name,
+            defaults={
+                'benefit_type': benefit_type,
+                'discount_amount': discount_amount if benefit_type in ['DISCOUNT', 'BOTH'] else None,
+                'product_name': product_name if benefit_type in ['PRODUCT', 'BOTH'] else None,
+                'description': description,
+                'is_permanent': is_permanent,
+                'valid_from': valid_from_date,
+                'valid_until': valid_until_date,
+                'is_active': True,
+                'extra_data': {'threshold_amount': threshold_amount}  # 임계값 저장
+            }
+        )
+    else:
+        # 모든 전월매출 쿠폰 템플릿 비활성화
+        CouponTemplate.objects.filter(
+            station=request.user,
+            coupon_type=monthly_type
+        ).update(is_active=False)
+    
+    return JsonResponse({
+        'status': 'success',
+        'message': f'전월매출 쿠폰이 {"활성화" if enabled else "비활성화"}되었습니다.'
+    })
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_auto_coupon_status(request):
+    """자동 쿠폰 설정 상태 조회"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import CouponType, CouponTemplate, CumulativeSalesTracker
+        
+        status = {}
+        
+        # 회원가입 쿠폰 상태
+        signup_templates = CouponTemplate.objects.filter(
+            station=request.user,
+            coupon_type__type_code='SIGNUP',
+            is_active=True
+        )
+        signup_template = signup_templates.first()
+        status['signup'] = {
+            'enabled': signup_templates.exists(),
+            'coupon_name': signup_template.coupon_name if signup_template else None,
+            'benefit_type': signup_template.benefit_type if signup_template else None,
+            'discount_amount': signup_template.discount_amount if signup_template else None,
+            'product_name': signup_template.product_name if signup_template else None,
+            'description': signup_template.description if signup_template else None,
+            'is_permanent': signup_template.is_permanent if signup_template else False,
+            'valid_from': signup_template.valid_from.strftime('%Y-%m-%d') if signup_template and signup_template.valid_from else None,
+            'valid_until': signup_template.valid_until.strftime('%Y-%m-%d') if signup_template and signup_template.valid_until else None
+        }
+        
+        # 누적매출 쿠폰 상태
+        cumulative_templates = CouponTemplate.objects.filter(
+            station=request.user,
+            coupon_type__type_code='CUMULATIVE',
+            is_active=True
+        )
+        cumulative_template = cumulative_templates.first()
+        cumulative_tracker = CumulativeSalesTracker.objects.filter(
+            station=request.user
+        ).first()
+        
+        status['cumulative'] = {
+            'enabled': cumulative_templates.exists(),
+            'coupon_name': cumulative_template.coupon_name if cumulative_template else None,
+            'benefit_type': cumulative_template.benefit_type if cumulative_template else None,
+            'discount_amount': cumulative_template.discount_amount if cumulative_template else None,
+            'product_name': cumulative_template.product_name if cumulative_template else None,
+            'description': cumulative_template.description if cumulative_template else None,
+            'threshold_amount': float(cumulative_tracker.threshold_amount) if cumulative_tracker else 50000,
+            'is_permanent': cumulative_template.is_permanent if cumulative_template else False,
+            'valid_from': cumulative_template.valid_from.strftime('%Y-%m-%d') if cumulative_template and cumulative_template.valid_from else None,
+            'valid_until': cumulative_template.valid_until.strftime('%Y-%m-%d') if cumulative_template and cumulative_template.valid_until else None
+        }
+        
+        # 전월매출 쿠폰 상태
+        monthly_templates = CouponTemplate.objects.filter(
+            station=request.user,
+            coupon_type__type_code='MONTHLY',
+            is_active=True
+        )
+        monthly_template = monthly_templates.first()
+        monthly_threshold = None
+        if monthly_template and hasattr(monthly_template, 'extra_data') and monthly_template.extra_data:
+            monthly_threshold = monthly_template.extra_data.get('threshold_amount', 50000)
+        
+        status['monthly'] = {
+            'enabled': monthly_templates.exists(),
+            'coupon_name': monthly_template.coupon_name if monthly_template else None,
+            'benefit_type': monthly_template.benefit_type if monthly_template else None,
+            'discount_amount': monthly_template.discount_amount if monthly_template else None,
+            'product_name': monthly_template.product_name if monthly_template else None,
+            'description': monthly_template.description if monthly_template else None,
+            'threshold_amount': monthly_threshold or 50000,
+            'is_permanent': monthly_template.is_permanent if monthly_template else False,
+            'valid_from': monthly_template.valid_from.strftime('%Y-%m-%d') if monthly_template and monthly_template.valid_from else None,
+            'valid_until': monthly_template.valid_until.strftime('%Y-%m-%d') if monthly_template and monthly_template.valid_until else None
+        }
+        
+        return JsonResponse({'status': 'success', 'data': status})
+        
+    except Exception as e:
+        logger.error(f"자동 쿠폰 상태 조회 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '상태 조회 중 오류가 발생했습니다.'})
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_coupon_types(request):
+    """쿠폰 유형 목록 조회"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import CouponType
+        
+        coupon_types = CouponType.objects.filter(
+            station=request.user
+        ).values('id', 'type_code', 'type_name')
+        
+        return JsonResponse({
+            'status': 'success',
+            'data': list(coupon_types)
+        })
+        
+    except Exception as e:
+        logger.error(f"쿠폰 유형 조회 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '조회 중 오류가 발생했습니다.'})
+
+
+# ========== 쿠폰 구매 요청 관련 API ==========
+
+@login_required
+@require_http_methods(["POST"])
+def request_coupon_purchase(request):
+    """쿠폰 구매 요청"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import CouponPurchaseRequest
+        
+        quantity = request.POST.get('quantity')
+        
+        # 유효성 검증
+        try:
+            quantity = int(quantity)
+        except (ValueError, TypeError):
+            return JsonResponse({'status': 'error', 'message': '유효한 수량을 입력해주세요.'})
+        
+        if quantity <= 0 or quantity > 1000:
+            return JsonResponse({'status': 'error', 'message': '수량은 1~1000개 사이여야 합니다.'})
+        
+        # 중복 요청 체크
+        existing_request = CouponPurchaseRequest.objects.filter(
+            station=request.user,
+            status='PENDING'
+        ).exists()
+        
+        if existing_request:
+            return JsonResponse({'status': 'error', 'message': '이미 처리 중인 구매 요청이 있습니다.'})
+        
+        # 구매 요청 생성
+        purchase_request = CouponPurchaseRequest.objects.create(
+            station=request.user,
+            requested_quantity=quantity
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'{quantity}개 쿠폰 구매 요청이 접수되었습니다.',
+            'request_id': purchase_request.id
+        })
+        
+    except Exception as e:
+        logger.error(f"쿠폰 구매 요청 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '구매 요청 중 오류가 발생했습니다.'})
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_purchase_request_status(request):
+    """쿠폰 구매 요청 상태 조회"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import CouponPurchaseRequest, StationCouponQuota
+        
+        # 최근 구매 요청들
+        requests = CouponPurchaseRequest.objects.filter(
+            station=request.user
+        ).order_by('-requested_at')[:10]
+        
+        request_list = []
+        for req in requests:
+            request_list.append({
+                'id': req.id,
+                'quantity': req.requested_quantity,
+                'status': req.get_status_display(),
+                'status_code': req.status,
+                'requested_at': req.requested_at.strftime('%Y-%m-%d %H:%M'),
+                'processed_at': req.processed_at.strftime('%Y-%m-%d %H:%M') if req.processed_at else None,
+                'notes': req.notes or ''
+            })
+        
+        # 현재 쿠폰 수량 정보
+        quota = StationCouponQuota.objects.filter(station=request.user).first()
+        quota_info = {
+            'total_quota': quota.total_quota if quota else 0,
+            'used_quota': quota.used_quota if quota else 0,
+            'remaining_quota': quota.remaining_quota if quota else 0
+        }
+        
+        return JsonResponse({
+            'status': 'success',
+            'data': {
+                'requests': request_list,
+                'quota': quota_info
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"쿠폰 구매 요청 상태 조회 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '상태 조회 중 오류가 발생했습니다.'})
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_coupon_statistics(request):
+    """쿠폰 관리 통계 조회 API"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from django.db.models import Count, Sum, Q, Avg
+        from django.utils import timezone
+        from datetime import datetime, timedelta
+        from .models import (
+            CouponTemplate, CustomerCoupon, StationCouponQuota, 
+            CouponPurchaseRequest, CumulativeSalesTracker
+        )
+        
+        now = timezone.now()
+        current_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        last_month = (current_month - timedelta(days=1)).replace(day=1)
+        
+        # 1. 기본 쿠폰 통계
+        templates = CouponTemplate.objects.filter(station=request.user)
+        total_templates = templates.count()
+        active_templates = templates.filter(is_active=True).count()
+        
+        # 2. 발행 및 사용 통계
+        coupons = CustomerCoupon.objects.filter(coupon_template__station=request.user)
+        
+        # 이번달 발행/사용 통계
+        current_month_issued = coupons.filter(
+            issued_date__gte=current_month
+        ).count()
+        
+        current_month_used = coupons.filter(
+            used_date__gte=current_month,
+            status='USED'
+        ).count()
+        
+        # 전체 통계
+        total_issued = coupons.count()
+        total_used = coupons.filter(status='USED').count()
+        total_available = coupons.filter(status='AVAILABLE').count()
+        total_expired = coupons.filter(status='EXPIRED').count()
+        
+        # 사용률 계산
+        usage_rate = (total_used / total_issued * 100) if total_issued > 0 else 0
+        
+        # 3. 쿠폰 타입별 통계
+        type_stats = []
+        for template in templates.filter(is_active=True):
+            template_coupons = coupons.filter(coupon_template=template)
+            issued_count = template_coupons.count()
+            used_count = template_coupons.filter(status='USED').count()
+            
+            type_stats.append({
+                'name': template.coupon_name,
+                'type_code': template.coupon_type.type_code,
+                'issued': issued_count,
+                'used': used_count,
+                'usage_rate': (used_count / issued_count * 100) if issued_count > 0 else 0
+            })
+        
+        # 4. 월별 발행 추이 (최근 6개월)
+        monthly_stats = []
+        for i in range(6):
+            month_start = (current_month - timedelta(days=32*i)).replace(day=1)
+            month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            
+            month_issued = coupons.filter(
+                issued_date__gte=month_start,
+                issued_date__lte=month_end
+            ).count()
+            
+            month_used = coupons.filter(
+                used_date__gte=month_start,
+                used_date__lte=month_end,
+                status='USED'
+            ).count()
+            
+            monthly_stats.append({
+                'month': month_start.strftime('%Y-%m'),
+                'issued': month_issued,
+                'used': month_used
+            })
+        
+        monthly_stats.reverse()  # 시간순으로 정렬
+        
+        # 5. 쿠폰 수량 정보
+        quota = StationCouponQuota.objects.filter(station=request.user).first()
+        quota_info = {
+            'total_quota': quota.total_quota if quota else 0,
+            'used_quota': quota.used_quota if quota else 0,
+            'remaining_quota': quota.remaining_quota if quota else 0,
+            'quota_usage_rate': (quota.used_quota / quota.total_quota * 100) if quota and quota.total_quota > 0 else 0
+        }
+        
+        # 6. 구매 요청 통계
+        purchase_requests = CouponPurchaseRequest.objects.filter(station=request.user)
+        purchase_stats = {
+            'total_requests': purchase_requests.count(),
+            'pending_requests': purchase_requests.filter(status='PENDING').count(),
+            'approved_requests': purchase_requests.filter(status='APPROVED').count(),
+            'rejected_requests': purchase_requests.filter(status='REJECTED').count(),
+        }
+        
+        # 7. 자동 쿠폰 시스템 통계
+        auto_coupon_stats = {
+            'signup_coupons': coupons.filter(
+                coupon_template__coupon_type__type_code='SIGNUP'
+            ).count(),
+            'cumulative_coupons': coupons.filter(
+                coupon_template__coupon_type__type_code='CUMULATIVE'
+            ).count(),
+            'monthly_coupons': coupons.filter(
+                coupon_template__coupon_type__type_code='MONTHLY'
+            ).count(),
+        }
+        
+        # 8. 최근 활동
+        recent_activities = []
+        
+        # 최근 발행된 쿠폰 (5개)
+        recent_issued = coupons.filter(
+            issued_date__gte=now - timedelta(days=7)
+        ).order_by('-issued_date')[:5]
+        
+        for coupon in recent_issued:
+            recent_activities.append({
+                'type': 'issued',
+                'message': f'{coupon.customer.username}에게 {coupon.coupon_template.coupon_name} 발행',
+                'timestamp': coupon.issued_date.strftime('%Y-%m-%d %H:%M')
+            })
+        
+        # 최근 사용된 쿠폰 (5개)
+        recent_used = coupons.filter(
+            used_date__gte=now - timedelta(days=7),
+            status='USED'
+        ).order_by('-used_date')[:5]
+        
+        for coupon in recent_used:
+            recent_activities.append({
+                'type': 'used',
+                'message': f'{coupon.customer.username}이 {coupon.coupon_template.coupon_name} 사용',
+                'timestamp': coupon.used_date.strftime('%Y-%m-%d %H:%M')
+            })
+        
+        # 시간순 정렬
+        recent_activities.sort(key=lambda x: x['timestamp'], reverse=True)
+        recent_activities = recent_activities[:10]  # 최대 10개
+        
+        return JsonResponse({
+            'status': 'success',
+            'data': {
+                'basic_stats': {
+                    'total_templates': total_templates,
+                    'active_templates': active_templates,
+                    'total_issued': total_issued,
+                    'total_used': total_used,
+                    'total_available': total_available,
+                    'total_expired': total_expired,
+                    'usage_rate': round(usage_rate, 1),
+                    'current_month_issued': current_month_issued,
+                    'current_month_used': current_month_used
+                },
+                'type_stats': type_stats,
+                'monthly_stats': monthly_stats,
+                'quota_info': quota_info,
+                'purchase_stats': purchase_stats,
+                'auto_coupon_stats': auto_coupon_stats,
+                'recent_activities': recent_activities
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"쿠폰 통계 조회 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '통계 조회 중 오류가 발생했습니다.'})
+
+
+# ========== 자동 쿠폰 CRUD API ==========
+
+@login_required
+@require_http_methods(["GET"])
+def auto_coupon_list(request):
+    """자동 쿠폰 템플릿 목록 조회"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import AutoCouponTemplate
+        
+        coupon_type = request.GET.get('type')  # SIGNUP, CUMULATIVE, MONTHLY
+        
+        templates = AutoCouponTemplate.objects.filter(station=request.user)
+        
+        if coupon_type:
+            templates = templates.filter(coupon_type=coupon_type)
+        
+        templates = templates.order_by('-created_at')
+        
+        data = []
+        for template in templates:
+            data.append({
+                'id': template.id,
+                'coupon_name': template.coupon_name,
+                'coupon_type': template.coupon_type,
+                'coupon_type_display': template.get_coupon_type_display(),
+                'benefit_type': template.benefit_type,
+                'benefit_type_display': template.get_benefit_type_display(),
+                'benefit_description': template.get_benefit_description(),
+                'discount_amount': float(template.discount_amount),
+                'product_name': template.product_name,
+                'description': template.description,
+                'is_active': template.is_active,
+                'max_issue_count': template.max_issue_count,
+                'issued_count': template.issued_count,
+                'total_issued': template.total_issued,
+                'total_used': template.total_used,
+                'usage_rate': template.get_usage_rate(),
+                'is_permanent': template.is_permanent,
+                'valid_from': template.valid_from.strftime('%Y-%m-%d') if template.valid_from else None,
+                'valid_until': template.valid_until.strftime('%Y-%m-%d') if template.valid_until else None,
+                'condition_data': template.condition_data,
+                'created_at': template.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'updated_at': template.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+            })
+        
+        return JsonResponse({
+            'status': 'success',
+            'data': data,
+            'total_count': len(data)
+        })
+        
+    except Exception as e:
+        logger.error(f"자동 쿠폰 목록 조회 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '목록 조회 중 오류가 발생했습니다.'})
+
+
+@login_required
+@require_http_methods(["POST"])
+def auto_coupon_create(request):
+    """새 자동 쿠폰 템플릿 생성"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import AutoCouponTemplate
+        from datetime import datetime
+        
+        # 필수 필드 확인
+        required_fields = ['coupon_name', 'coupon_type', 'benefit_type']
+        for field in required_fields:
+            if not request.POST.get(field):
+                return JsonResponse({'status': 'error', 'message': f'{field} 필드는 필수입니다.'})
+        
+        coupon_type = request.POST.get('coupon_type')
+        
+        # 유효기간 처리
+        is_permanent = request.POST.get('is_permanent') == 'true'
+        valid_from_date = None
+        valid_until_date = None
+        
+        if not is_permanent:
+            valid_from = request.POST.get('valid_from')
+            valid_until = request.POST.get('valid_until')
+            if valid_from:
+                try:
+                    valid_from_date = datetime.strptime(valid_from, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+            if valid_until:
+                try:
+                    valid_until_date = datetime.strptime(valid_until, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+        
+        # 조건 데이터 처리
+        condition_data = {}
+        if coupon_type in ['CUMULATIVE', 'MONTHLY']:
+            threshold_amount = request.POST.get('threshold_amount')
+            if threshold_amount:
+                try:
+                    condition_data['threshold_amount'] = float(threshold_amount)
+                except ValueError:
+                    pass
+        
+        first_time_only = request.POST.get('first_time_only') == 'true'
+        if first_time_only:
+            condition_data['first_time_only'] = True
+        
+        # 회원가입 쿠폰은 항상 무제한 발행
+        if coupon_type == 'SIGNUP':
+            max_issue_count_int = None
+        else:
+            max_issue_count = request.POST.get('max_issue_count')
+            max_issue_count_int = None
+            if max_issue_count:
+                try:
+                    max_issue_count_int = int(max_issue_count)
+                    if max_issue_count_int <= 0:
+                        max_issue_count_int = None
+                except ValueError:
+                    pass
+        
+        # 템플릿 생성
+        template = AutoCouponTemplate.objects.create(
+            station=request.user,
+            coupon_type=coupon_type,
+            coupon_name=request.POST.get('coupon_name'),
+            description=request.POST.get('description', ''),
+            benefit_type=request.POST.get('benefit_type'),
+            discount_amount=request.POST.get('discount_amount', 0),
+            product_name=request.POST.get('product_name', ''),
+            condition_data=condition_data,
+            max_issue_count=max_issue_count_int,
+            is_permanent=is_permanent,
+            valid_from=valid_from_date,
+            valid_until=valid_until_date,
+            created_by=request.user
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': '자동 쿠폰 템플릿이 생성되었습니다.',
+            'template_id': template.id
+        })
+        
+    except Exception as e:
+        logger.error(f"자동 쿠폰 생성 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '생성 중 오류가 발생했습니다.'})
+
+
+@login_required
+@require_http_methods(["GET"])
+def auto_coupon_detail(request, template_id):
+    """자동 쿠폰 템플릿 상세 조회"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import AutoCouponTemplate
+        
+        template = AutoCouponTemplate.objects.get(
+            id=template_id,
+            station=request.user
+        )
+        
+        data = {
+            'id': template.id,
+            'coupon_name': template.coupon_name,
+            'coupon_type': template.coupon_type,
+            'coupon_type_display': template.get_coupon_type_display(),
+            'benefit_type': template.benefit_type,
+            'benefit_type_display': template.get_benefit_type_display(),
+            'benefit_description': template.get_benefit_description(),
+            'discount_amount': float(template.discount_amount),
+            'product_name': template.product_name,
+            'description': template.description,
+            'is_active': template.is_active,
+            'max_issue_count': template.max_issue_count,
+            'issued_count': template.issued_count,
+            'total_issued': template.total_issued,
+            'total_used': template.total_used,
+            'usage_rate': template.get_usage_rate(),
+            'is_permanent': template.is_permanent,
+            'valid_from': template.valid_from.strftime('%Y-%m-%d') if template.valid_from else None,
+            'valid_until': template.valid_until.strftime('%Y-%m-%d') if template.valid_until else None,
+            'condition_data': template.condition_data,
+            'created_at': template.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'updated_at': template.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'created_by': template.created_by.username if template.created_by else None,
+        }
+        
+        return JsonResponse({
+            'status': 'success',
+            'data': data
+        })
+        
+    except AutoCouponTemplate.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': '템플릿을 찾을 수 없습니다.'}, status=404)
+    except Exception as e:
+        logger.error(f"자동 쿠폰 상세 조회 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '조회 중 오류가 발생했습니다.'})
+
+
+@login_required
+@require_http_methods(["POST", "PUT"])
+def auto_coupon_update(request, template_id):
+    """자동 쿠폰 템플릿 수정"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import AutoCouponTemplate
+        from datetime import datetime
+        
+        template = AutoCouponTemplate.objects.get(
+            id=template_id,
+            station=request.user
+        )
+        
+        # 필수 필드만 체크 (업데이트는 부분 수정 가능)
+        
+        # 기본 정보 업데이트
+        if request.POST.get('coupon_name'):
+            template.coupon_name = request.POST.get('coupon_name')
+        if request.POST.get('description') is not None:
+            template.description = request.POST.get('description')
+        if request.POST.get('benefit_type'):
+            template.benefit_type = request.POST.get('benefit_type')
+        if request.POST.get('discount_amount') is not None:
+            template.discount_amount = request.POST.get('discount_amount', 0)
+        if request.POST.get('product_name') is not None:
+            template.product_name = request.POST.get('product_name', '')
+        
+        # 발행 한도 업데이트 (회원가입 쿠폰은 항상 무제한)
+        if template.coupon_type == 'SIGNUP':
+            template.max_issue_count = None
+        elif 'max_issue_count' in request.POST:
+            max_issue_count = request.POST.get('max_issue_count')
+            if max_issue_count:
+                try:
+                    template.max_issue_count = int(max_issue_count)
+                    if template.max_issue_count <= 0:
+                        template.max_issue_count = None
+                except ValueError:
+                    template.max_issue_count = None
+            else:
+                template.max_issue_count = None
+        
+        # 유효기간 업데이트
+        if 'is_permanent' in request.POST:
+            is_permanent = request.POST.get('is_permanent') == 'true'
+            template.is_permanent = is_permanent
+            
+            if not is_permanent:
+                valid_from = request.POST.get('valid_from')
+                valid_until = request.POST.get('valid_until')
+                if valid_from:
+                    try:
+                        template.valid_from = datetime.strptime(valid_from, '%Y-%m-%d').date()
+                    except ValueError:
+                        pass
+                if valid_until:
+                    try:
+                        template.valid_until = datetime.strptime(valid_until, '%Y-%m-%d').date()
+                    except ValueError:
+                        pass
+            else:
+                template.valid_from = None
+                template.valid_until = None
+        
+        # 조건 데이터 업데이트
+        if 'threshold_amount' in request.POST or 'first_time_only' in request.POST:
+            condition_data = template.condition_data.copy()
+            
+            if 'threshold_amount' in request.POST:
+                threshold_amount = request.POST.get('threshold_amount')
+                if threshold_amount:
+                    try:
+                        condition_data['threshold_amount'] = float(threshold_amount)
+                    except ValueError:
+                        condition_data.pop('threshold_amount', None)
+                else:
+                    condition_data.pop('threshold_amount', None)
+            
+            if 'first_time_only' in request.POST:
+                first_time_only = request.POST.get('first_time_only') == 'true'
+                if first_time_only:
+                    condition_data['first_time_only'] = True
+                else:
+                    condition_data.pop('first_time_only', None)
+            
+            template.condition_data = condition_data
+        
+        template.save()
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': '자동 쿠폰 템플릿이 수정되었습니다.'
+        })
+        
+    except AutoCouponTemplate.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': '템플릿을 찾을 수 없습니다.'}, status=404)
+    except Exception as e:
+        logger.error(f"자동 쿠폰 수정 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '수정 중 오류가 발생했습니다.'})
+
+
+@login_required
+@require_http_methods(["DELETE", "POST"])
+def auto_coupon_delete(request, template_id):
+    """자동 쿠폰 템플릿 삭제"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import AutoCouponTemplate
+        
+        template = AutoCouponTemplate.objects.get(
+            id=template_id,
+            station=request.user
+        )
+        
+        # 발행된 쿠폰이 있는지 확인
+        if template.total_issued > 0:
+            # 발행된 쿠폰이 있으면 비활성화만
+            template.is_active = False
+            template.save()
+            return JsonResponse({
+                'status': 'success',
+                'message': '발행된 쿠폰이 있어 템플릿을 비활성화했습니다.',
+                'action': 'deactivated'
+            })
+        else:
+            # 발행된 쿠폰이 없으면 완전 삭제
+            coupon_name = template.coupon_name
+            template.delete()
+            return JsonResponse({
+                'status': 'success',
+                'message': f'"{coupon_name}" 템플릿이 삭제되었습니다.',
+                'action': 'deleted'
+            })
+        
+    except AutoCouponTemplate.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': '템플릿을 찾을 수 없습니다.'}, status=404)
+    except Exception as e:
+        logger.error(f"자동 쿠폰 삭제 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '삭제 중 오류가 발생했습니다.'})
+
+
+@login_required
+@require_http_methods(["POST"])
+def auto_coupon_toggle(request, template_id):
+    """자동 쿠폰 템플릿 활성/비활성 토글"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import AutoCouponTemplate
+        
+        template = AutoCouponTemplate.objects.get(
+            id=template_id,
+            station=request.user
+        )
+        
+        template.is_active = not template.is_active
+        template.save()
+        
+        status_text = "활성화" if template.is_active else "비활성화"
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'"{template.coupon_name}" 템플릿이 {status_text}되었습니다.',
+            'is_active': template.is_active
+        })
+        
+    except AutoCouponTemplate.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': '템플릿을 찾을 수 없습니다.'}, status=404)
+    except Exception as e:
+        logger.error(f"자동 쿠폰 토글 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '상태 변경 중 오류가 발생했습니다.'})
+
+
+
+@login_required
+@require_http_methods(["GET"])
+def auto_coupon_stats(request, template_id):
+    """자동 쿠폰 템플릿별 상세 통계"""
+    if not request.user.is_station:
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        from .models import AutoCouponTemplate
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        template = AutoCouponTemplate.objects.get(
+            id=template_id,
+            station=request.user
+        )
+        
+        # 기본 통계
+        basic_stats = {
+            'total_issued': template.total_issued,
+            'total_used': template.total_used,
+            'usage_rate': template.get_usage_rate(),
+            'remaining_quota': (template.max_issue_count - template.issued_count) if template.max_issue_count else None,
+            'is_active': template.is_active,
+            'is_valid': template.is_valid_today(),
+        }
+        
+        # 최근 7일 발행 추이 (구현 필요)
+        daily_stats = []
+        
+        # 조건별 통계 (구현 필요)
+        condition_stats = {}
+        
+        return JsonResponse({
+            'status': 'success',
+            'data': {
+                'template_info': {
+                    'id': template.id,
+                        'coupon_type': template.get_coupon_type_display(),
+                    'benefit_description': template.get_benefit_description(),
+                },
+                'basic_stats': basic_stats,
+                'daily_stats': daily_stats,
+                'condition_stats': condition_stats,
+            }
+        })
+        
+    except AutoCouponTemplate.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': '템플릿을 찾을 수 없습니다.'}, status=404)
+    except Exception as e:
+        logger.error(f"자동 쿠폰 통계 조회 오류: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': '통계 조회 중 오류가 발생했습니다.'})

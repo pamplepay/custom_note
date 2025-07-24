@@ -64,9 +64,30 @@ urlpatterns = [
     # 쿠폰 관리 관련 URL
     path('create-coupon-type/', views.create_coupon_type, name='create_coupon_type'),
     path('create-coupon-template/', views.create_coupon_template, name='create_coupon_template'),
+    path('get-coupon-types/', views.get_coupon_types, name='get_coupon_types'),
     path('get-coupon-templates/', views.get_coupon_templates, name='get_coupon_templates'),
     path('send-coupon/', views.send_coupon, name='send_coupon'),
     
     # 방문 기록 AJAX API
     path('api/visit-history/', views.api_visit_history, name='api_visit_history'),
+    
+    # 자동 쿠폰 관련 URL
+    path('auto-coupon/configure/', views.configure_auto_coupons, name='configure_auto_coupons'),
+    path('auto-coupon/status/', views.get_auto_coupon_status, name='auto_coupon_status'),
+    
+    # 쿠폰 구매 요청 관련 URL
+    path('coupon-purchase/request/', views.request_coupon_purchase, name='request_coupon_purchase'),
+    path('coupon-purchase/status/', views.get_purchase_request_status, name='purchase_request_status'),
+    
+    # 쿠폰 통계 관련 URL
+    path('coupon-statistics/', views.get_coupon_statistics, name='coupon_statistics'),
+    
+    # 자동 쿠폰 CRUD API
+    path('auto-coupons/', views.auto_coupon_list, name='auto_coupon_list'),
+    path('auto-coupons/create/', views.auto_coupon_create, name='auto_coupon_create'),
+    path('auto-coupons/<int:template_id>/', views.auto_coupon_detail, name='auto_coupon_detail'),
+    path('auto-coupons/<int:template_id>/update/', views.auto_coupon_update, name='auto_coupon_update'),
+    path('auto-coupons/<int:template_id>/delete/', views.auto_coupon_delete, name='auto_coupon_delete'),
+    path('auto-coupons/<int:template_id>/toggle/', views.auto_coupon_toggle, name='auto_coupon_toggle'),
+    path('auto-coupons/<int:template_id>/stats/', views.auto_coupon_stats, name='auto_coupon_stats'),
 ] 

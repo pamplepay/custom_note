@@ -4,6 +4,8 @@ from django.contrib.auth import get_user_model
 from django.core.validators import RegexValidator
 from Cust_User.models import CustomUser, CustomerStationRelation
 from django.conf import settings
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 import logging
 from datetime import datetime
 
@@ -484,12 +486,14 @@ class MonthlySalesStatistics(models.Model):
 # ========== 쿠폰 시스템 모델들 ==========
 
 class CouponType(models.Model):
-    """쿠폰 유형 모델 - 기본 4개 유형 + 사용자 정의 유형"""
+    """쿠폰 유형 모델 - 기본 6개 유형 + 사용자 정의 유형"""
     BASIC_TYPES = [
         ('SIGNUP', '회원가입'),
         ('CARWASH', '세차'),
         ('PRODUCT', '상품'),
         ('FUEL', '주유'),
+        ('CUMULATIVE', '누적매출'),
+        ('MONTHLY', '전월매출'),
     ]
     
     station = models.ForeignKey(
@@ -727,6 +731,235 @@ class CustomerCoupon(models.Model):
         return True
 
 
+# ========== 새로운 쿠폰 시스템 모델들 ==========
+
+class StationCouponQuota(models.Model):
+    """주유소 쿠폰 수량 관리 모델"""
+    station = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='주유소',
+        limit_choices_to={'user_type': 'STATION'},
+        related_name='coupon_quota'
+    )
+    total_quota = models.IntegerField(default=0, verbose_name='총 쿠폰 수량')
+    used_quota = models.IntegerField(default=0, verbose_name='사용된 수량')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일시')
+    
+    class Meta:
+        verbose_name = '주유소 쿠폰 수량'
+        verbose_name_plural = '11. 주유소 쿠폰 수량 관리'
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"{self.station.username} - 총:{self.total_quota} 사용:{self.used_quota} 잔여:{self.remaining_quota}"
+    
+    @property
+    def remaining_quota(self):
+        """남은 쿠폰 수량"""
+        return max(0, self.total_quota - self.used_quota)
+    
+    def can_issue_coupons(self, count=1):
+        """쿠폰 발행 가능 여부 확인"""
+        return self.remaining_quota >= count
+    
+    def use_quota(self, count=1):
+        """쿠폰 수량 사용"""
+        if not self.can_issue_coupons(count):
+            raise ValueError(f"쿠폰 수량 부족 (요청: {count}, 잔여: {self.remaining_quota})")
+        
+        self.used_quota += count
+        self.save()
+        return True
+
+
+class CumulativeSalesTracker(models.Model):
+    """누적매출 추적 모델"""
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='고객',
+        limit_choices_to={'user_type': 'CUSTOMER'},
+        related_name='cumulative_sales_as_customer'
+    )
+    station = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='주유소',
+        limit_choices_to={'user_type': 'STATION'},
+        related_name='cumulative_sales_as_station'
+    )
+    cumulative_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name='누적 매출액'
+    )
+    threshold_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=50000,
+        verbose_name='쿠폰 발행 임계값'
+    )
+    last_coupon_issued_at = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name='마지막 쿠폰 발행 시점의 누적액'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일시')
+    
+    class Meta:
+        verbose_name = '누적매출 추적'
+        verbose_name_plural = '12. 누적매출 추적 목록'
+        ordering = ['-updated_at']
+        unique_together = ['customer', 'station']
+    
+    def __str__(self):
+        return f"{self.customer.username}@{self.station.username} - 누적:{self.cumulative_amount:,.0f}원"
+    
+    def should_issue_coupon(self):
+        """쿠폰 발행 조건 확인"""
+        if self.cumulative_amount < self.threshold_amount:
+            return False
+        
+        # 마지막 쿠폰 발행 이후 임계값 이상 추가 매출 발생 확인
+        additional_sales = self.cumulative_amount - self.last_coupon_issued_at
+        return additional_sales >= self.threshold_amount
+    
+    def get_coupon_count(self):
+        """발행할 쿠폰 개수 계산"""
+        if not self.should_issue_coupon():
+            return 0
+        
+        additional_sales = self.cumulative_amount - self.last_coupon_issued_at
+        return int(additional_sales // self.threshold_amount)
+
+
+class CouponPurchaseRequest(models.Model):
+    """쿠폰 구매 요청 모델"""
+    STATUS_CHOICES = [
+        ('PENDING', '대기'),
+        ('APPROVED', '승인'),
+        ('REJECTED', '거부'),
+    ]
+    
+    station = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='주유소',
+        limit_choices_to={'user_type': 'STATION'}
+    )
+    requested_quantity = models.IntegerField(verbose_name='요청 수량')
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='PENDING',
+        verbose_name='처리 상태'
+    )
+    requested_at = models.DateTimeField(auto_now_add=True, verbose_name='요청일시')
+    processed_at = models.DateTimeField(null=True, blank=True, verbose_name='처리일시')
+    processed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='processed_coupon_requests',
+        verbose_name='처리자'
+    )
+    notes = models.TextField(blank=True, null=True, verbose_name='비고')
+    
+    class Meta:
+        verbose_name = '쿠폰 구매 요청'
+        verbose_name_plural = '13. 쿠폰 구매 요청 목록'
+        ordering = ['-requested_at']
+    
+    def __str__(self):
+        return f"{self.station.username} - {self.requested_quantity}개 ({self.get_status_display()})"
+    
+    def approve(self, admin_user, notes=None):
+        """구매 요청 승인"""
+        from django.db import transaction
+        from django.utils import timezone
+        
+        if self.status != 'PENDING':
+            raise ValueError("이미 처리된 요청입니다.")
+        
+        with transaction.atomic():
+            # 쿠폰 수량 증가
+            quota, created = StationCouponQuota.objects.get_or_create(
+                station=self.station,
+                defaults={'total_quota': 0, 'used_quota': 0}
+            )
+            quota.total_quota += self.requested_quantity
+            quota.save()
+            
+            # 요청 상태 업데이트
+            self.status = 'APPROVED'
+            self.processed_at = timezone.now()
+            self.processed_by = admin_user
+            if notes:
+                self.notes = notes
+            self.save()
+    
+    def reject(self, admin_user, notes=None):
+        """구매 요청 거부"""
+        from django.utils import timezone
+        
+        if self.status != 'PENDING':
+            raise ValueError("이미 처리된 요청입니다.")
+        
+        self.status = 'REJECTED'
+        self.processed_at = timezone.now()
+        self.processed_by = admin_user
+        if notes:
+            self.notes = notes
+        self.save()
+
+
+class CustomerVisitHistory(models.Model):
+    """고객 방문 기록 모델 (매출 데이터 연동용)"""
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='고객',
+        limit_choices_to={'user_type': 'CUSTOMER'},
+        related_name='visit_history_as_customer'
+    )
+    station = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name='주유소',
+        limit_choices_to={'user_type': 'STATION'},
+        related_name='visit_history_as_station'
+    )
+    visit_date = models.DateTimeField(verbose_name='방문일시')
+    fuel_quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name='주유량'
+    )
+    amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0,
+        verbose_name='결제 금액'
+    )
+    products = models.JSONField(default=list, verbose_name='구매 상품')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시')
+    
+    class Meta:
+        verbose_name = '고객 방문 기록'
+        verbose_name_plural = '14. 고객 방문 기록'
+        ordering = ['-visit_date']
+    
+    def __str__(self):
+        return f"{self.customer.username}@{self.station.username} - {self.visit_date.strftime('%Y-%m-%d')} ({self.amount:,.0f}원)"
+
+
 def auto_issue_signup_coupons(customer, station):
     """회원가입 쿠폰 자동 발행"""
     logger.info(f"=== 회원가입 쿠폰 자동발행 시작 ===")
@@ -770,7 +1003,7 @@ def auto_issue_signup_coupons(customer, station):
             
             logger.info(f"새로운 회원가입 쿠폰 발행 중: {template.coupon_name}")
             
-            # 회원가입 쿠폰 발행
+            # 회원가입 쿠폰 발행 (수량 제한 없음)
             new_coupon = CustomerCoupon.objects.create(
                 customer=customer,
                 coupon_template=template,
@@ -791,3 +1024,440 @@ def auto_issue_signup_coupons(customer, station):
     except Exception as e:
         logger.error(f"❌ 회원가입 쿠폰 자동발행 중 오류: {str(e)}", exc_info=True)
         return 0
+
+
+def track_cumulative_sales(customer, station, sale_amount):
+    """매출 발생 시 누적액 추적 및 쿠폰 발행"""
+    from django.db import transaction
+    
+    logger.info(f"=== 누적매출 쿠폰 추적 시작 ===")
+    logger.info(f"고객: {customer.username}, 주유소: {station.username}, 매출: {sale_amount:,.0f}원")
+    
+    try:
+        with transaction.atomic():
+            # 누적매출 추적기 조회 또는 생성
+            tracker, created = CumulativeSalesTracker.objects.get_or_create(
+                customer=customer,
+                station=station,
+                defaults={
+                    'cumulative_amount': 0,
+                    'threshold_amount': 50000,
+                    'last_coupon_issued_at': 0
+                }
+            )
+            
+            if created:
+                logger.info(f"새로운 누적매출 추적기 생성")
+            
+            # 누적 매출 업데이트
+            old_amount = tracker.cumulative_amount
+            tracker.cumulative_amount += sale_amount
+            
+            logger.info(f"누적매출 업데이트: {old_amount:,.0f}원 → {tracker.cumulative_amount:,.0f}원")
+            
+            # 쿠폰 발행 조건 확인
+            coupon_count = tracker.get_coupon_count()
+            
+            if coupon_count > 0:
+                logger.info(f"누적매출 쿠폰 발행 조건 만족: {coupon_count}개")
+                
+                # 누적매출 쿠폰 템플릿 조회
+                cumulative_templates = CouponTemplate.objects.filter(
+                    station=station,
+                    coupon_type__type_code='CUMULATIVE',
+                    is_active=True
+                )
+                
+                if cumulative_templates.exists():
+                    issued_count = 0
+                    for template in cumulative_templates:
+                        if template.is_valid_today():
+                            # 쿠폰 수량 체크 (수동 쿠폰만 수량 제한)
+                            for _ in range(coupon_count):
+                                new_coupon = CustomerCoupon.objects.create(
+                                    customer=customer,
+                                    coupon_template=template,
+                                    status='AVAILABLE'
+                                )
+                                issued_count += 1
+                                logger.info(f"✅ 누적매출 쿠폰 발행: {template.coupon_name}")
+                    
+                    # 마지막 쿠폰 발행 시점 업데이트
+                    tracker.last_coupon_issued_at = tracker.cumulative_amount
+                    logger.info(f"🎉 총 {issued_count}개의 누적매출 쿠폰 발행 완료")
+                else:
+                    logger.info("누적매출 쿠폰 템플릿이 존재하지 않음")
+            else:
+                logger.info("누적매출 쿠폰 발행 조건 미충족")
+            
+            tracker.save()
+            logger.info(f"=== 누적매출 쿠폰 추적 종료 ===")
+            
+    except Exception as e:
+        logger.error(f"❌ 누적매출 쿠폰 추적 중 오류: {str(e)}", exc_info=True)
+
+
+def should_issue_cumulative_coupon(tracker):
+    """누적매출 쿠폰 발행 조건 확인"""
+    return tracker.should_issue_coupon()
+
+
+def issue_cumulative_coupon(tracker):
+    """누적매출 쿠폰 발행"""
+    coupon_count = tracker.get_coupon_count()
+    
+    if coupon_count <= 0:
+        return 0
+    
+    # 누적매출 쿠폰 템플릿 조회
+    cumulative_templates = CouponTemplate.objects.filter(
+        station=tracker.station,
+        coupon_type__type_code='CUMULATIVE',
+        is_active=True
+    )
+    
+    issued_count = 0
+    for template in cumulative_templates:
+        if template.is_valid_today():
+            for _ in range(coupon_count):
+                CustomerCoupon.objects.create(
+                    customer=tracker.customer,
+                    coupon_template=template,
+                    status='AVAILABLE'
+                )
+                issued_count += 1
+    
+    # 마지막 쿠폰 발행 시점 업데이트
+    tracker.last_coupon_issued_at = tracker.cumulative_amount
+    tracker.save()
+    
+    return issued_count
+
+
+# ========== 자동 쿠폰 CRUD 모델들 ==========
+
+class AutoCouponTemplate(models.Model):
+    """자동 쿠폰 템플릿 - CRUD 지원"""
+    COUPON_TYPES = [
+        ('SIGNUP', '회원가입'),
+        ('CUMULATIVE', '누적매출'), 
+        ('MONTHLY', '전월매출'),
+    ]
+    
+    BENEFIT_TYPES = [
+        ('DISCOUNT', '할인'),
+        ('PRODUCT', '상품'),
+        ('BOTH', '할인+상품'),
+    ]
+    
+    # 기본 정보
+    station = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        verbose_name='주유소',
+        limit_choices_to={'user_type': 'STATION'}
+    )
+    coupon_type = models.CharField(
+        max_length=20, 
+        choices=COUPON_TYPES, 
+        verbose_name='쿠폰 유형'
+    )
+    coupon_name = models.CharField(
+        max_length=100, 
+        verbose_name='쿠폰명',
+        help_text="고객에게 표시될 쿠폰 이름"
+    )
+    description = models.TextField(
+        blank=True, 
+        verbose_name='설명',
+        help_text="쿠폰에 대한 상세 설명"
+    )
+    
+    # 혜택 설정
+    benefit_type = models.CharField(
+        max_length=10, 
+        choices=BENEFIT_TYPES, 
+        verbose_name='혜택 유형'
+    )
+    discount_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=0, 
+        default=0, 
+        verbose_name='할인 금액'
+    )
+    product_name = models.CharField(
+        max_length=100, 
+        blank=True,
+        verbose_name='상품명'
+    )
+    
+    # 조건 설정 (JSON으로 복합 조건 저장)
+    condition_data = models.JSONField(
+        default=dict, 
+        verbose_name='조건 데이터',
+        help_text="발행 조건들을 JSON으로 저장"
+    )
+    
+    # 관리 설정
+    is_active = models.BooleanField(
+        default=True, 
+        verbose_name='활성 상태'
+    )
+    max_issue_count = models.IntegerField(
+        null=True, 
+        blank=True,
+        verbose_name='발행 한도',
+        help_text="최대 발행 가능 개수 (NULL=무제한)"
+    )
+    issued_count = models.IntegerField(
+        default=0, 
+        verbose_name='현재 발행수'
+    )
+    
+    # 유효기간
+    is_permanent = models.BooleanField(
+        default=False, 
+        verbose_name='무기한 여부'
+    )
+    valid_from = models.DateField(
+        null=True, 
+        blank=True, 
+        verbose_name='사용 시작일'
+    )
+    valid_until = models.DateField(
+        null=True, 
+        blank=True, 
+        verbose_name='사용 종료일'
+    )
+    
+    # 통계 정보
+    total_issued = models.IntegerField(
+        default=0, 
+        verbose_name='총 발행수'
+    )
+    total_used = models.IntegerField(
+        default=0, 
+        verbose_name='총 사용수'
+    )
+    
+    # 메타 정보
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='수정일시')
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_auto_coupons',
+        verbose_name='생성자'
+    )
+    
+    class Meta:
+        verbose_name = '자동 쿠폰 템플릿'
+        verbose_name_plural = '15. 자동 쿠폰 템플릿 목록'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['station', 'coupon_type', 'is_active']),
+        ]
+    
+    def __str__(self):
+        status = "활성" if self.is_active else "비활성"
+        return f"[{status}] {self.coupon_name} - {self.get_coupon_type_display()}"
+    
+    def is_valid_today(self):
+        """오늘 날짜 기준으로 쿠폰이 유효한지 확인"""
+        if self.is_permanent:
+            return True
+        
+        today = timezone.now().date()
+        if self.valid_from and today < self.valid_from:
+            return False
+        if self.valid_until and today > self.valid_until:
+            return False
+        return True
+    
+    def is_issue_limit_exceeded(self):
+        """발행 한도 초과 여부 확인"""
+        if self.max_issue_count is None:
+            return False
+        return self.issued_count >= self.max_issue_count
+    
+    def can_issue_to_customer(self, customer):
+        """특정 고객에게 발행 가능한지 확인"""
+        if not self.is_active:
+            return False, "비활성 템플릿"
+        
+        if not self.is_valid_today():
+            return False, "유효기간 외"
+        
+        if self.is_issue_limit_exceeded():
+            return False, "발행 한도 초과"
+        
+        # 조건 체크
+        condition_result = self.check_conditions(customer)
+        if not condition_result[0]:
+            return False, condition_result[1]
+        
+        # 중복 발행 체크
+        if self.is_already_issued_to_customer(customer):
+            return False, "이미 발행됨"
+        
+        return True, "발행 가능"
+    
+    def check_conditions(self, customer):
+        """조건 데이터를 기반으로 발행 조건 확인"""
+        try:
+            conditions = self.condition_data
+            
+            # 금액 임계값 조건 (누적매출, 전월매출)
+            if 'threshold_amount' in conditions:
+                threshold = conditions['threshold_amount']
+                if self.coupon_type == 'CUMULATIVE':
+                    tracker = CumulativeSalesTracker.objects.filter(
+                        customer=customer, 
+                        station=self.station
+                    ).first()
+                    if not tracker or tracker.cumulative_amount < threshold:
+                        return False, f"누적매출 {threshold:,}원 미달"
+                
+                elif self.coupon_type == 'MONTHLY':
+                    # 전월매출 체크 로직 (구현 필요)
+                    pass
+            
+            # 최초 1회만 조건
+            if conditions.get('first_time_only', False):
+                if self.is_already_issued_to_customer(customer):
+                    return False, "최초 1회만 발행 가능"
+            
+            # 제외 사용자 조건
+            if 'exclude_users' in conditions:
+                exclude_list = conditions['exclude_users']
+                if customer.username in exclude_list:
+                    return False, "제외 대상 사용자"
+            
+            return True, "조건 만족"
+            
+        except Exception as e:
+            logger.error(f"조건 체크 오류: {e}")
+            return False, f"조건 체크 오류: {str(e)}"
+    
+    def is_already_issued_to_customer(self, customer):
+        """해당 고객에게 이미 발행되었는지 확인"""
+        # AutoCouponTemplate과 연결된 쿠폰 발행 이력 확인
+        # (CustomerCoupon 모델에 auto_template 필드 추가 필요)
+        return False  # 임시로 False 반환
+    
+    def issue_to_customer(self, customer):
+        """고객에게 쿠폰 발행"""
+        can_issue, reason = self.can_issue_to_customer(customer)
+        if not can_issue:
+            return False, reason
+        
+        try:
+            # 기존 CouponTemplate과 호환되는 방식으로 쿠폰 발행
+            # (구현은 이후 단계에서)
+            
+            # 발행 수 증가
+            self.issued_count += 1
+            self.total_issued += 1
+            self.save(update_fields=['issued_count', 'total_issued'])
+            
+            logger.info(f"자동 쿠폰 발행 성공: {self.template_name} -> {customer.username}")
+            return True, "발행 성공"
+            
+        except Exception as e:
+            logger.error(f"자동 쿠폰 발행 오류: {e}")
+            return False, f"발행 오류: {str(e)}"
+    
+    def get_usage_rate(self):
+        """사용률 계산"""
+        if self.total_issued == 0:
+            return 0
+        return round(self.total_used / self.total_issued * 100, 1)
+    
+    def get_benefit_description(self):
+        """혜택 내용을 문자열로 반환"""
+        if self.benefit_type == 'DISCOUNT':
+            return f"{self.discount_amount:,.0f}원 할인"
+        elif self.benefit_type == 'PRODUCT':
+            return f"{self.product_name} 증정"
+        elif self.benefit_type == 'BOTH':
+            return f"{self.discount_amount:,.0f}원 할인 + {self.product_name} 증정"
+        return "혜택 없음"
+
+
+class AutoCouponCondition(models.Model):
+    """자동 쿠폰 발행 조건 (고급 조건 관리)"""
+    CONDITION_TYPES = [
+        ('THRESHOLD_AMOUNT', '금액 임계값'),
+        ('TIME_PERIOD', '기간 조건'),
+        ('CUSTOMER_TYPE', '고객 유형'),
+        ('EXCLUDE_PREVIOUS', '기존 수령자 제외'),
+        ('VISIT_COUNT', '방문 횟수'),
+        ('FIRST_TIME_ONLY', '최초 1회만'),
+        ('WEEKDAY_ONLY', '평일만'),
+        ('WEEKEND_ONLY', '주말만'),
+        ('CUSTOMER_GRADE', '고객 등급'),
+    ]
+    
+    template = models.ForeignKey(
+        AutoCouponTemplate,
+        on_delete=models.CASCADE,
+        related_name='conditions',
+        verbose_name='자동 쿠폰 템플릿'
+    )
+    condition_type = models.CharField(
+        max_length=20,
+        choices=CONDITION_TYPES,
+        verbose_name='조건 유형'
+    )
+    condition_value = models.JSONField(
+        verbose_name='조건 값',
+        help_text="조건별 설정값을 JSON으로 저장"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name='활성 상태'
+    )
+    description = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='조건 설명'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='생성일시')
+    
+    class Meta:
+        verbose_name = '자동 쿠폰 조건'
+        verbose_name_plural = '16. 자동 쿠폰 조건 목록'
+        ordering = ['condition_type', 'created_at']
+    
+    def __str__(self):
+        return f"{self.template.template_name} - {self.get_condition_type_display()}"
+    
+    def evaluate(self, customer):
+        """고객에 대해 이 조건을 평가"""
+        try:
+            if self.condition_type == 'THRESHOLD_AMOUNT':
+                threshold = self.condition_value.get('amount', 0)
+                # 실제 평가 로직 구현
+                return True
+            
+            elif self.condition_type == 'FIRST_TIME_ONLY':
+                # 최초 1회만 조건 평가
+                return True
+            
+            # 다른 조건들도 구현
+            return True
+            
+        except Exception as e:
+            logger.error(f"조건 평가 오류: {e}")
+            return False
+
+
+# ========== Django 시그널 ==========
+
+@receiver(post_save, sender=CustomerVisitHistory)
+def on_customer_visit(sender, instance, created, **kwargs):
+    """고객 방문 시 누적매출 추적"""
+    if created and instance.fuel_quantity > 0:
+        logger.info(f"고객 방문 감지, 누적매출 추적 시작: {instance.customer.username}@{instance.station.username}")
+        track_cumulative_sales(instance.customer, instance.station, instance.amount)

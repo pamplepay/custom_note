@@ -331,47 +331,6 @@ class CustomerUserAdmin(CustomUserAdmin):
             ])
         return '-'
     station_list.short_description = '연결 주유소'
-    
-    def coupon_status(self, obj):
-        """고객의 쿠폰 보유 현황을 표시"""
-        try:
-            # 사용 가능한 쿠폰 수
-            available_coupons = CustomerCoupon.objects.filter(
-                customer=obj,
-                status='AVAILABLE'
-            ).count()
-            
-            # 사용된 쿠폰 수
-            used_coupons = CustomerCoupon.objects.filter(
-                customer=obj,
-                status='USED'
-            ).count()
-            
-            # 만료된 쿠폰 수
-            expired_coupons = CustomerCoupon.objects.filter(
-                customer=obj,
-                status='EXPIRED'
-            ).count()
-            
-            # 총 쿠폰 수
-            total_coupons = available_coupons + used_coupons + expired_coupons
-            
-            if total_coupons == 0:
-                return format_html('<span style="color: #6c757d;">쿠폰 없음</span>')
-            
-            # 쿠폰 상태를 색상으로 구분하여 표시
-            status_html = f'<span style="color: #28a745; font-weight: bold;">{available_coupons}</span>'
-            if used_coupons > 0:
-                status_html += f' <span style="color: #6c757d;">({used_coupons}사용)</span>'
-            if expired_coupons > 0:
-                status_html += f' <span style="color: #dc3545;">({expired_coupons}만료)</span>'
-            
-            return format_html(status_html)
-            
-        except Exception as e:
-            return format_html('<span style="color: #dc3545;">오류: {}</span>', str(e))
-    
-    coupon_status.short_description = '쿠폰 현황'
 
 @admin.register(StationUser)
 class StationUserAdmin(CustomUserAdmin):

@@ -6,7 +6,12 @@ from django.utils.safestring import mark_safe
 from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.contrib import messages
-from .models import PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics, MonthlySalesStatistics, Group, PhoneCardMapping, CouponType, CouponTemplate, CustomerCoupon
+from .models import (
+    PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics, 
+    MonthlySalesStatistics, Group, PhoneCardMapping, CouponType, CouponTemplate, 
+    CustomerCoupon, StationCouponQuota, CumulativeSalesTracker, CouponPurchaseRequest,
+    CustomerVisitHistory
+)
 from Cust_User.models import CustomUser
 
 class StationCardMappingInline(admin.TabularInline):
@@ -1017,3 +1022,314 @@ class CustomerCouponAdmin(admin.ModelAdmin):
         if count > 0:
             self.message_user(request, f'{count}개의 쿠폰이 미사용으로 표시되었습니다.')
     mark_as_unused.short_description = '선택된 쿠폰 미사용으로 표시'
+
+
+@admin.register(StationCouponQuota)
+class StationCouponQuotaAdmin(admin.ModelAdmin):
+    """주유소 쿠폰 수량 관리 Admin"""
+    list_display = ('station', 'get_station_name', 'total_quota', 'used_quota', 'remaining_quota_display', 'updated_at')
+    list_filter = ('updated_at',)
+    search_fields = ('station__username', 'station__station_profile__station_name')
+    readonly_fields = ('updated_at', 'remaining_quota_display')
+    
+    fieldsets = (
+        ('주유소 정보', {
+            'fields': ('station', 'get_station_name')
+        }),
+        ('쿠폰 수량 관리', {
+            'fields': ('total_quota', 'used_quota', 'remaining_quota_display')
+        }),
+        ('시간 정보', {
+            'fields': ('updated_at',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('station', 'station__station_profile')
+    
+    def get_station_name(self, obj):
+        """주유소명 표시"""
+        if hasattr(obj.station, 'station_profile'):
+            return obj.station.station_profile.station_name
+        return obj.station.username
+    get_station_name.short_description = '주유소명'
+    get_station_name.admin_order_field = 'station__station_profile__station_name'
+    
+    def remaining_quota_display(self, obj):
+        """잔여 수량 표시"""
+        remaining = obj.remaining_quota
+        if remaining > 100:
+            color = "#27ae60"  # 녹색
+        elif remaining > 20:
+            color = "#f39c12"  # 주황색
+        else:
+            color = "#e74c3c"  # 빨간색
+        
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{}</span>개',
+            color, remaining
+        )
+    remaining_quota_display.short_description = '잔여 수량'
+    
+    actions = ['add_quota_100', 'add_quota_500', 'reset_used_quota']
+    
+    def add_quota_100(self, request, queryset):
+        """선택된 주유소에 100개 쿠폰 추가"""
+        count = 0
+        for quota in queryset:
+            quota.add_quota(100)
+            count += 1
+        self.message_user(request, f'{count}개 주유소에 100개씩 쿠폰이 추가되었습니다.')
+    add_quota_100.short_description = '쿠폰 100개 추가'
+    
+    def add_quota_500(self, request, queryset):
+        """선택된 주유소에 500개 쿠폰 추가"""
+        count = 0
+        for quota in queryset:
+            quota.add_quota(500)
+            count += 1
+        self.message_user(request, f'{count}개 주유소에 500개씩 쿠폰이 추가되었습니다.')
+    add_quota_500.short_description = '쿠폰 500개 추가'
+    
+    def reset_used_quota(self, request, queryset):
+        """선택된 주유소의 사용된 쿠폰 수량 초기화"""
+        count = 0
+        for quota in queryset:
+            quota.used_quota = 0
+            quota.save()
+            count += 1
+        self.message_user(request, f'{count}개 주유소의 사용된 쿠폰 수량이 초기화되었습니다.')
+    reset_used_quota.short_description = '사용된 쿠폰 수량 초기화'
+
+
+@admin.register(CouponPurchaseRequest)
+class CouponPurchaseRequestAdmin(admin.ModelAdmin):
+    """쿠폰 구매 요청 관리 Admin"""
+    list_display = ('station', 'get_station_name', 'requested_quantity', 'status_display', 'requested_at', 'processed_at', 'processed_by')
+    list_filter = ('status', 'requested_at', 'processed_at')
+    search_fields = ('station__username', 'station__station_profile__station_name', 'notes')
+    readonly_fields = ('requested_at', 'processed_at', 'processed_by')
+    
+    fieldsets = (
+        ('요청 정보', {
+            'fields': ('station', 'get_station_name', 'requested_quantity', 'status')
+        }),
+        ('처리 정보', {
+            'fields': ('processed_by', 'processed_at', 'notes')
+        }),
+        ('시간 정보', {
+            'fields': ('requested_at',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'station', 'station__station_profile', 'processed_by'
+        ).order_by('-requested_at')
+    
+    def get_station_name(self, obj):
+        """주유소명 표시"""
+        if hasattr(obj.station, 'station_profile'):
+            return obj.station.station_profile.station_name
+        return obj.station.username
+    get_station_name.short_description = '주유소명'
+    get_station_name.admin_order_field = 'station__station_profile__station_name'
+    
+    def status_display(self, obj):
+        """상태 표시"""
+        status_colors = {
+            'PENDING': '#f39c12',    # 주황색
+            'APPROVED': '#27ae60',   # 녹색
+            'REJECTED': '#e74c3c'    # 빨간색
+        }
+        status_names = {
+            'PENDING': '대기중',
+            'APPROVED': '승인됨',
+            'REJECTED': '거부됨'
+        }
+        
+        color = status_colors.get(obj.status, '#95a5a6')
+        name = status_names.get(obj.status, obj.status)
+        
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">●</span> {}',
+            color, name
+        )
+    status_display.short_description = '상태'
+    
+    actions = ['approve_requests', 'reject_requests']
+    
+    def approve_requests(self, request, queryset):
+        """선택된 요청들 승인"""
+        pending_requests = queryset.filter(status='PENDING')
+        count = 0
+        
+        for purchase_request in pending_requests:
+            try:
+                purchase_request.approve(request.user)
+                count += 1
+            except Exception as e:
+                self.message_user(
+                    request, 
+                    f'요청 {purchase_request.id} 승인 실패: {str(e)}', 
+                    level=messages.ERROR
+                )
+        
+        if count > 0:
+            self.message_user(request, f'{count}개의 요청이 승인되었습니다.')
+    approve_requests.short_description = '선택된 요청 승인'
+    
+    def reject_requests(self, request, queryset):
+        """선택된 요청들 거부"""
+        pending_requests = queryset.filter(status='PENDING')
+        count = 0
+        
+        for purchase_request in pending_requests:
+            try:
+                purchase_request.reject(request.user, '관리자에 의한 일괄 거부')
+                count += 1
+            except Exception as e:
+                self.message_user(
+                    request, 
+                    f'요청 {purchase_request.id} 거부 실패: {str(e)}', 
+                    level=messages.ERROR
+                )
+        
+        if count > 0:
+            self.message_user(request, f'{count}개의 요청이 거부되었습니다.')
+    reject_requests.short_description = '선택된 요청 거부'
+
+
+@admin.register(CumulativeSalesTracker)
+class CumulativeSalesTrackerAdmin(admin.ModelAdmin):
+    """누적매출 추적 관리 Admin"""
+    list_display = ('customer', 'get_customer_name', 'station', 'get_station_name', 'cumulative_amount_display', 'updated_at')
+    list_filter = ('updated_at', 'station')
+    search_fields = ('customer__username', 'customer__phone_number', 'station__username', 'station__station_profile__station_name')
+    readonly_fields = ('updated_at', 'cumulative_amount_display')
+    
+    fieldsets = (
+        ('고객 정보', {
+            'fields': ('customer', 'get_customer_name')
+        }),
+        ('주유소 정보', {
+            'fields': ('station', 'get_station_name')
+        }),
+        ('매출 정보', {
+            'fields': ('cumulative_amount', 'cumulative_amount_display')
+        }),
+        ('시간 정보', {
+            'fields': ('updated_at',),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'customer', 'customer__customer_profile', 
+            'station', 'station__station_profile'
+        ).order_by('-cumulative_amount')
+    
+    def get_customer_name(self, obj):
+        """고객명 표시"""
+        if hasattr(obj.customer, 'customer_profile') and obj.customer.customer_profile.real_name:
+            return obj.customer.customer_profile.real_name
+        return obj.customer.username
+    get_customer_name.short_description = '고객명'
+    get_customer_name.admin_order_field = 'customer__customer_profile__real_name'
+    
+    def get_station_name(self, obj):
+        """주유소명 표시"""
+        if hasattr(obj.station, 'station_profile'):
+            return obj.station.station_profile.station_name
+        return obj.station.username
+    get_station_name.short_description = '주유소명'
+    get_station_name.admin_order_field = 'station__station_profile__station_name'
+    
+    def cumulative_amount_display(self, obj):
+        """누적매출 표시 (포맷팅)"""
+        amount = obj.cumulative_amount
+        if amount >= 1000000:
+            color = "#e74c3c"  # 빨간색 (100만원 이상)
+        elif amount >= 500000:
+            color = "#f39c12"  # 주황색 (50만원 이상)
+        elif amount >= 100000:
+            color = "#3498db"  # 파란색 (10만원 이상)
+        else:
+            color = "#27ae60"  # 녹색
+        
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{:,}</span>원',
+            color, int(amount)
+        )
+    cumulative_amount_display.short_description = '누적매출'
+    
+    actions = ['reset_cumulative_amount']
+    
+    def reset_cumulative_amount(self, request, queryset):
+        """선택된 항목들의 누적매출 초기화"""
+        count = queryset.update(cumulative_amount=0)
+        self.message_user(request, f'{count}개 항목의 누적매출이 초기화되었습니다.')
+    reset_cumulative_amount.short_description = '누적매출 초기화'
+
+
+@admin.register(CustomerVisitHistory)
+class CustomerVisitHistoryAdmin(admin.ModelAdmin):
+    """고객 방문 기록 관리 Admin"""
+    list_display = ('customer', 'get_customer_name', 'station', 'get_station_name', 'visit_date', 'amount', 'total_amount_display')
+    list_filter = ('visit_date', 'station')
+    search_fields = ('customer__username', 'customer__phone_number', 'station__username', 'station__station_profile__station_name')
+    readonly_fields = ('visit_date',)
+    date_hierarchy = 'visit_date'
+    
+    fieldsets = (
+        ('고객 정보', {
+            'fields': ('customer', 'get_customer_name')
+        }),
+        ('주유소 정보', {
+            'fields': ('station', 'get_station_name')
+        }),
+        ('방문 정보', {
+            'fields': ('visit_date', 'fuel_quantity', 'amount', 'products')
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'customer', 'customer__customer_profile', 
+            'station', 'station__station_profile'
+        ).order_by('-visit_date')
+    
+    def get_customer_name(self, obj):
+        """고객명 표시"""
+        if hasattr(obj.customer, 'customer_profile') and obj.customer.customer_profile.real_name:
+            return obj.customer.customer_profile.real_name
+        return obj.customer.username
+    get_customer_name.short_description = '고객명'
+    get_customer_name.admin_order_field = 'customer__customer_profile__real_name'
+    
+    def get_station_name(self, obj):
+        """주유소명 표시"""
+        if hasattr(obj.station, 'station_profile'):
+            return obj.station.station_profile.station_name
+        return obj.station.username
+    get_station_name.short_description = '주유소명'
+    get_station_name.admin_order_field = 'station__station_profile__station_name'
+    
+    def total_amount_display(self, obj):
+        """거래금액 표시 (포맷팅)"""
+        amount = obj.amount
+        if amount >= 100000:
+            color = "#e74c3c"  # 빨간색
+        elif amount >= 50000:
+            color = "#f39c12"  # 주황색
+        else:
+            color = "#27ae60"  # 녹색
+        
+        return format_html(
+            '<span style="color: {}; font-weight: bold;">{:,}</span>원',
+            color, int(amount)
+        )
+    total_amount_display.short_description = '거래금액'
