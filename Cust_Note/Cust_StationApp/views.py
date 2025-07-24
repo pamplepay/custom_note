@@ -2666,7 +2666,7 @@ def analyze_sales_file(request):
                                 visit_history.save()
                                 logger.info(f"방문 내역 저장 완료: {customer.username} - {sale_date} {sale_time} (주유량: {fuel_quantity:.2f}L)")
                                 
-                                # 고객 프로필의 주유량 정보 업데이트
+                                # 고객 프로필의 주유량 및 주유금액 정보 업데이트
                                 from Cust_User.models import CustomerProfile
                                 
                                 # 기존 주유량 정보
@@ -2680,11 +2680,17 @@ def analyze_sales_file(request):
                                 customer_profile.last_fuel_amount = fuel_quantity
                                 customer_profile.last_fuel_date = sale_date
                                 
+                                # 새로운 주유금액 정보 계산
+                                customer_profile.total_fuel_cost += total_amount
+                                customer_profile.monthly_fuel_cost += total_amount
+                                customer_profile.last_fuel_cost = total_amount
+                                
                                 customer_profile.save()
                                 
-                                # 업데이트된 주유량 정보 로그
+                                # 업데이트된 주유량 및 주유금액 정보 로그
                                 logger.info(f"업데이트된 주유량 정보 - 총: {customer_profile.total_fuel_amount:.2f}L, 월: {customer_profile.monthly_fuel_amount:.2f}L, 최근: {customer_profile.last_fuel_amount:.2f}L")
-                                logger.info(f"방문 내역 및 주유량 저장 완료: {customer.username} - {sale_date} {sale_time} (주유량: {fuel_quantity:.2f}L)")
+                                logger.info(f"업데이트된 주유금액 정보 - 총: {customer_profile.total_fuel_cost:,.0f}원, 월: {customer_profile.monthly_fuel_cost:,.0f}원, 최근: {customer_profile.last_fuel_cost:,.0f}원")
+                                logger.info(f"방문 내역 및 주유 정보 저장 완료: {customer.username} - {sale_date} {sale_time} (주유량: {fuel_quantity:.2f}L, 주유금액: {total_amount:,.0f}원)")
                             else:
                                 logger.info(f"보너스카드 {bonus_card}와 일치하는 고객을 찾을 수 없음")
                                 

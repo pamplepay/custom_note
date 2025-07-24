@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.contrib.auth.hashers import make_password
 from .models import CustomUser, CustomerProfile, StationProfile, CustomerStationRelation
+from Cust_StationApp.models import CustomerCoupon
 from django.urls import path
 from django.http import HttpResponseRedirect
 from django.contrib import messages
@@ -41,7 +42,7 @@ class CustomerProfileInline(admin.StackedInline):
     can_delete = False
     verbose_name_plural = '3. 고객 프로필'
     extra = 0
-    fields = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'membership_card', 'group')
+    fields = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'membership_card', 'group', 'total_fuel_amount', 'monthly_fuel_amount', 'last_fuel_amount', 'total_fuel_cost', 'monthly_fuel_cost', 'last_fuel_cost', 'last_fuel_date')
 
 class StationProfileInline(admin.StackedInline):
     model = StationProfile
@@ -52,12 +53,79 @@ class StationProfileInline(admin.StackedInline):
 class CustomerStationInline(admin.TabularInline):
     model = CustomerStationRelation
     fk_name = 'customer'
-    extra = 1
+    extra = 0
     verbose_name = '등록된 주유소'
     verbose_name_plural = '등록된 주유소 목록'
+    can_delete = True
+    min_num = 0
+    max_num = None
     
     def get_queryset(self, request):
         return super().get_queryset(request).filter(customer__user_type='CUSTOMER')
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        
+        # 폼 필드를 선택적으로 만들기
+        for field in formset.form.base_fields.values():
+            field.required = False
+        
+        # 폼 검증 완전 비활성화
+        def clean_form(self):
+            # station이 비어있으면 검증 건너뛰기
+            if not self.cleaned_data.get('station'):
+                return self.cleaned_data
+            try:
+                return super(formset.form, self).clean()
+            except:
+                # 모든 검증 오류 무시
+                return self.cleaned_data
+        
+        # 폼셋 검증 완전 비활성화
+        def clean_formset(self):
+            # 빈 폼은 모두 건너뛰기
+            cleaned_data = []
+            for form in self.forms:
+                # 폼이 삭제되었거나 빈 경우 건너뛰기
+                if form.instance.pk is None:
+                    # 새로 생성되는 폼의 경우, station 필드가 비어있으면 건너뛰기
+                    if not form.cleaned_data.get('station'):
+                        continue
+                cleaned_data.append(form.cleaned_data)
+            return cleaned_data
+        
+        formset.form.clean = clean_form
+        formset.clean = clean_formset
+        return formset
+
+class CustomerCouponInline(admin.TabularInline):
+    model = CustomerCoupon
+    fk_name = 'customer'
+    extra = 0
+    verbose_name = '보유 쿠폰'
+    verbose_name_plural = '보유 쿠폰 목록'
+    readonly_fields = ('issued_date', 'used_date', 'expiry_date', 'status_display')
+    fields = ('coupon_template', 'status_display', 'issued_date', 'used_date', 'expiry_date')
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('coupon_template__station')
+    
+    def status_display(self, obj):
+        """쿠폰 상태를 색상으로 표시"""
+        status_colors = {
+            'AVAILABLE': '#28a745',
+            'USED': '#6c757d',
+            'EXPIRED': '#dc3545'
+        }
+        status_names = {
+            'AVAILABLE': '사용가능',
+            'USED': '사용완료',
+            'EXPIRED': '만료됨'
+        }
+        color = status_colors.get(obj.status, '#6c757d')
+        name = status_names.get(obj.status, obj.status)
+        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, name)
+    status_display.short_description = '상태'
 
 class CustomUserAdmin(UserAdmin):
     add_form = CustomUserCreationForm
@@ -77,15 +145,17 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ('username', 'email')
     ordering = ('-date_joined',)
     
+    # fieldsets를 사용하여 권한 필드들을 맨 아래에 배치
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('개인정보', {'fields': ('first_name', 'last_name', 'email')}),
         ('사용자 타입', {'fields': ('user_type',)}),
         ('백업 정보', {'fields': ('pw_back',)}),
+        ('중요한 날짜', {'fields': ('last_login', 'date_joined')}),
         ('권한', {
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
+            'classes': ('collapse',),  # 접을 수 있도록 설정
         }),
-        ('중요한 날짜', {'fields': ('last_login', 'date_joined')}),
     )
     
     add_fieldsets = (
@@ -100,7 +170,7 @@ class CustomUserAdmin(UserAdmin):
     def get_inlines(self, request, obj):
         if obj:
             if obj.user_type == 'CUSTOMER':
-                return [CustomerProfileInline, CustomerStationInline]
+                return [CustomerProfileInline, CustomerStationInline, CustomerCouponInline]
             elif obj.user_type == 'STATION':
                 return [StationProfileInline]
         return []
@@ -179,7 +249,7 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(CustomerProfile)
 class CustomerProfileAdmin(admin.ModelAdmin):
-    list_display = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'group', 'total_fuel_amount', 'monthly_fuel_amount', 'last_fuel_amount', 'created_at', 'station_list')
+    list_display = ('name', 'customer_phone', 'car_number', 'car_model', 'fuel_type', 'group', 'total_fuel_amount', 'monthly_fuel_amount', 'last_fuel_amount', 'total_fuel_cost', 'monthly_fuel_cost', 'last_fuel_cost', 'created_at', 'station_list')
     list_filter = ('fuel_type', 'group', 'created_at')
     search_fields = ('name', 'customer_phone', 'car_number', 'car_model', 'group')
     readonly_fields = ('created_at', 'updated_at')
@@ -244,7 +314,7 @@ class StationProfileAdmin(admin.ModelAdmin):
 
 @admin.register(CustomerUser)
 class CustomerUserAdmin(CustomUserAdmin):
-    list_display = CustomUserAdmin.list_display + ('station_list',)
+    list_display = CustomUserAdmin.list_display + ('station_list', 'coupon_status')
 
     def get_queryset(self, request):
         return super().get_queryset(request).filter(user_type='CUSTOMER')
@@ -261,6 +331,47 @@ class CustomerUserAdmin(CustomUserAdmin):
             ])
         return '-'
     station_list.short_description = '연결 주유소'
+    
+    def coupon_status(self, obj):
+        """고객의 쿠폰 보유 현황을 표시"""
+        try:
+            # 사용 가능한 쿠폰 수
+            available_coupons = CustomerCoupon.objects.filter(
+                customer=obj,
+                status='AVAILABLE'
+            ).count()
+            
+            # 사용된 쿠폰 수
+            used_coupons = CustomerCoupon.objects.filter(
+                customer=obj,
+                status='USED'
+            ).count()
+            
+            # 만료된 쿠폰 수
+            expired_coupons = CustomerCoupon.objects.filter(
+                customer=obj,
+                status='EXPIRED'
+            ).count()
+            
+            # 총 쿠폰 수
+            total_coupons = available_coupons + used_coupons + expired_coupons
+            
+            if total_coupons == 0:
+                return format_html('<span style="color: #6c757d;">쿠폰 없음</span>')
+            
+            # 쿠폰 상태를 색상으로 구분하여 표시
+            status_html = f'<span style="color: #28a745; font-weight: bold;">{available_coupons}</span>'
+            if used_coupons > 0:
+                status_html += f' <span style="color: #6c757d;">({used_coupons}사용)</span>'
+            if expired_coupons > 0:
+                status_html += f' <span style="color: #dc3545;">({expired_coupons}만료)</span>'
+            
+            return format_html(status_html)
+            
+        except Exception as e:
+            return format_html('<span style="color: #dc3545;">오류: {}</span>', str(e))
+    
+    coupon_status.short_description = '쿠폰 현황'
 
 @admin.register(StationUser)
 class StationUserAdmin(CustomUserAdmin):

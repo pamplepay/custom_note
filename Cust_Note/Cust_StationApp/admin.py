@@ -77,8 +77,9 @@ class StationListAdmin(admin.ModelAdmin):
     
     def station_cards_view(self, request, station_id):
         station = get_object_or_404(CustomUser, id=station_id, user_type='STATION')
-        # TID가 있는 카드 매핑만 조회
+        # 해당 주유소의 TID가 있는 카드 매핑만 조회
         cards = StationCardMapping.objects.filter(
+            station=station,
             tid__isnull=False
         ).select_related('card').order_by('-registered_at')
         
@@ -139,16 +140,25 @@ class StationListAdmin(admin.ModelAdmin):
 
 @admin.register(PointCard)
 class PointCardAdmin(admin.ModelAdmin):
-    list_display = ('number', 'is_used', 'status_display', 'tids_display', 'mappings_display', 'created_at')
-    list_filter = ('is_used', 'created_at')
-    search_fields = ('number', 'tids')
-    readonly_fields = ('created_at', 'tids', 'mappings_display')
+    list_display = ('number', 'is_used', 'status_display', 'user_info', 'registered_station_info', 'station_info', 'mappings_display')
+    list_filter = ('is_used', 'created_at', 'mappings__station__station_profile__station_name')
+    search_fields = ('number', 'tids', 'mappings__station__station_profile__station_name')
+    readonly_fields = ('created_at', 'tids', 'mappings_display', 'user_info', 'registered_station_info', 'station_info')
     list_per_page = 50
     actions = ['mark_as_used', 'mark_as_unused', 'bulk_delete_unused']
     
     fieldsets = (
         ('카드 정보', {
             'fields': ('number', 'is_used', 'tids', 'created_at')
+        }),
+        ('등록 주유소', {
+            'fields': ('registered_station_info',)
+        }),
+        ('소유 주유소', {
+            'fields': ('station_info',)
+        }),
+        ('사용자 정보', {
+            'fields': ('user_info',)
         }),
         ('매핑 정보', {
             'fields': ('mappings_display',)
@@ -201,6 +211,158 @@ class PointCardAdmin(admin.ModelAdmin):
                 '<span style="color: #27ae60; font-weight: bold;">●</span> 미사용'
             )
     status_display.short_description = '상태'
+    
+    def user_info(self, obj):
+        """카드를 사용 중인 사용자 정보를 표시"""
+        if not obj.is_used:
+            return format_html('<span style="color: #95a5a6;">미사용</span>')
+        
+        # PhoneCardMapping에서 이 카드를 사용 중인 사용자 찾기
+        phone_mappings = PhoneCardMapping.objects.filter(
+            membership_card=obj,
+            is_used=True
+        ).select_related('linked_user', 'station', 'station__station_profile')
+        
+        if not phone_mappings.exists():
+            return format_html('<span style="color: #f39c12;">사용중 (연동 정보 없음)</span>')
+        
+        user_info_list = []
+        for mapping in phone_mappings:
+            # 주유소 정보 가져오기
+            station = mapping.station
+            if station is None:
+                station_info = '<span style="color: #e74c3c;">주유소 정보 없음 (삭제됨)</span>'
+            elif hasattr(station, 'station_profile'):
+                station_name = station.station_profile.station_name
+                station_address = station.station_profile.address
+                station_phone = station.station_profile.phone
+                station_info = f"{station_name}<br><small style='color: #7f8c8d;'>{station_address} | {station_phone}</small>"
+            else:
+                station_info = station.username
+            
+            if mapping.linked_user:
+                # 연동된 사용자가 있는 경우
+                user = mapping.linked_user
+                user_info_list.append(
+                    f'<div style="margin-bottom: 8px;">'
+                    f'<span style="color: #27ae60; font-weight: bold;">{user.username}</span><br>'
+                    f'<span style="color: #3498db; font-weight: bold;">주유소:</span> {station_info}<br>'
+                    f'<small style="color: #95a5a6;">연동일: {mapping.created_at.strftime("%Y-%m-%d %H:%M")}</small>'
+                    f'</div>'
+                )
+            else:
+                # 연동되지 않은 폰번호-카드 매핑
+                user_info_list.append(
+                    f'<div style="margin-bottom: 8px;">'
+                    f'<span style="color: #e67e22; font-weight: bold;">{mapping.phone_number}</span><br>'
+                    f'<span style="color: #3498db; font-weight: bold;">주유소:</span> {station_info}<br>'
+                    f'<small style="color: #95a5a6;">등록일: {mapping.created_at.strftime("%Y-%m-%d %H:%M")}</small>'
+                    f'</div>'
+                )
+        
+        return format_html(''.join(user_info_list))
+    
+    user_info.short_description = '사용자 정보'
+    
+    def registered_station_info(self, obj):
+        """카드가 등록된 주유소 정보를 표시 (PhoneCardMapping 기준)"""
+        # PhoneCardMapping에서 이 카드가 등록된 주유소들 찾기
+        phone_mappings = PhoneCardMapping.objects.filter(
+            membership_card=obj
+        ).select_related('station', 'station__station_profile')
+        
+        if not phone_mappings.exists():
+            return format_html('<span style="color: #95a5a6;">등록된 주유소 없음</span>')
+        
+        station_list = []
+        for mapping in phone_mappings:
+            station = mapping.station
+            if station is None:
+                status_color = '#e74c3c' if mapping.is_used else '#95a5a6'
+                status_text = '사용중' if mapping.is_used else '미사용'
+                station_list.append(
+                    f'<div style="margin-bottom: 4px;">'
+                    f'<span style="color: #e74c3c; font-weight: bold;">주유소 정보 없음</span><br>'
+                    f'<small style="color: #95a5a6;">매핑된 주유소가 삭제됨</small><br>'
+                    f'<small style="color: {status_color};">{status_text}</small>'
+                    f'</div>'
+                )
+            elif hasattr(station, 'station_profile'):
+                station_name = station.station_profile.station_name
+                station_address = station.station_profile.address
+                status_color = '#27ae60' if mapping.is_used else '#95a5a6'
+                status_text = '사용중' if mapping.is_used else '미사용'
+                station_list.append(
+                    f'<div style="margin-bottom: 4px;">'
+                    f'<span style="color: #3498db; font-weight: bold;">{station_name}</span><br>'
+                    f'<small style="color: #7f8c8d;">{station_address}</small><br>'
+                    f'<small style="color: {status_color};">{status_text}</small>'
+                    f'</div>'
+                )
+            else:
+                status_color = '#27ae60' if mapping.is_used else '#95a5a6'
+                status_text = '사용중' if mapping.is_used else '미사용'
+                station_list.append(
+                    f'<div style="margin-bottom: 4px;">'
+                    f'<span style="color: #3498db; font-weight: bold;">{station.username}</span><br>'
+                    f'<small style="color: #95a5a6;">프로필 정보 없음</small><br>'
+                    f'<small style="color: {status_color};">{status_text}</small>'
+                    f'</div>'
+                )
+        
+        return format_html(''.join(station_list))
+    
+    registered_station_info.short_description = '등록 주유소'
+    
+    def station_info(self, obj):
+        """카드의 소유 주유소 정보를 표시 (TID 매핑 기준)"""
+        # StationCardMapping에서 이 카드의 소유 주유소 찾기
+        station_mappings = StationCardMapping.objects.filter(
+            card=obj,
+            is_active=True
+        ).select_related('station', 'station__station_profile')
+        
+        if not station_mappings.exists():
+            return format_html('<span style="color: #95a5a6;">소유 주유소 없음</span>')
+        
+        station_list = []
+        for mapping in station_mappings:
+            station = mapping.station
+            if station is None:
+                tid_info = f"TID: {mapping.tid}" if mapping.tid else "TID: 미등록"
+                station_list.append(
+                    f'<div style="margin-bottom: 4px;">'
+                    f'<span style="color: #e74c3c; font-weight: bold;">주유소 정보 없음</span><br>'
+                    f'<small style="color: #95a5a6;">매핑된 주유소가 삭제됨</small><br>'
+                    f'<small style="color: #e67e22; font-weight: bold;">{tid_info}</small>'
+                    f'</div>'
+                )
+            elif hasattr(station, 'station_profile'):
+                station_name = station.station_profile.station_name
+                station_address = station.station_profile.address
+                station_phone = station.station_profile.phone
+                tid_info = f"TID: {mapping.tid}" if mapping.tid else "TID: 미등록"
+                station_list.append(
+                    f'<div style="margin-bottom: 4px;">'
+                    f'<span style="color: #3498db; font-weight: bold;">{station_name}</span><br>'
+                    f'<small style="color: #7f8c8d;">{station_address}</small><br>'
+                    f'<small style="color: #7f8c8d;">{station_phone}</small><br>'
+                    f'<small style="color: #e67e22; font-weight: bold;">{tid_info}</small>'
+                    f'</div>'
+                )
+            else:
+                tid_info = f"TID: {mapping.tid}" if mapping.tid else "TID: 미등록"
+                station_list.append(
+                    f'<div style="margin-bottom: 4px;">'
+                    f'<span style="color: #3498db; font-weight: bold;">{station.username}</span><br>'
+                    f'<small style="color: #95a5a6;">프로필 정보 없음</small><br>'
+                    f'<small style="color: #e67e22; font-weight: bold;">{tid_info}</small>'
+                    f'</div>'
+                )
+        
+        return format_html(''.join(station_list))
+    
+    station_info.short_description = '소유 주유소'
     
     def mark_as_used(self, request, queryset):
         """선택된 카드들을 사용중으로 표시"""

@@ -86,6 +86,25 @@ class CustomerProfile(models.Model):
         null=True, 
         verbose_name='최근 주유일'
     )
+    # 주유금액 관련 필드
+    total_fuel_cost = models.DecimalField(
+        max_digits=12, 
+        decimal_places=0, 
+        default=0, 
+        verbose_name='총 주유금액(원)'
+    )
+    monthly_fuel_cost = models.DecimalField(
+        max_digits=12, 
+        decimal_places=0, 
+        default=0, 
+        verbose_name='월 주유금액(원)'
+    )
+    last_fuel_cost = models.DecimalField(
+        max_digits=12, 
+        decimal_places=0, 
+        default=0, 
+        verbose_name='최근 주유금액(원)'
+    )
     # 고객 그룹 필드 추가
     group = models.CharField(
         max_length=100,
@@ -195,6 +214,27 @@ class CustomerStationRelation(models.Model):
                 is_primary=True
             ).exclude(pk=self.pk).update(is_primary=False)
         super().save(*args, **kwargs)
+
+    def clean(self):
+        """데이터 검증 - 빈 필드 허용"""
+        from django.core.exceptions import ValidationError
+        
+        try:
+            # customer와 station이 모두 있는 경우에만 유효성 검사
+            if self.customer and self.station:
+                # 중복 관계 확인
+                existing = CustomerStationRelation.objects.filter(
+                    customer=self.customer,
+                    station=self.station
+                ).exclude(pk=self.pk)
+                
+                if existing.exists():
+                    raise ValidationError('이 고객과 주유소의 관계는 이미 존재합니다.')
+        except (AttributeError, self.station.RelatedObjectDoesNotExist):
+            # station이 비어있거나 연결되지 않은 경우 무시
+            pass
+        
+        super().clean()
 
     def record_visit(self):
         """방문 기록 갱신"""
