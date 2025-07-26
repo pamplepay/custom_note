@@ -422,6 +422,7 @@ class ExcelSalesData(models.Model):
     customer_card_number = models.CharField(max_length=20, blank=True, null=True, verbose_name='고객카드번호')
     data_created_at = models.DateTimeField(null=True, blank=True, verbose_name='데이터생성일시')
     source_file = models.CharField(max_length=255, blank=True, null=True, verbose_name='원본 파일명')
+    is_cumulative_processed = models.BooleanField(default=False, verbose_name='누적매출 처리 완료', help_text='누적매출 추적 처리 여부')
 
     class Meta:
         verbose_name = '엑셀 매출 데이터'
@@ -630,11 +631,11 @@ class CouponTemplate(models.Model):
     def get_benefit_description(self):
         """혜택 내용을 문자열로 반환"""
         if self.benefit_type == 'DISCOUNT':
-            return f"세차 서비스 {self.discount_amount:,.0f}원 할인"
+            return f"{self.discount_amount:,.0f}원 할인"
         elif self.benefit_type == 'PRODUCT':
             return f"{self.product_name} 무료"
         elif self.benefit_type == 'BOTH':
-            return f"세차 서비스 {self.discount_amount:,.0f}원 할인 + {self.product_name} 무료"
+            return f"{self.discount_amount:,.0f}원 할인 + {self.product_name} 무료"
         return ""
 
 
@@ -655,7 +656,16 @@ class CustomerCoupon(models.Model):
     coupon_template = models.ForeignKey(
         CouponTemplate, 
         on_delete=models.CASCADE, 
-        verbose_name='쿠폰 템플릿'
+        verbose_name='쿠폰 템플릿',
+        null=True,
+        blank=True
+    )
+    auto_coupon_template = models.ForeignKey(
+        'AutoCouponTemplate', 
+        on_delete=models.CASCADE, 
+        verbose_name='자동 쿠폰 템플릿',
+        null=True,
+        blank=True
     )
     
     # 쿠폰 상태
@@ -681,6 +691,7 @@ class CustomerCoupon(models.Model):
         help_text="쿠폰 사용 시 거래 금액"
     )
     
+    
     class Meta:
         verbose_name = '고객 쿠폰'
         verbose_name_plural = '10. 고객 쿠폰 목록'
@@ -688,16 +699,29 @@ class CustomerCoupon(models.Model):
         indexes = [
             models.Index(fields=['customer', 'status']),
             models.Index(fields=['coupon_template']),
+            models.Index(fields=['auto_coupon_template']),
         ]
     
     def __str__(self):
-        return f"{self.customer.username} - {self.coupon_template.coupon_name} ({self.get_status_display()})"
+        template = self.auto_coupon_template or self.coupon_template
+        return f"{self.customer.username} - {template.coupon_name} ({self.get_status_display()})"
+    
+    @property
+    def template(self):
+        """현재 쿠폰의 템플릿 반환 (auto_coupon_template 우선)"""
+        return self.auto_coupon_template or self.coupon_template
     
     def save(self, *args, **kwargs):
+        # 템플릿 유효성 검사
+        if not self.auto_coupon_template and not self.coupon_template:
+            raise ValueError("auto_coupon_template 또는 coupon_template 중 하나는 반드시 설정되어야 합니다.")
+        
+        template = self.template
+        
         # 만료일 자동 설정
-        if not self.expiry_date and not self.coupon_template.is_permanent:
-            if self.coupon_template.valid_until:
-                self.expiry_date = self.coupon_template.valid_until
+        if not self.expiry_date and not template.is_permanent:
+            if template.valid_until:
+                self.expiry_date = template.valid_until
         
         # 만료된 쿠폰 상태 자동 업데이트
         if self.expiry_date and timezone.now().date() > self.expiry_date:
@@ -836,6 +860,39 @@ class CumulativeSalesTracker(models.Model):
         
         additional_sales = self.cumulative_amount - self.last_coupon_issued_at
         return int(additional_sales // self.threshold_amount)
+    
+    def should_issue_coupon_improved(self):
+        """개선된 쿠폰 발행 조건 확인 - 튜플 반환 (should_issue, coupon_count)"""
+        if self.cumulative_amount < self.threshold_amount:
+            return False, 0
+        
+        # 마지막 쿠폰 발행 이후 추가 매출 계산
+        additional_sales = self.cumulative_amount - self.last_coupon_issued_at
+        
+        if additional_sales < self.threshold_amount:
+            return False, 0
+        
+        # 발행할 쿠폰 개수 계산
+        coupon_count = int(additional_sales // self.threshold_amount)
+        
+        return coupon_count > 0, coupon_count
+    
+    def update_threshold_from_template(self, station):
+        """AutoCouponTemplate에서 임계값 업데이트"""
+        auto_template = AutoCouponTemplate.objects.filter(
+            station=station,
+            coupon_type='CUMULATIVE',
+            is_active=True
+        ).first()
+        
+        if auto_template and 'threshold_amount' in auto_template.condition_data:
+            new_threshold = auto_template.condition_data['threshold_amount']
+            if new_threshold != self.threshold_amount:
+                logger.info(f"임계값 업데이트: {self.threshold_amount:,.0f}원 → {new_threshold:,.0f}원")
+                self.threshold_amount = new_threshold
+                self.save()
+                return True
+        return False
 
 
 class CouponPurchaseRequest(models.Model):
@@ -967,51 +1024,51 @@ def auto_issue_signup_coupons(customer, station):
     logger.info(f"주유소: {station.username} (ID: {station.id})")
     
     try:
-        # 해당 주유소의 회원가입 쿠폰 템플릿 조회
-        signup_templates = CouponTemplate.objects.filter(
+        # 해당 주유소의 회원가입 쿠폰 템플릿 조회 (최신 1개만)
+        signup_template = AutoCouponTemplate.objects.filter(
             station=station,
-            coupon_type__type_code='SIGNUP',
+            coupon_type='SIGNUP',
             is_active=True
-        )
+        ).order_by('-created_at').first()
         
-        logger.info(f"주유소 {station.username}의 회원가입 쿠폰 템플릿 조회 결과: {signup_templates.count()}개")
+        logger.info(f"주유소 {station.username}의 회원가입 쿠폰 템플릿 조회 결과: {'1개' if signup_template else '0개'}")
         
-        if not signup_templates.exists():
+        if not signup_template:
             logger.info("회원가입 쿠폰 템플릿이 존재하지 않음")
             return 0
         
         issued_count = 0
-        for template in signup_templates:
-            logger.info(f"템플릿 처리 중: {template.coupon_name} (ID: {template.id})")
-            
-            # 템플릿 유효성 확인
-            if not template.is_valid_today():
-                logger.info(f"템플릿 {template.coupon_name}은 유효기간이 아님 (is_permanent: {template.is_permanent}, valid_from: {template.valid_from}, valid_until: {template.valid_until})")
-                continue
-            
-            logger.info(f"템플릿 {template.coupon_name}은 유효함")
-            
-            # 이미 발행된 회원가입 쿠폰이 있는지 확인 (중복 발행 방지)
-            existing_coupon = CustomerCoupon.objects.filter(
-                customer=customer,
-                coupon_template=template
-            ).first()
-            
-            if existing_coupon:
-                logger.info(f"이미 발행된 회원가입 쿠폰이 존재: {template.coupon_name} (쿠폰 ID: {existing_coupon.id})")
-                continue
-            
-            logger.info(f"새로운 회원가입 쿠폰 발행 중: {template.coupon_name}")
-            
-            # 회원가입 쿠폰 발행 (수량 제한 없음)
-            new_coupon = CustomerCoupon.objects.create(
-                customer=customer,
-                coupon_template=template,
-                status='AVAILABLE'
-            )
-            
-            issued_count += 1
-            logger.info(f"✅ 회원가입 쿠폰 발행 완료: {template.coupon_name} (새 쿠폰 ID: {new_coupon.id})")
+        template = signup_template
+        logger.info(f"템플릿 처리 중: {template.coupon_name} (ID: {template.id})")
+        
+        # 템플릿 유효성 확인
+        if not template.is_valid_today():
+            logger.info(f"템플릿 {template.coupon_name}은 유효기간이 아님 (is_permanent: {template.is_permanent}, valid_from: {template.valid_from}, valid_until: {template.valid_until})")
+            return 0
+        
+        logger.info(f"템플릿 {template.coupon_name}은 유효함")
+        
+        # 이미 발행된 회원가입 쿠폰이 있는지 확인 (중복 발행 방지)
+        existing_coupon = CustomerCoupon.objects.filter(
+            customer=customer,
+            auto_coupon_template=template
+        ).first()
+        
+        if existing_coupon:
+            logger.info(f"이미 발행된 회원가입 쿠폰이 존재: {template.coupon_name} (쿠폰 ID: {existing_coupon.id})")
+            return 0
+        
+        logger.info(f"새로운 회원가입 쿠폰 발행 중: {template.coupon_name}")
+        
+        # 회원가입 쿠폰 발행 (수량 제한 없음)
+        new_coupon = CustomerCoupon.objects.create(
+            customer=customer,
+            auto_coupon_template=template,
+            status='AVAILABLE'
+        )
+        
+        issued_count += 1
+        logger.info(f"✅ 회원가입 쿠폰 발행 완료: {template.coupon_name} (새 쿠폰 ID: {new_coupon.id})")
         
         if issued_count > 0:
             logger.info(f"🎉 총 {issued_count}개의 회원가입 쿠폰 발행 완료")
@@ -1027,74 +1084,119 @@ def auto_issue_signup_coupons(customer, station):
 
 
 def track_cumulative_sales(customer, station, sale_amount):
-    """매출 발생 시 누적액 추적 및 쿠폰 발행"""
+    """ExcelSalesData 기반 누적매출 추적 및 쿠폰 발행"""
     from django.db import transaction
+    from django.db.models import Sum
+    from Cust_User.models import StationProfile
+    import time
     
-    logger.info(f"=== 누적매출 쿠폰 추적 시작 ===")
-    logger.info(f"고객: {customer.username}, 주유소: {station.username}, 매출: {sale_amount:,.0f}원")
+    start_time = time.time()
+    logger.info(f"=== ExcelSalesData 기반 누적매출 쿠폰 추적 시작 ===")
+    logger.info(f"고객: {customer.username} (ID: {customer.id}), 주유소: {station.username} (ID: {station.id}), 매출: {sale_amount:,.0f}원")
     
     try:
         with transaction.atomic():
-            # 누적매출 추적기 조회 또는 생성
-            tracker, created = CumulativeSalesTracker.objects.get_or_create(
-                customer=customer,
+            # StationProfile에서 TID 가져오기
+            station_profile = StationProfile.objects.filter(user=station).first()
+            if not station_profile:
+                logger.warning(f"주유소 {station.username}의 StationProfile을 찾을 수 없음")
+                return
+            
+            # 이전 누적매출 계산 (현재 매출 제외)
+            previous_sales = ExcelSalesData.objects.filter(
+                customer_name=customer.username,
+                tid=station_profile.tid,
+                is_cumulative_processed=True
+            ).exclude(id=excel_sales_data.id).aggregate(total=Sum('total_amount'))['total'] or 0
+            
+            # 현재 매출 금액
+            current_sale_amount = float(excel_sales_data.total_amount)
+            
+            # 새로운 전체 누적매출
+            new_total_sales = previous_sales + current_sale_amount
+            
+            logger.info(f"이전 누적매출: {previous_sales:,.0f}원")
+            logger.info(f"현재 매출: {current_sale_amount:,.0f}원")
+            logger.info(f"새로운 전체 누적매출: {new_total_sales:,.0f}원")
+            
+            # AutoCouponTemplate에서 임계값 가져오기
+            auto_template = AutoCouponTemplate.objects.filter(
                 station=station,
-                defaults={
-                    'cumulative_amount': 0,
-                    'threshold_amount': 50000,
-                    'last_coupon_issued_at': 0
-                }
-            )
+                coupon_type='CUMULATIVE',
+                is_active=True
+            ).first()
             
-            if created:
-                logger.info(f"새로운 누적매출 추적기 생성")
+            if not auto_template:
+                logger.warning(f"활성화된 누적매출 AutoCouponTemplate이 없음: {station.username}")
+                return
             
-            # 누적 매출 업데이트
-            old_amount = tracker.cumulative_amount
-            tracker.cumulative_amount += sale_amount
+            threshold_amount = auto_template.condition_data.get('threshold_amount', 50000)
+            logger.info(f"누적매출 쿠폰 임계값: {threshold_amount:,.0f}원")
             
-            logger.info(f"누적매출 업데이트: {old_amount:,.0f}원 → {tracker.cumulative_amount:,.0f}원")
+            # 이미 발행된 누적매출 쿠폰 개수 확인 (모든 템플릿 포함)
+            # 템플릿 전환 시 중복 발행 방지를 위해 전체 누적매출 쿠폰 개수를 확인
+            issued_coupons = CustomerCoupon.objects.filter(
+                customer=customer,
+                auto_coupon_template__station=customer_relation.station,
+                auto_coupon_template__coupon_type='CUMULATIVE'
+            ).count()
             
-            # 쿠폰 발행 조건 확인
-            coupon_count = tracker.get_coupon_count()
+            # 이전 상태에서 발행되어야 했던 쿠폰 개수
+            previous_should_have = int(float(previous_sales) // float(threshold_amount))
             
-            if coupon_count > 0:
-                logger.info(f"누적매출 쿠폰 발행 조건 만족: {coupon_count}개")
+            # 새로운 전체 상태에서 발행되어야 할 쿠폰 개수
+            new_should_have = int(float(new_total_sales) // float(threshold_amount))
+            
+            # 실제 추가 발행 필요한 쿠폰 개수
+            new_coupons_needed = max(0, new_should_have - previous_should_have)
+            
+            logger.info(f"이전 발행되어야 할 쿠폰: {previous_should_have}개")
+            logger.info(f"새로운 발행되어야 할 쿠폰: {new_should_have}개")
+            logger.info(f"이미 발행된 쿠폰: {issued_coupons}개")
+            logger.info(f"추가 발행 필요: {new_coupons_needed}개")
+            
+            if new_coupons_needed > 0:
+                logger.info(f"누적매출 쿠폰 발행 시작: {new_coupons_needed}개")
                 
-                # 누적매출 쿠폰 템플릿 조회
-                cumulative_templates = CouponTemplate.objects.filter(
-                    station=station,
-                    coupon_type__type_code='CUMULATIVE',
-                    is_active=True
-                )
+                # 쿠폰 발행 가능 여부 확인
+                can_issue, reason = auto_template.can_issue_to_customer(customer)
                 
-                if cumulative_templates.exists():
-                    issued_count = 0
-                    for template in cumulative_templates:
-                        if template.is_valid_today():
-                            # 쿠폰 수량 체크 (수동 쿠폰만 수량 제한)
-                            for _ in range(coupon_count):
-                                new_coupon = CustomerCoupon.objects.create(
-                                    customer=customer,
-                                    coupon_template=template,
-                                    status='AVAILABLE'
-                                )
-                                issued_count += 1
-                                logger.info(f"✅ 누적매출 쿠폰 발행: {template.coupon_name}")
+                if can_issue and auto_template.is_valid_today():
+                    # 벌크 생성을 위한 쿠폰 리스트
+                    coupons_to_create = []
                     
-                    # 마지막 쿠폰 발행 시점 업데이트
-                    tracker.last_coupon_issued_at = tracker.cumulative_amount
-                    logger.info(f"🎉 총 {issued_count}개의 누적매출 쿠폰 발행 완료")
+                    for i in range(new_coupons_needed):
+                        coupons_to_create.append(
+                            CustomerCoupon(
+                                customer=customer,
+                                auto_coupon_template=auto_template,
+                                status='AVAILABLE',
+                            )
+                        )
+                    
+                    # 벌크 생성으로 성능 개선
+                    created_coupons = CustomerCoupon.objects.bulk_create(coupons_to_create)
+                    issued_count = len(created_coupons)
+                    
+                    # 템플릿 통계 업데이트
+                    auto_template.issued_count += issued_count
+                    auto_template.total_issued += issued_count
+                    auto_template.save()
+                    
+                    logger.info(f"✅ 누적매출 쿠폰 {issued_count}개 발행 완료: {auto_template.coupon_name}")
+                    logger.info(f"발행 기준 누적액: {total_sales:,.0f}원")
                 else:
-                    logger.info("누적매출 쿠폰 템플릿이 존재하지 않음")
+                    logger.warning(f"쿠폰 발행 불가: {reason}")
             else:
-                logger.info("누적매출 쿠폰 발행 조건 미충족")
+                remaining = float(threshold_amount) - (float(total_sales) % float(threshold_amount))
+                logger.info(f"누적매출 쿠폰 발행 조건 미충족 (다음 발행까지 {remaining:,.0f}원 필요)")
             
-            tracker.save()
-            logger.info(f"=== 누적매출 쿠폰 추적 종료 ===")
+            elapsed_time = time.time() - start_time
+            logger.info(f"=== ExcelSalesData 기반 누적매출 쿠폰 추적 종료 (소요시간: {elapsed_time:.3f}초) ===")
             
     except Exception as e:
-        logger.error(f"❌ 누적매출 쿠폰 추적 중 오류: {str(e)}", exc_info=True)
+        logger.error(f"❌ ExcelSalesData 기반 누적매출 쿠폰 추적 중 오류: {str(e)}", exc_info=True)
+        raise  # 트랜잭션 롤백을 위해 예외 재발생
 
 
 def should_issue_cumulative_coupon(tracker):
@@ -1203,12 +1305,6 @@ class AutoCouponTemplate(models.Model):
         default=True, 
         verbose_name='활성 상태'
     )
-    max_issue_count = models.IntegerField(
-        null=True, 
-        blank=True,
-        verbose_name='발행 한도',
-        help_text="최대 발행 가능 개수 (NULL=무제한)"
-    )
     issued_count = models.IntegerField(
         default=0, 
         verbose_name='현재 발행수'
@@ -1275,11 +1371,6 @@ class AutoCouponTemplate(models.Model):
             return False
         return True
     
-    def is_issue_limit_exceeded(self):
-        """발행 한도 초과 여부 확인"""
-        if self.max_issue_count is None:
-            return False
-        return self.issued_count >= self.max_issue_count
     
     def can_issue_to_customer(self, customer):
         """특정 고객에게 발행 가능한지 확인"""
@@ -1289,8 +1380,6 @@ class AutoCouponTemplate(models.Model):
         if not self.is_valid_today():
             return False, "유효기간 외"
         
-        if self.is_issue_limit_exceeded():
-            return False, "발행 한도 초과"
         
         # 조건 체크
         condition_result = self.check_conditions(customer)
@@ -1312,21 +1401,27 @@ class AutoCouponTemplate(models.Model):
             if 'threshold_amount' in conditions:
                 threshold = conditions['threshold_amount']
                 if self.coupon_type == 'CUMULATIVE':
-                    tracker = CumulativeSalesTracker.objects.filter(
-                        customer=customer, 
-                        station=self.station
-                    ).first()
-                    if not tracker or tracker.cumulative_amount < threshold:
-                        return False, f"누적매출 {threshold:,}원 미달"
+                    # ExcelSalesData 기반으로 누적매출 계산
+                    from django.db.models import Sum
+                    from Cust_User.models import StationProfile
+                    
+                    station_profile = StationProfile.objects.filter(user=self.station).first()
+                    if not station_profile:
+                        return False, f"주유소 프로필 없음"
+                    
+                    total_sales = ExcelSalesData.objects.filter(
+                        customer_name=customer.username,
+                        tid=station_profile.tid,
+                        is_cumulative_processed=True
+                    ).aggregate(total=Sum('total_amount'))['total'] or 0
+                    
+                    if float(total_sales) < float(threshold):
+                        return False, f"누적매출 {threshold:,}원 미달 (현재: {total_sales:,}원)"
                 
                 elif self.coupon_type == 'MONTHLY':
                     # 전월매출 체크 로직 (구현 필요)
                     pass
             
-            # 최초 1회만 조건
-            if conditions.get('first_time_only', False):
-                if self.is_already_issued_to_customer(customer):
-                    return False, "최초 1회만 발행 가능"
             
             # 제외 사용자 조건
             if 'exclude_users' in conditions:
@@ -1393,7 +1488,6 @@ class AutoCouponCondition(models.Model):
         ('CUSTOMER_TYPE', '고객 유형'),
         ('EXCLUDE_PREVIOUS', '기존 수령자 제외'),
         ('VISIT_COUNT', '방문 횟수'),
-        ('FIRST_TIME_ONLY', '최초 1회만'),
         ('WEEKDAY_ONLY', '평일만'),
         ('WEEKEND_ONLY', '주말만'),
         ('CUSTOMER_GRADE', '고객 등급'),
@@ -1441,9 +1535,6 @@ class AutoCouponCondition(models.Model):
                 # 실제 평가 로직 구현
                 return True
             
-            elif self.condition_type == 'FIRST_TIME_ONLY':
-                # 최초 1회만 조건 평가
-                return True
             
             # 다른 조건들도 구현
             return True
@@ -1460,4 +1551,49 @@ def on_customer_visit(sender, instance, created, **kwargs):
     """고객 방문 시 누적매출 추적"""
     if created and instance.fuel_quantity > 0:
         logger.info(f"고객 방문 감지, 누적매출 추적 시작: {instance.customer.username}@{instance.station.username}")
-        track_cumulative_sales(instance.customer, instance.station, instance.amount)
+        track_cumulative_sales(instance.customer, instance.station, instance.sale_amount)
+
+
+@receiver(post_save, sender=ExcelSalesData)
+def on_excel_sales_data(sender, instance, created, **kwargs):
+    """ExcelSalesData 생성 시 누적매출 추적 (보너스카드 없이도)"""
+    # 중복 처리 방지: 이미 처리된 데이터는 건너뛰기
+    if not created or instance.total_amount <= 0 or instance.is_cumulative_processed:
+        return
+        
+    try:
+        # customer_name으로 고객 찾기
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        customer = User.objects.filter(
+            username=instance.customer_name,
+            user_type='CUSTOMER'
+        ).first()
+        
+        # TID로 주유소 찾기
+        from Cust_User.models import StationProfile
+        station_profile = StationProfile.objects.filter(tid=instance.tid).first()
+        station = station_profile.user if station_profile else None
+        
+        if customer and station:
+            logger.info(f"ExcelSalesData 기반 누적매출 추적: {customer.username}@{station.username} (금액: {instance.total_amount:,}원)")
+            
+            # 누적매출 추적 실행
+            track_cumulative_sales(customer, station, instance.total_amount)
+            
+            # 처리 완료 플래그 설정
+            ExcelSalesData.objects.filter(id=instance.id).update(is_cumulative_processed=True)
+            logger.info(f"ExcelSalesData ID {instance.id} 누적매출 처리 완료 플래그 설정")
+            
+        else:
+            logger.warning(f"누적매출 추적 실패 - 사용자 찾기 실패: customer={instance.customer_name}, tid={instance.tid}")
+            # 사용자를 찾지 못한 경우에도 플래그 설정하여 재시도 방지
+            ExcelSalesData.objects.filter(id=instance.id).update(is_cumulative_processed=True)
+            
+    except Exception as e:
+        logger.error(f"ExcelSalesData 누적매출 추적 중 오류 (ID: {instance.id}): {e}")
+        # 오류 발생 시 추적을 위해 스택 트레이스도 기록
+        import traceback
+        logger.error(f"스택 트레이스: {traceback.format_exc()}")
+        # 오류가 발생해도 플래그는 설정하지 않음 (재시도 가능하도록)

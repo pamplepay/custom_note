@@ -1177,16 +1177,15 @@ def station_couponmanage(request):
     _create_default_coupon_types(request.user)
     
     # 쿠폰 통계 계산
+    from django.db.models import Q
     total_templates = CouponTemplate.objects.filter(station=request.user, is_active=True).count()
-    total_issued = CustomerCoupon.objects.filter(coupon_template__station=request.user).count()
-    used_coupons = CustomerCoupon.objects.filter(
-        coupon_template__station=request.user, 
-        status='USED'
-    ).count()
-    unused_coupons = CustomerCoupon.objects.filter(
-        coupon_template__station=request.user, 
-        status='AVAILABLE'
-    ).count()
+    
+    # 두 템플릿 타입을 모두 고려한 쿠폰 통계
+    station_filter = Q(coupon_template__station=request.user) | Q(auto_coupon_template__station=request.user)
+    
+    total_issued = CustomerCoupon.objects.filter(station_filter).count()
+    used_coupons = CustomerCoupon.objects.filter(station_filter, status='USED').count()
+    unused_coupons = CustomerCoupon.objects.filter(station_filter, status='AVAILABLE').count()
     
     # 쿠폰 유형 목록
     coupon_types = CouponType.objects.filter(station=request.user, is_active=True).order_by('is_default', 'type_name')
@@ -1215,40 +1214,43 @@ def station_couponmanage(request):
     week_start = today - timedelta(days=today.weekday())
     
     today_issued = CustomerCoupon.objects.filter(
-        coupon_template__station=request.user,
+        station_filter,
         issued_date__date=today
     ).count()
     
     week_issued = CustomerCoupon.objects.filter(
-        coupon_template__station=request.user,
+        station_filter,
         issued_date__date__gte=week_start
     ).count()
     
     # 전체 발행 쿠폰 리스트 (최대 100개, 최신순) - 고객 프로필 정보 포함
     all_coupons = CustomerCoupon.objects.filter(
-        coupon_template__station=request.user
+        station_filter
     ).select_related(
         'coupon_template', 
+        'auto_coupon_template',
         'customer',
         'customer__customer_profile'
     ).order_by('-issued_date')[:100]
 
     # 사용된 쿠폰 리스트 (최대 100개) - 고객 프로필 정보 포함
     used_coupons_list = CustomerCoupon.objects.filter(
-        coupon_template__station=request.user,
+        station_filter,
         status='USED'
     ).select_related(
         'coupon_template', 
+        'auto_coupon_template',
         'customer',
         'customer__customer_profile'
     ).order_by('-used_date', '-issued_date')[:100]
 
     # 미사용 쿠폰 리스트 (최대 100개) - 고객 프로필 정보 포함
     unused_coupons_list = CustomerCoupon.objects.filter(
-        coupon_template__station=request.user,
+        station_filter,
         status='AVAILABLE'
     ).select_related(
         'coupon_template', 
+        'auto_coupon_template',
         'customer',
         'customer__customer_profile'
     ).order_by('-issued_date')[:100]
@@ -4299,7 +4301,9 @@ def get_coupon_statistics(request):
         active_templates = templates.filter(is_active=True).count()
         
         # 2. 발행 및 사용 통계
-        coupons = CustomerCoupon.objects.filter(coupon_template__station=request.user)
+        from django.db.models import Q
+        station_filter = Q(coupon_template__station=request.user) | Q(auto_coupon_template__station=request.user)
+        coupons = CustomerCoupon.objects.filter(station_filter)
         
         # 이번달 발행/사용 통계
         current_month_issued = coupons.filter(
@@ -4486,7 +4490,6 @@ def auto_coupon_list(request):
                 'product_name': template.product_name,
                 'description': template.description,
                 'is_active': template.is_active,
-                'max_issue_count': template.max_issue_count,
                 'issued_count': template.issued_count,
                 'total_issued': template.total_issued,
                 'total_used': template.total_used,
@@ -4558,23 +4561,7 @@ def auto_coupon_create(request):
                 except ValueError:
                     pass
         
-        first_time_only = request.POST.get('first_time_only') == 'true'
-        if first_time_only:
-            condition_data['first_time_only'] = True
         
-        # 회원가입 쿠폰은 항상 무제한 발행
-        if coupon_type == 'SIGNUP':
-            max_issue_count_int = None
-        else:
-            max_issue_count = request.POST.get('max_issue_count')
-            max_issue_count_int = None
-            if max_issue_count:
-                try:
-                    max_issue_count_int = int(max_issue_count)
-                    if max_issue_count_int <= 0:
-                        max_issue_count_int = None
-                except ValueError:
-                    pass
         
         # 템플릿 생성
         template = AutoCouponTemplate.objects.create(
@@ -4583,10 +4570,9 @@ def auto_coupon_create(request):
             coupon_name=request.POST.get('coupon_name'),
             description=request.POST.get('description', ''),
             benefit_type=request.POST.get('benefit_type'),
-            discount_amount=request.POST.get('discount_amount', 0),
+            discount_amount=request.POST.get('discount_amount') or 0,
             product_name=request.POST.get('product_name', ''),
             condition_data=condition_data,
-            max_issue_count=max_issue_count_int,
             is_permanent=is_permanent,
             valid_from=valid_from_date,
             valid_until=valid_until_date,
@@ -4687,20 +4673,6 @@ def auto_coupon_update(request, template_id):
         if request.POST.get('product_name') is not None:
             template.product_name = request.POST.get('product_name', '')
         
-        # 발행 한도 업데이트 (회원가입 쿠폰은 항상 무제한)
-        if template.coupon_type == 'SIGNUP':
-            template.max_issue_count = None
-        elif 'max_issue_count' in request.POST:
-            max_issue_count = request.POST.get('max_issue_count')
-            if max_issue_count:
-                try:
-                    template.max_issue_count = int(max_issue_count)
-                    if template.max_issue_count <= 0:
-                        template.max_issue_count = None
-                except ValueError:
-                    template.max_issue_count = None
-            else:
-                template.max_issue_count = None
         
         # 유효기간 업데이트
         if 'is_permanent' in request.POST:
@@ -4725,25 +4697,17 @@ def auto_coupon_update(request, template_id):
                 template.valid_until = None
         
         # 조건 데이터 업데이트
-        if 'threshold_amount' in request.POST or 'first_time_only' in request.POST:
+        if 'threshold_amount' in request.POST:
             condition_data = template.condition_data.copy()
             
-            if 'threshold_amount' in request.POST:
-                threshold_amount = request.POST.get('threshold_amount')
-                if threshold_amount:
-                    try:
-                        condition_data['threshold_amount'] = float(threshold_amount)
-                    except ValueError:
-                        condition_data.pop('threshold_amount', None)
-                else:
+            threshold_amount = request.POST.get('threshold_amount')
+            if threshold_amount:
+                try:
+                    condition_data['threshold_amount'] = float(threshold_amount)
+                except ValueError:
                     condition_data.pop('threshold_amount', None)
-            
-            if 'first_time_only' in request.POST:
-                first_time_only = request.POST.get('first_time_only') == 'true'
-                if first_time_only:
-                    condition_data['first_time_only'] = True
-                else:
-                    condition_data.pop('first_time_only', None)
+            else:
+                condition_data.pop('threshold_amount', None)
             
             template.condition_data = condition_data
         
@@ -4859,7 +4823,6 @@ def auto_coupon_stats(request, template_id):
             'total_issued': template.total_issued,
             'total_used': template.total_used,
             'usage_rate': template.get_usage_rate(),
-            'remaining_quota': (template.max_issue_count - template.issued_count) if template.max_issue_count else None,
             'is_active': template.is_active,
             'is_valid': template.is_valid_today(),
         }

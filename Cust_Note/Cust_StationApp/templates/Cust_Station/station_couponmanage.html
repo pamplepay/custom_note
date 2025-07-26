@@ -942,9 +942,7 @@ function loadTemplateDataAndShow(templateId, modalElement) {
             // 조건 데이터
             if (template.condition_data) {
                 document.getElementById('thresholdAmount').value = template.condition_data.threshold_amount || '';
-                document.getElementById('firstTimeOnly').checked = template.condition_data.first_time_only || false;
             }
-            document.getElementById('issueLimit').value = template.max_issue_count || '';
             
             // 혜택 유형에 따른 필드 표시
             handleBenefitTypeChange();
@@ -1081,13 +1079,6 @@ function loadTemplateData_OLD(templateId) {
                                             <div style="font-weight: 600; color: #495057;">${template.is_permanent ? "무기한" : (template.valid_from || "없음") + " ~ " + (template.valid_until || "없음")}</div>
                                         </div>
                                     </div>
-                                    <div style="display: flex; align-items: center; padding: 12px; background: white; border-radius: 12px; border-left: 4px solid #6f42c1;">
-                                        <i class="fas fa-hashtag" style="color: #6f42c1; margin-right: 10px; width: 20px;"></i>
-                                        <div>
-                                            <div style="font-size: 0.85rem; color: #6c757d; margin-bottom: 2px;">최대 발행</div>
-                                            <div style="font-weight: 600; color: #495057;">${template.max_issue_count || "무제한"}</div>
-                                        </div>
-                                    </div>
                                     <div style="display: flex; align-items: center; padding: 12px; background: white; border-radius: 12px; border-left: 4px solid #28a745;">
                                         <i class="fas fa-paper-plane" style="color: #28a745; margin-right: 10px; width: 20px;"></i>
                                         <div>
@@ -1176,9 +1167,7 @@ function loadTemplateData_OLD(templateId) {
             // 조건 데이터 (누적/전월매출)
             if (template.condition_data) {
                 document.getElementById('thresholdAmount').value = template.condition_data.threshold_amount || '';
-                document.getElementById('firstTimeOnly').checked = template.condition_data.first_time_only || false;
             }
-            document.getElementById('issueLimit').value = template.max_issue_count || '';
             
             // 혜택 유형에 따른 필드 표시
             handleBenefitTypeChange();
@@ -1205,7 +1194,6 @@ function saveTemplate() {
     const conditionData = {};
     if (currentTemplateType === 'CUMULATIVE' || currentTemplateType === 'MONTHLY') {
         conditionData.threshold_amount = parseInt(formData.get('threshold_amount')) || 0;
-        conditionData.first_time_only = formData.get('first_time_only') === 'on';
     }
     formData.append('condition_data', JSON.stringify(conditionData));
     
@@ -1407,30 +1395,7 @@ function createTemplateDialog(template, couponType = null) {
                                                 onblur="this.style.borderColor='#e9ecef'; this.style.boxShadow='none'">
                                         </div>
                                         
-                                        <!-- 발행 한도 (SIGNUP 쿠폰이 아닐 때만 표시) -->
-                                        <div class="mb-3" id="editIssueLimitSection" style="display: ${actualType === 'SIGNUP' ? 'none' : 'block'};">
-                                            <label for="editIssueLimit" class="form-label fw-semibold" style="color: #495057; font-size: 0.95rem;">
-                                                <i class="fas fa-sort-numeric-down me-2 text-warning"></i>발행 한도
-                                            </label>
-                                            <input type="number" class="form-control rounded-3 shadow-sm" id="editIssueLimit" 
-                                                value="${isAddMode ? '' : template.max_issue_count || ''}" 
-                                                style="border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 0.95rem; transition: all 0.3s ease;" 
-                                                onfocus="this.style.borderColor='#667eea'; this.style.boxShadow='0 0 0 0.2rem rgba(102, 126, 234, 0.25)'" 
-                                                onblur="this.style.borderColor='#e9ecef'; this.style.boxShadow='none'" 
-                                                placeholder="0 = 무제한">
-                                            <small class="form-text text-muted mt-1">
-                                                <i class="fas fa-info-circle me-1"></i>0 입력 시 무제한 발행
-                                            </small>
-                                        </div>
                                         
-                                        <div class="form-check" style="padding-left: 2rem; display: ${actualType === 'SIGNUP' ? 'none' : 'block'};">
-                                            <input class="form-check-input" type="checkbox" id="editFirstTimeOnly" 
-                                                ${!isAddMode && template.condition_data && template.condition_data.first_time_only ? 'checked' : ''} 
-                                                style="margin-top: 0.4rem;">
-                                            <label class="form-check-label fw-semibold" for="editFirstTimeOnly" style="color: #495057; margin-left: 0.5rem;">
-                                                <i class="fas fa-user-check me-2 text-success"></i>최초 발행만 허용
-                                            </label>
-                                        </div>
                                     </div>
                                     
                                     <!-- 회원가입 쿠폰 특성 안내 -->
@@ -1489,25 +1454,6 @@ function createTemplateDialog(template, couponType = null) {
                                         </div>
                                     </div>
                                     
-                                    <!-- 발행 제한 (회원가입 쿠폰은 항상 무제한이므로 숨김) -->
-                                    <div class="mb-4" id="editIssueLimitSection" style="display: ${actualType === 'SIGNUP' ? 'none' : 'block'};">
-                                        <h6 class="text-secondary fw-semibold mb-3" style="font-size: 1.1rem;">
-                                            <i class="fas fa-limit me-2"></i>발행 제한
-                                        </h6>
-                                        
-                                        <div class="mb-3">
-                                            <label for="editIssueLimit" class="form-label fw-semibold" style="color: #495057; font-size: 0.95rem;">
-                                                <i class="fas fa-sort-numeric-up me-2 text-purple"></i>최대 발행 개수 (선택사항)
-                                            </label>
-                                            <input type="number" class="form-control rounded-3 shadow-sm" id="editIssueLimit" value="${isAddMode ? '' : template.max_issue_count || ''}" 
-                                                style="border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 0.95rem; transition: all 0.3s ease;" 
-                                                onfocus="this.style.borderColor='#667eea'; this.style.boxShadow='0 0 0 0.2rem rgba(102, 126, 234, 0.25)'" 
-                                                onblur="this.style.borderColor='#e9ecef'; this.style.boxShadow='none'">
-                                            <div class="form-text" style="color: #6c757d;">
-                                                <i class="fas fa-info-circle me-1"></i>비워두면 무제한 발행
-                                            </div>
-                                        </div>
-                                    </div>
                                     
                                     <!-- 회원가입 쿠폰 안내 메시지 -->
                                     <div class="mb-4" id="editSignupCouponNotice" style="display: ${actualType === 'SIGNUP' ? 'block' : 'none'};">
@@ -1616,15 +1562,10 @@ function saveEditedTemplate() {
     formData.append('is_permanent', document.getElementById('editIsPermanent').checked);
     formData.append('valid_from', document.getElementById('editValidFrom').value);
     formData.append('valid_until', document.getElementById('editValidUntil').value);
-    // 회원가입 쿠폰은 항상 무제한 발행이므로 max_issue_count를 설정하지 않음
-    if (couponType !== 'SIGNUP') {
-        formData.append('max_issue_count', document.getElementById('editIssueLimit').value);
-    }
     
     // 조건 데이터 (누적매출, 전월매출 쿠폰만)
     if (couponType === 'CUMULATIVE' || couponType === 'MONTHLY') {
         formData.append('threshold_amount', document.getElementById('editThresholdAmount').value);
-        formData.append('first_time_only', document.getElementById('editFirstTimeOnly').checked);
     }
     
     // API 엔드포인트 결정 (새 추가면 create, 수정이면 update)

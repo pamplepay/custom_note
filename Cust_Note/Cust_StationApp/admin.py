@@ -10,7 +10,7 @@ from .models import (
     PointCard, StationCardMapping, StationList, ExcelSalesData, SalesStatistics, 
     MonthlySalesStatistics, Group, PhoneCardMapping, CouponType, CouponTemplate, 
     CustomerCoupon, StationCouponQuota, CumulativeSalesTracker, CouponPurchaseRequest,
-    CustomerVisitHistory
+    CustomerVisitHistory, AutoCouponTemplate
 )
 from Cust_User.models import CustomUser
 
@@ -922,21 +922,153 @@ class CouponTemplateAdmin(admin.ModelAdmin):
         }),
     )
 
+@admin.register(AutoCouponTemplate)
+class AutoCouponTemplateAdmin(admin.ModelAdmin):
+    list_display = ('station', 'get_station_name', 'coupon_name', 'coupon_type', 'benefit_type', 'discount_amount', 'product_name', 'is_active_display', 'total_issued', 'total_used', 'created_at')
+    list_filter = ('coupon_type', 'benefit_type', 'is_active', 'is_permanent', 'created_at', 'station')
+    search_fields = ('coupon_name', 'description', 'station__username', 'station__station_profile__station_name', 'product_name')
+    readonly_fields = ('created_at', 'updated_at', 'total_issued', 'total_used', 'issued_count', 'get_station_name')
+    list_per_page = 50
+    actions = ['activate_templates', 'deactivate_templates', 'reset_counters']
+    
+    fieldsets = (
+        ('기본 정보', {
+            'fields': ('station', 'get_station_name', 'coupon_type', 'coupon_name', 'description')
+        }),
+        ('혜택 설정', {
+            'fields': ('benefit_type', 'discount_amount', 'product_name')
+        }),
+        ('발행 조건', {
+            'fields': ('condition_data',)
+        }),
+        ('유효기간', {
+            'fields': ('is_permanent', 'valid_from', 'valid_until')
+        }),
+        ('관리', {
+            'fields': ('is_active', 'created_by')
+        }),
+        ('통계', {
+            'fields': ('issued_count', 'total_issued', 'total_used'),
+            'classes': ('collapse',)
+        }),
+        ('시간 정보', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('station', 'station__station_profile', 'created_by')
+    
+    def get_station_name(self, obj):
+        """주유소명 표시"""
+        if hasattr(obj.station, 'station_profile'):
+            return obj.station.station_profile.station_name
+        return obj.station.username
+    get_station_name.short_description = '주유소명'
+    get_station_name.admin_order_field = 'station__station_profile__station_name'
+    
+    def is_active_display(self, obj):
+        """활성 상태 표시"""
+        if obj.is_active:
+            return format_html(
+                '<span style="color: #27ae60; font-weight: bold;">●</span> 활성'
+            )
+        else:
+            return format_html(
+                '<span style="color: #e74c3c; font-weight: bold;">●</span> 비활성'
+            )
+    is_active_display.short_description = '상태'
+    is_active_display.admin_order_field = 'is_active'
+    
+    def activate_templates(self, request, queryset):
+        """선택된 템플릿들을 활성화"""
+        count = queryset.update(is_active=True)
+        self.message_user(request, f'{count}개의 자동 쿠폰 템플릿이 활성화되었습니다.')
+    activate_templates.short_description = '선택된 템플릿 활성화'
+    
+    def deactivate_templates(self, request, queryset):
+        """선택된 템플릿들을 비활성화"""
+        count = queryset.update(is_active=False)
+        self.message_user(request, f'{count}개의 자동 쿠폰 템플릿이 비활성화되었습니다.')
+    deactivate_templates.short_description = '선택된 템플릿 비활성화'
+    
+    def reset_counters(self, request, queryset):
+        """선택된 템플릿들의 카운터 초기화"""
+        count = 0
+        for template in queryset:
+            template.issued_count = 0
+            template.total_issued = 0
+            template.total_used = 0
+            template.save()
+            count += 1
+        self.message_user(request, f'{count}개의 자동 쿠폰 템플릿 카운터가 초기화되었습니다.')
+    reset_counters.short_description = '선택된 템플릿 카운터 초기화'
+    
+    def get_form(self, request, obj=None, **kwargs):
+        """폼 커스터마이징"""
+        form = super().get_form(request, obj, **kwargs)
+        
+        # station 필드를 현재 사용자로 제한 (주유소 사용자의 경우)
+        if hasattr(request.user, 'user_type') and request.user.user_type == 'STATION':
+            form.base_fields['station'].queryset = form.base_fields['station'].queryset.filter(id=request.user.id)
+            form.base_fields['station'].initial = request.user
+        
+        # created_by 필드를 현재 사용자로 설정
+        if not obj:  # 새로 생성하는 경우
+            form.base_fields['created_by'].initial = request.user
+        
+        return form
+    
+    def save_model(self, request, obj, form, change):
+        """모델 저장 시 created_by 자동 설정"""
+        if not change and not obj.created_by:  # 새로 생성하는 경우
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
+    
+    def changelist_view(self, request, extra_context=None):
+        """목록 페이지에 통계 정보 추가"""
+        extra_context = extra_context or {}
+        
+        # 기본 통계
+        queryset = self.get_queryset(request)
+        total_templates = queryset.count()
+        active_templates = queryset.filter(is_active=True).count()
+        inactive_templates = total_templates - active_templates
+        
+        # 쿠폰 타입별 통계
+        type_stats = {}
+        for type_code, type_name in AutoCouponTemplate.COUPON_TYPES:
+            type_count = queryset.filter(coupon_type=type_code).count()
+            type_stats[type_name] = type_count
+        
+        extra_context.update({
+            'total_templates': total_templates,
+            'active_templates': active_templates,
+            'inactive_templates': inactive_templates,
+            'type_stats': type_stats,
+        })
+        
+        return super().changelist_view(request, extra_context)
+
 @admin.register(CustomerCoupon)
 class CustomerCouponAdmin(admin.ModelAdmin):
-    list_display = ('customer', 'coupon_template', 'status_display', 'issued_date', 'used_date', 'expiry_date')
-    list_filter = ('status', 'issued_date', 'used_date', 'expiry_date', 'coupon_template__station')
-    search_fields = ('customer__username', 'customer__phone_number', 'coupon_template__coupon_name', 'coupon_template__station__username')
-    readonly_fields = ('issued_date', 'used_date', 'status_display')
+    list_display = ('customer', 'get_template_name', 'get_template_type', 'status_display', 'issued_date', 'used_date', 'expiry_date')
+    list_filter = ('status', 'issued_date', 'used_date', 'expiry_date', 'coupon_template__station', 'auto_coupon_template__station', 'auto_coupon_template__coupon_type')
+    search_fields = ('customer__username', 'customer__phone_number', 'coupon_template__coupon_name', 'auto_coupon_template__coupon_name', 'coupon_template__station__username', 'auto_coupon_template__station__username')
+    readonly_fields = ('issued_date', 'used_date', 'status_display', 'get_template_name', 'get_template_type')
     list_per_page = 50
     actions = ['bulk_issue_coupons', 'bulk_delete_unused', 'mark_as_used', 'mark_as_unused']
     
     fieldsets = (
         ('쿠폰 정보', {
-            'fields': ('coupon_template', 'status')
+            'fields': ('get_template_name', 'get_template_type', 'coupon_template', 'auto_coupon_template', 'status')
         }),
         ('고객 정보', {
             'fields': ('customer',)
+        }),
+        ('사용 정보', {
+            'fields': ('used_amount',)
         }),
         ('시간 정보', {
             'fields': ('issued_date', 'used_date', 'expiry_date', 'status_display'),
@@ -945,7 +1077,39 @@ class CustomerCouponAdmin(admin.ModelAdmin):
     )
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('customer', 'coupon_template', 'coupon_template__station')
+        return super().get_queryset(request).select_related(
+            'customer', 'coupon_template', 'coupon_template__station',
+            'auto_coupon_template', 'auto_coupon_template__station'
+        )
+    
+    def get_template_name(self, obj):
+        """템플릿 이름 표시"""
+        template = obj.template
+        if template:
+            return template.coupon_name
+        return '-'
+    get_template_name.short_description = '쿠폰명'
+    
+    def get_template_type(self, obj):
+        """템플릿 유형 표시"""
+        if obj.auto_coupon_template:
+            type_map = {
+                'SIGNUP': '회원가입',
+                'CUMULATIVE': '누적매출',
+                'MONTHLY': '전월매출'
+            }
+            type_name = type_map.get(obj.auto_coupon_template.coupon_type, obj.auto_coupon_template.coupon_type)
+            return format_html(
+                '<span style="color: #3498db; font-weight: bold;">[자동]</span> {}',
+                type_name
+            )
+        elif obj.coupon_template:
+            return format_html(
+                '<span style="color: #95a5a6; font-weight: bold;">[수동]</span> {}',
+                obj.coupon_template.coupon_type.type_name if obj.coupon_template.coupon_type else '-'
+            )
+        return '-'
+    get_template_type.short_description = '유형'
     
     def status_display(self, obj):
         """쿠폰 상태 표시"""
@@ -965,9 +1129,9 @@ class CustomerCouponAdmin(admin.ModelAdmin):
     
     def get_readonly_fields(self, request, obj=None):
         if obj and obj.status == 'USED':  # 이미 사용된 쿠폰
-            return self.readonly_fields + ('coupon_template', 'customer')
+            return self.readonly_fields + ('coupon_template', 'auto_coupon_template', 'customer')
         elif obj and obj.issued_date:  # 이미 발행된 쿠폰
-            return self.readonly_fields + ('coupon_template',)
+            return self.readonly_fields + ('coupon_template', 'auto_coupon_template')
         return self.readonly_fields
     
     def bulk_issue_coupons(self, request, queryset):
@@ -1022,6 +1186,37 @@ class CustomerCouponAdmin(admin.ModelAdmin):
         if count > 0:
             self.message_user(request, f'{count}개의 쿠폰이 미사용으로 표시되었습니다.')
     mark_as_unused.short_description = '선택된 쿠폰 미사용으로 표시'
+    
+    def get_form(self, request, obj=None, **kwargs):
+        """폼 커스터마이징"""
+        form = super().get_form(request, obj, **kwargs)
+        
+        # 주유소 사용자의 경우 해당 주유소의 템플릿만 표시
+        if hasattr(request.user, 'user_type') and request.user.user_type == 'STATION':
+            form.base_fields['coupon_template'].queryset = form.base_fields['coupon_template'].queryset.filter(station=request.user)
+            form.base_fields['auto_coupon_template'].queryset = form.base_fields['auto_coupon_template'].queryset.filter(station=request.user)
+        
+        return form
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """외래키 필드 커스터마이징"""
+        if db_field.name == "customer":
+            # 고객 타입 사용자만 표시
+            kwargs["queryset"] = CustomUser.objects.filter(user_type='CUSTOMER')
+        elif db_field.name == "coupon_template":
+            # 활성화된 쿠폰 템플릿만 표시
+            if hasattr(request.user, 'user_type') and request.user.user_type == 'STATION':
+                kwargs["queryset"] = CouponTemplate.objects.filter(station=request.user, is_active=True)
+            else:
+                kwargs["queryset"] = CouponTemplate.objects.filter(is_active=True)
+        elif db_field.name == "auto_coupon_template":
+            # 활성화된 자동 쿠폰 템플릿만 표시
+            if hasattr(request.user, 'user_type') and request.user.user_type == 'STATION':
+                kwargs["queryset"] = AutoCouponTemplate.objects.filter(station=request.user, is_active=True)
+            else:
+                kwargs["queryset"] = AutoCouponTemplate.objects.filter(is_active=True)
+        
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 @admin.register(StationCouponQuota)
@@ -1234,11 +1429,11 @@ class CumulativeSalesTrackerAdmin(admin.ModelAdmin):
     
     def get_customer_name(self, obj):
         """고객명 표시"""
-        if hasattr(obj.customer, 'customer_profile') and obj.customer.customer_profile.real_name:
-            return obj.customer.customer_profile.real_name
+        if hasattr(obj.customer, 'customer_profile') and obj.customer.customer_profile.name:
+            return obj.customer.customer_profile.name
         return obj.customer.username
     get_customer_name.short_description = '고객명'
-    get_customer_name.admin_order_field = 'customer__customer_profile__real_name'
+    get_customer_name.admin_order_field = 'customer__customer_profile__name'
     
     def get_station_name(self, obj):
         """주유소명 표시"""
@@ -1261,8 +1456,8 @@ class CumulativeSalesTrackerAdmin(admin.ModelAdmin):
             color = "#27ae60"  # 녹색
         
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{:,}</span>원',
-            color, int(amount)
+            '<span style="color: {}; font-weight: bold;">{}</span>원',
+            color, f'{int(amount):,}'
         )
     cumulative_amount_display.short_description = '누적매출'
     
@@ -1304,11 +1499,11 @@ class CustomerVisitHistoryAdmin(admin.ModelAdmin):
     
     def get_customer_name(self, obj):
         """고객명 표시"""
-        if hasattr(obj.customer, 'customer_profile') and obj.customer.customer_profile.real_name:
-            return obj.customer.customer_profile.real_name
+        if hasattr(obj.customer, 'customer_profile') and obj.customer.customer_profile.name:
+            return obj.customer.customer_profile.name
         return obj.customer.username
     get_customer_name.short_description = '고객명'
-    get_customer_name.admin_order_field = 'customer__customer_profile__real_name'
+    get_customer_name.admin_order_field = 'customer__customer_profile__name'
     
     def get_station_name(self, obj):
         """주유소명 표시"""
@@ -1329,7 +1524,7 @@ class CustomerVisitHistoryAdmin(admin.ModelAdmin):
             color = "#27ae60"  # 녹색
         
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{:,}</span>원',
-            color, int(amount)
+            '<span style="color: {}; font-weight: bold;">{}</span>원',
+            color, f'{int(amount):,}'
         )
     total_amount_display.short_description = '거래금액'

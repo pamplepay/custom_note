@@ -142,7 +142,7 @@
                                                             {{ coupon.discount_value|floatformat:0|intcomma }}원
                                                         {% endif %}
                                                     </div>
-                                                    <small class="text-muted">세차 할인</small>
+                                                    <small class="text-muted">{{ coupon.benefit_description }}</small>
                                                 </div>
                                                 <div class="col-6">
                                                     <div class="min-amount text-muted">
@@ -219,25 +219,10 @@
                                         
                                         <div class="coupon-details mb-3">
                                             <div class="row text-center">
-                                                <div class="col-6">
+                                                <div class="col-12">
                                                     <div class="discount-amount text-info fw-bold">
-                                                        {% if coupon.discount_type == 'PERCENT' %}
-                                                            {{ coupon.discount_value }}%
-                                                        {% else %}
-                                                            {{ coupon.discount_value|floatformat:0|intcomma }}원
-                                                        {% endif %}
+                                                        {{ coupon.product_name }}
                                                     </div>
-                                                    <small class="text-muted">세차 할인</small>
-                                                </div>
-                                                <div class="col-6">
-                                                    <div class="min-amount text-muted">
-                                                        {% if coupon.min_amount %}
-                                                            {{ coupon.min_amount|floatformat:0|intcomma }}원
-                                                        {% else %}
-                                                            -
-                                                        {% endif %}
-                                                    </div>
-                                                    <small class="text-muted">최소금액</small>
                                                 </div>
                                             </div>
                                         </div>

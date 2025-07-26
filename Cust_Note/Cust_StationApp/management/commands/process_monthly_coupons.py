@@ -108,14 +108,14 @@ class Command(BaseCommand):
         """특정 주유소의 전월매출 쿠폰 처리"""
         logger.info(f'주유소 {station.username}의 {year_month} 전월매출 쿠폰 처리 시작')
         
-        # 전월매출 쿠폰 템플릿 조회
-        monthly_templates = CouponTemplate.objects.filter(
+        # 전월매출 쿠폰 템플릿 조회 (최신 1개만)
+        monthly_template = CouponTemplate.objects.filter(
             station=station,
             coupon_type__type_code='MONTHLY',
             is_active=True
-        )
+        ).order_by('-created_at').first()
         
-        if not monthly_templates.exists():
+        if not monthly_template:
             logger.info(f'주유소 {station.username}에 전월매출 쿠폰 템플릿이 없음')
             return 0, 0
         
@@ -141,49 +141,49 @@ class Command(BaseCommand):
         issued_count = 0
         customer_count = 0
         
-        for template in monthly_templates:
-            if not template.is_valid_today():
-                continue
-            
-            # 템플릿별 발행 조건 확인 (예: 최소 매출 금액)
-            threshold_amount = getattr(template, 'monthly_threshold', 50000)  # 기본 5만원
-            
-            # 해당 월에 임계값 이상 매출을 올린 고객들 찾기
-            eligible_customers = self.find_eligible_customers(
-                station, 
-                year_month, 
-                threshold_amount
-            )
-            
-            logger.info(f'템플릿 {template.coupon_name}: {len(eligible_customers)}명 대상')
-            
-            for customer in eligible_customers:
-                if not dry_run:
-                    # 중복 발행 방지 체크
-                    existing_coupon = CustomerCoupon.objects.filter(
-                        customer=customer,
-                        coupon_template=template,
-                        issued_date__year=datetime.now().year,
-                        issued_date__month=datetime.now().month
-                    ).exists()
-                    
-                    if existing_coupon:
-                        logger.info(f'고객 {customer.username}에게 이미 발행된 전월매출 쿠폰 존재')
-                        continue
-                    
-                    # 쿠폰 발행
-                    with transaction.atomic():
-                        new_coupon = CustomerCoupon.objects.create(
-                            customer=customer,
-                            coupon_template=template,
-                            status='AVAILABLE'
-                        )
-                        issued_count += 1
-                        logger.info(f'✅ 전월매출 쿠폰 발행: {customer.username} → {template.coupon_name}')
-                else:
-                    issued_count += 1
+        if not monthly_template.is_valid_today():
+            logger.info(f'템플릿 {monthly_template.coupon_name}이 유효하지 않음')
+            return 0, 0
+        
+        # 템플릿별 발행 조건 확인 (예: 최소 매출 금액)
+        threshold_amount = getattr(monthly_template, 'monthly_threshold', 50000)  # 기본 5만원
+        
+        # 해당 월에 임계값 이상 매출을 올린 고객들 찾기
+        eligible_customers = self.find_eligible_customers(
+            station, 
+            year_month, 
+            threshold_amount
+        )
+        
+        logger.info(f'템플릿 {monthly_template.coupon_name}: {len(eligible_customers)}명 대상')
+        
+        for customer in eligible_customers:
+            if not dry_run:
+                # 중복 발행 방지 체크
+                existing_coupon = CustomerCoupon.objects.filter(
+                    customer=customer,
+                    coupon_template=monthly_template,
+                    issued_date__year=datetime.now().year,
+                    issued_date__month=datetime.now().month
+                ).exists()
                 
-                customer_count += 1
+                if existing_coupon:
+                    logger.info(f'고객 {customer.username}에게 이미 발행된 전월매출 쿠폰 존재')
+                    continue
+                
+                # 쿠폰 발행
+                with transaction.atomic():
+                    new_coupon = CustomerCoupon.objects.create(
+                        customer=customer,
+                        coupon_template=monthly_template,
+                        status='AVAILABLE'
+                    )
+                    issued_count += 1
+                    logger.info(f'✅ 전월매출 쿠폰 발행: {customer.username} → {monthly_template.coupon_name}')
+            else:
+                issued_count += 1
+            
+            customer_count += 1
         
         return issued_count, customer_count
     

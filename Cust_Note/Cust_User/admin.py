@@ -332,6 +332,31 @@ class CustomerUserAdmin(CustomUserAdmin):
         return '-'
     station_list.short_description = '연결 주유소'
 
+    def coupon_status(self, obj):
+        """고객의 쿠폰 상태를 표시"""
+        # CustomerCoupon 모델을 통해 쿠폰 수를 가져옴
+        coupons = CustomerCoupon.objects.filter(customer=obj)
+        available = coupons.filter(status='AVAILABLE').count()
+        used = coupons.filter(status='USED').count()
+        expired = coupons.filter(status='EXPIRED').count()
+        
+        if available > 0:
+            return format_html(
+                '<span style="color: #28a745;">사용가능: {}</span> / '
+                '<span style="color: #6c757d;">사용완료: {}</span> / '
+                '<span style="color: #dc3545;">만료: {}</span>',
+                available, used, expired
+            )
+        elif used > 0 or expired > 0:
+            return format_html(
+                '<span style="color: #6c757d;">사용완료: {}</span> / '
+                '<span style="color: #dc3545;">만료: {}</span>',
+                used, expired
+            )
+        else:
+            return '-'
+    coupon_status.short_description = '쿠폰 현황'
+
 @admin.register(StationUser)
 class StationUserAdmin(CustomUserAdmin):
     def get_queryset(self, request):
