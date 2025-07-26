@@ -9,14 +9,14 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import Sum
 from datetime import datetime, timedelta
 from Cust_StationApp.models import (
-    MonthlySalesStatistics, 
-    CouponTemplate, 
-    CustomerCoupon,
-    CouponType
+    ExcelSalesData,
+    AutoCouponTemplate,
+    CustomerCoupon
 )
-from Cust_User.models import CustomUser
+from Cust_User.models import CustomUser, StationProfile, CustomerStationRelation
 import logging
 
 logger = logging.getLogger(__name__)
@@ -109,9 +109,9 @@ class Command(BaseCommand):
         logger.info(f'주유소 {station.username}의 {year_month} 전월매출 쿠폰 처리 시작')
         
         # 전월매출 쿠폰 템플릿 조회 (최신 1개만)
-        monthly_template = CouponTemplate.objects.filter(
+        monthly_template = AutoCouponTemplate.objects.filter(
             station=station,
-            coupon_type__type_code='MONTHLY',
+            coupon_type='MONTHLY',
             is_active=True
         ).order_by('-created_at').first()
         
@@ -119,105 +119,129 @@ class Command(BaseCommand):
             logger.info(f'주유소 {station.username}에 전월매출 쿠폰 템플릿이 없음')
             return 0, 0
         
-        # 해당 월의 매출 통계 조회
-        monthly_stats = MonthlySalesStatistics.objects.filter(
-            tid__isnull=False,
-            year_month=year_month
-        )
-        
-        if not monthly_stats.exists():
-            logger.info(f'{year_month}의 매출 통계 데이터가 없음')
-            return 0, 0
-        
-        # 주유소의 TID별 매출 데이터 수집
-        station_tids = self.get_station_tids(station)
-        station_sales = monthly_stats.filter(tid__in=station_tids)
-        
-        if not station_sales.exists():
-            logger.info(f'주유소 {station.username}의 {year_month} 매출 데이터가 없음')
+        # 주유소의 StationProfile에서 TID 가져오기
+        try:
+            station_profile = StationProfile.objects.get(user=station)
+            tid = station_profile.tid
+        except StationProfile.DoesNotExist:
+            logger.error(f'주유소 {station.username}의 StationProfile이 없음')
             return 0, 0
         
         # 매출 기준 고객 선별 및 쿠폰 발행
         issued_count = 0
         customer_count = 0
         
-        if not monthly_template.is_valid_today():
-            logger.info(f'템플릿 {monthly_template.coupon_name}이 유효하지 않음')
-            return 0, 0
-        
-        # 템플릿별 발행 조건 확인 (예: 최소 매출 금액)
-        threshold_amount = getattr(monthly_template, 'monthly_threshold', 50000)  # 기본 5만원
+        # 템플릿별 발행 조건 확인 (condition_data에서 threshold_amount 가져오기)
+        threshold_amount = monthly_template.condition_data.get('threshold_amount', 50000)  # 기본 5만원
+        logger.info(f'전월매출 쿠폰 임계값: {threshold_amount:,.0f}원')
         
         # 해당 월에 임계값 이상 매출을 올린 고객들 찾기
         eligible_customers = self.find_eligible_customers(
             station, 
+            tid,
             year_month, 
             threshold_amount
         )
         
         logger.info(f'템플릿 {monthly_template.coupon_name}: {len(eligible_customers)}명 대상')
         
-        for customer in eligible_customers:
+        for customer_data in eligible_customers:
+            customer = customer_data['customer']
+            sales_amount = customer_data['sales_amount']
+            
             if not dry_run:
-                # 중복 발행 방지 체크
+                # 이번 달에 이미 전월매출 쿠폰을 받았는지 체크
+                # issued_date의 년월로 중복 체크
+                current_year = datetime.now().year
+                current_month = datetime.now().month
                 existing_coupon = CustomerCoupon.objects.filter(
                     customer=customer,
-                    coupon_template=monthly_template,
-                    issued_date__year=datetime.now().year,
-                    issued_date__month=datetime.now().month
+                    auto_coupon_template=monthly_template,
+                    issued_date__year=current_year,
+                    issued_date__month=current_month
                 ).exists()
                 
                 if existing_coupon:
-                    logger.info(f'고객 {customer.username}에게 이미 발행된 전월매출 쿠폰 존재')
+                    logger.info(f'고객 {customer.username}에게 {year_month} 전월매출 쿠폰 이미 발행됨')
                     continue
                 
                 # 쿠폰 발행
-                with transaction.atomic():
-                    new_coupon = CustomerCoupon.objects.create(
-                        customer=customer,
-                        coupon_template=monthly_template,
-                        status='AVAILABLE'
-                    )
-                    issued_count += 1
-                    logger.info(f'✅ 전월매출 쿠폰 발행: {customer.username} → {monthly_template.coupon_name}')
+                try:
+                    with transaction.atomic():
+                        # CustomerCoupon 직접 생성
+                        new_coupon = CustomerCoupon.objects.create(
+                            customer=customer,
+                            auto_coupon_template=monthly_template,
+                            status='AVAILABLE'
+                        )
+                        issued_count += 1
+                        logger.info(f'✅ 전월매출 쿠폰 발행: {customer.username} → {monthly_template.coupon_name} (매출: {sales_amount:,.0f}원)')
+                except Exception as e:
+                    logger.error(f'쿠폰 발행 실패 - {customer.username}: {str(e)}')
             else:
                 issued_count += 1
+                logger.info(f'[DRY-RUN] {customer.username} → {monthly_template.coupon_name} (매출: {sales_amount:,.0f}원)')
             
             customer_count += 1
         
         return issued_count, customer_count
     
-    def get_station_tids(self, station):
-        """주유소의 TID 목록 조회"""
-        tids = []
-        
-        # StationProfile에서 TID 조회
-        if hasattr(station, 'station_profile') and station.station_profile.tid:
-            tids.append(station.station_profile.tid)
-        
-        # 추가적인 TID 조회 로직 (카드 매핑 등에서)
-        # 여기에 필요에 따라 추가 로직 구현
-        
-        return tids if tids else ['UNKNOWN']
-    
-    def find_eligible_customers(self, station, year_month, threshold_amount):
+    def find_eligible_customers(self, station, tid, year_month, threshold_amount):
         """전월매출 쿠폰 발행 대상 고객 조회"""
-        # 실제 구현에서는 매출 데이터와 고객 정보를 연결하여
-        # 임계값 이상 매출을 올린 고객들을 찾아야 합니다.
-        # 여기서는 예시로 해당 주유소의 고객들 중 일부를 반환합니다.
+        logger.info(f'전월매출 쿠폰 발행 대상 고객 조회 시작: {year_month}, 임계값: {threshold_amount:,.0f}원')
         
-        from Cust_User.models import CustomerStationRelation
+        # 년월에서 시작일과 종료일 계산
+        year, month = map(int, year_month.split('-'))
+        first_day = datetime(year, month, 1).date()
         
-        # 해당 주유소의 고객들 조회
-        relations = CustomerStationRelation.objects.filter(
-            station=station,
-            is_active=True
+        # 다음 달의 첫날을 구하고 하루를 빼서 마지막 날 계산
+        if month == 12:
+            last_day = datetime(year + 1, 1, 1).date() - timedelta(days=1)
+        else:
+            last_day = datetime(year, month + 1, 1).date() - timedelta(days=1)
+        
+        logger.info(f'조회 기간: {first_day} ~ {last_day}')
+        
+        # ExcelSalesData에서 해당 월의 고객별 매출 합계 조회
+        customer_sales = ExcelSalesData.objects.filter(
+            tid=tid,
+            sale_date__gte=first_day,
+            sale_date__lte=last_day
+        ).values('customer_name').annotate(
+            total_amount=Sum('total_amount')
+        ).filter(
+            total_amount__gte=threshold_amount
         )
         
+        logger.info(f'임계값 이상 매출 고객 수: {customer_sales.count()}명')
+        
         eligible_customers = []
-        for relation in relations:
-            # 실제로는 매출 데이터를 기반으로 판단해야 합니다.
-            # 여기서는 예시로 모든 고객을 대상으로 합니다.
-            eligible_customers.append(relation.customer)
+        
+        for sale_data in customer_sales:
+            customer_name = sale_data['customer_name']
+            total_amount = sale_data['total_amount']
+            
+            # customer_name으로 실제 Customer 객체 찾기
+            try:
+                customer = CustomUser.objects.get(
+                    username=customer_name,
+                    user_type='CUSTOMER'
+                )
+                
+                # 해당 고객이 이 주유소와 관계가 있는지 확인
+                if CustomerStationRelation.objects.filter(
+                    customer=customer,
+                    station=station,
+                    is_active=True
+                ).exists():
+                    eligible_customers.append({
+                        'customer': customer,
+                        'sales_amount': total_amount
+                    })
+                    logger.info(f'발행 대상: {customer_name} - 매출: {total_amount:,.0f}원')
+                
+            except CustomUser.DoesNotExist:
+                logger.warning(f'고객 {customer_name}을 찾을 수 없음')
+                continue
         
         return eligible_customers
