@@ -1083,7 +1083,7 @@ def auto_issue_signup_coupons(customer, station):
         return 0
 
 
-def track_cumulative_sales(customer, station, sale_amount):
+def track_cumulative_sales(customer, station, sale_amount, excel_sales_data):
     """ExcelSalesData 기반 누적매출 추적 및 쿠폰 발행"""
     from django.db import transaction
     from django.db.models import Sum
@@ -1102,7 +1102,7 @@ def track_cumulative_sales(customer, station, sale_amount):
                 logger.warning(f"주유소 {station.username}의 StationProfile을 찾을 수 없음")
                 return
             
-            # 이전 누적매출 계산 (현재 매출 제외)
+            # 이전 누적매출 계산 (현재 처리 중인 매출 제외)
             previous_sales = ExcelSalesData.objects.filter(
                 customer_name=customer.username,
                 tid=station_profile.tid,
@@ -1112,8 +1112,8 @@ def track_cumulative_sales(customer, station, sale_amount):
             # 현재 매출 금액
             current_sale_amount = float(excel_sales_data.total_amount)
             
-            # 새로운 전체 누적매출
-            new_total_sales = previous_sales + current_sale_amount
+            # 새로운 전체 누적매출 (이전 매출 + 현재 매출)
+            new_total_sales = float(previous_sales) + current_sale_amount
             
             logger.info(f"이전 누적매출: {previous_sales:,.0f}원")
             logger.info(f"현재 매출: {current_sale_amount:,.0f}원")
@@ -1137,7 +1137,7 @@ def track_cumulative_sales(customer, station, sale_amount):
             # 템플릿 전환 시 중복 발행 방지를 위해 전체 누적매출 쿠폰 개수를 확인
             issued_coupons = CustomerCoupon.objects.filter(
                 customer=customer,
-                auto_coupon_template__station=customer_relation.station,
+                auto_coupon_template__station=station,
                 auto_coupon_template__coupon_type='CUMULATIVE'
             ).count()
             
@@ -1158,10 +1158,8 @@ def track_cumulative_sales(customer, station, sale_amount):
             if new_coupons_needed > 0:
                 logger.info(f"누적매출 쿠폰 발행 시작: {new_coupons_needed}개")
                 
-                # 쿠폰 발행 가능 여부 확인
-                can_issue, reason = auto_template.can_issue_to_customer(customer)
-                
-                if can_issue and auto_template.is_valid_today():
+                # 누적매출 쿠폰은 이미 계산된 조건으로 바로 발행
+                if auto_template.is_valid_today():
                     # 벌크 생성을 위한 쿠폰 리스트
                     coupons_to_create = []
                     
@@ -1184,11 +1182,11 @@ def track_cumulative_sales(customer, station, sale_amount):
                     auto_template.save()
                     
                     logger.info(f"✅ 누적매출 쿠폰 {issued_count}개 발행 완료: {auto_template.coupon_name}")
-                    logger.info(f"발행 기준 누적액: {total_sales:,.0f}원")
+                    logger.info(f"발행 기준 누적액: {new_total_sales:,.0f}원")
                 else:
                     logger.warning(f"쿠폰 발행 불가: {reason}")
             else:
-                remaining = float(threshold_amount) - (float(total_sales) % float(threshold_amount))
+                remaining = float(threshold_amount) - (float(new_total_sales) % float(threshold_amount))
                 logger.info(f"누적매출 쿠폰 발행 조건 미충족 (다음 발행까지 {remaining:,.0f}원 필요)")
             
             elapsed_time = time.time() - start_time
@@ -1372,68 +1370,7 @@ class AutoCouponTemplate(models.Model):
         return True
     
     
-    def can_issue_to_customer(self, customer):
-        """특정 고객에게 발행 가능한지 확인"""
-        if not self.is_active:
-            return False, "비활성 템플릿"
-        
-        if not self.is_valid_today():
-            return False, "유효기간 외"
-        
-        
-        # 조건 체크
-        condition_result = self.check_conditions(customer)
-        if not condition_result[0]:
-            return False, condition_result[1]
-        
-        # 중복 발행 체크
-        if self.is_already_issued_to_customer(customer):
-            return False, "이미 발행됨"
-        
-        return True, "발행 가능"
     
-    def check_conditions(self, customer):
-        """조건 데이터를 기반으로 발행 조건 확인"""
-        try:
-            conditions = self.condition_data
-            
-            # 금액 임계값 조건 (누적매출, 전월매출)
-            if 'threshold_amount' in conditions:
-                threshold = conditions['threshold_amount']
-                if self.coupon_type == 'CUMULATIVE':
-                    # ExcelSalesData 기반으로 누적매출 계산
-                    from django.db.models import Sum
-                    from Cust_User.models import StationProfile
-                    
-                    station_profile = StationProfile.objects.filter(user=self.station).first()
-                    if not station_profile:
-                        return False, f"주유소 프로필 없음"
-                    
-                    total_sales = ExcelSalesData.objects.filter(
-                        customer_name=customer.username,
-                        tid=station_profile.tid,
-                        is_cumulative_processed=True
-                    ).aggregate(total=Sum('total_amount'))['total'] or 0
-                    
-                    if float(total_sales) < float(threshold):
-                        return False, f"누적매출 {threshold:,}원 미달 (현재: {total_sales:,}원)"
-                
-                elif self.coupon_type == 'MONTHLY':
-                    # 전월매출 체크 로직 (구현 필요)
-                    pass
-            
-            
-            # 제외 사용자 조건
-            if 'exclude_users' in conditions:
-                exclude_list = conditions['exclude_users']
-                if customer.username in exclude_list:
-                    return False, "제외 대상 사용자"
-            
-            return True, "조건 만족"
-            
-        except Exception as e:
-            logger.error(f"조건 체크 오류: {e}")
-            return False, f"조건 체크 오류: {str(e)}"
     
     def is_already_issued_to_customer(self, customer):
         """해당 고객에게 이미 발행되었는지 확인"""
@@ -1580,7 +1517,7 @@ def on_excel_sales_data(sender, instance, created, **kwargs):
             logger.info(f"ExcelSalesData 기반 누적매출 추적: {customer.username}@{station.username} (금액: {instance.total_amount:,}원)")
             
             # 누적매출 추적 실행
-            track_cumulative_sales(customer, station, instance.total_amount)
+            track_cumulative_sales(customer, station, instance.total_amount, instance)
             
             # 처리 완료 플래그 설정
             ExcelSalesData.objects.filter(id=instance.id).update(is_cumulative_processed=True)
