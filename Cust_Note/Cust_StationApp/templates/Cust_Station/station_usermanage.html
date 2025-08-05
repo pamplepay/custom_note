@@ -963,8 +963,7 @@
                                 <div class="alert alert-warning small">
                                     <i class="fas fa-exclamation-triangle me-1"></i>
                                     <strong>주의사항:</strong>
-                                    <ul class="mb-0 mt-1">
-                                        <li>기존 고객은 중복 등록되지 않습니다</li>
+                                    <ul class="mb-0 mt-1">                                        
                                         <li>카드번호는 미리 등록된 카드만 사용 가능합니다</li>
                                         <li>전화번호와 카드번호는 필수 입력 항목입니다</li>
                                     </ul>
@@ -973,6 +972,26 @@
                         </div>
                     </div>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 고객 엑셀 업로드 결과 모달 -->
+<div class="modal fade" id="uploadResultModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadResultModalTitle">
+                    <i class="fas fa-info-circle me-2"></i>업로드 결과
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="uploadResultModalBody">
+                <!-- 결과 내용이 여기에 동적으로 추가됩니다 -->
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
@@ -3216,23 +3235,16 @@ function uploadCustomerExcel() {
         resultDiv.style.display = 'block';
         
         if (data.status === 'success') {
-            resultDiv.className = 'alert alert-success';
-            resultDiv.innerHTML = `
-                <h6><i class="fas fa-check-circle me-2"></i>고객 일괄 등록 완료</h6>
-                <p class="mb-2">${data.message}</p>
-                ${data.details ? `<small class="text-muted">${data.details}</small>` : ''}
-            `;
+            // 성공 팝업 표시
+            showUploadResultModal('success', data);
             
-            // 고객 목록 새로고침
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
+            // 고객 목록 새로고침 (팝업 닫힌 후)
+            // setTimeout(() => {
+            //     location.reload();
+            // }, 3000);
         } else {
-            resultDiv.className = 'alert alert-danger';
-            resultDiv.innerHTML = `
-                <h6><i class="fas fa-exclamation-triangle me-2"></i>업로드 실패</h6>
-                <p class="mb-0">${data.message}</p>
-            `;
+            // 실패 팝업 표시
+            showUploadResultModal('error', data);
         }
     })
     .catch(error => {
@@ -3240,12 +3252,137 @@ function uploadCustomerExcel() {
         
         progressDiv.style.display = 'none';
         resultDiv.style.display = 'block';
-        resultDiv.className = 'alert alert-danger';
-        resultDiv.innerHTML = `
-            <h6><i class="fas fa-exclamation-triangle me-2"></i>업로드 실패</h6>
-            <p class="mb-0">고객 엑셀 업로드 중 오류가 발생했습니다: ${error.message}</p>
-        `;
+        
+        // 오류 팝업 표시
+        showUploadResultModal('error', {
+            message: `고객 엑셀 업로드 중 오류가 발생했습니다: ${error.message}`,
+            details: '네트워크 오류 또는 서버 오류가 발생했습니다.'
+        });
     });
+}
+
+// 업로드 결과 팝업 표시 함수
+function showUploadResultModal(type, data) {
+    const modal = new bootstrap.Modal(document.getElementById('uploadResultModal'), {
+        backdrop: 'static',  // 배경 클릭으로 닫히지 않음
+        keyboard: false      // ESC 키로 닫히지 않음
+    });
+    const titleElement = document.getElementById('uploadResultModalTitle');
+    const bodyElement = document.getElementById('uploadResultModalBody');
+    
+    if (type === 'success') {
+        // 성공 모달
+        titleElement.innerHTML = '<i class="fas fa-check-circle text-success me-2"></i>고객 일괄 등록 완료';
+        titleElement.className = 'modal-title text-success';
+        
+        let bodyHtml = `
+            <div class="alert alert-success mb-3">
+                <h6><i class="fas fa-check-circle me-2"></i>업로드 성공</h6>
+                <p class="mb-0">${data.message}</p>
+            </div>
+        `;
+        
+        // 상세 통계 표시
+        if (data.registered_count !== undefined || data.duplicate_count !== undefined || data.error_count !== undefined) {
+            bodyHtml += `
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <h6 class="text-primary mb-2">처리 결과 상세</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <tbody>
+                                    ${data.registered_count > 0 ? `<tr class="table-success"><td><i class="fas fa-user-plus me-2"></i>새로 등록된 고객</td><td class="text-end"><strong>${data.registered_count}명</strong></td></tr>` : ''}
+                                    ${data.duplicate_count > 0 ? `<tr class="table-warning"><td><i class="fas fa-user-check me-2"></i>기존 고객 (중복)</td><td class="text-end"><strong>${data.duplicate_count}명</strong></td></tr>` : ''}
+                                    ${data.error_count > 0 ? `<tr class="table-danger"><td><i class="fas fa-exclamation-triangle me-2"></i>오류 발생</td><td class="text-end"><strong>${data.error_count}명</strong></td></tr>` : ''}
+                                    ${data.invalid_count > 0 ? `<tr class="table-secondary"><td><i class="fas fa-times-circle me-2"></i>잘못된 형식</td><td class="text-end"><strong>${data.invalid_count}개</strong></td></tr>` : ''}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 상세 정보 표시
+        if (data.details) {
+            bodyHtml += `
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-info-circle me-2"></i>상세 정보</h6>
+                    <div class="small" style="white-space: pre-line; font-family: monospace;">${data.details}</div>
+                </div>
+            `;
+        }
+        
+        // 오류 상세 정보 표시 (중복 제거를 위해 주석처리)
+        /*
+        if (data.error_details && data.error_details.length > 0) {
+            bodyHtml += `
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>오류 상세 정보</h6>
+                    <div class="small" style="font-family: monospace; max-height: 200px; overflow-y: auto;">
+                        ${data.error_details.map(error => `<div class="mb-1">• ${error}</div>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        */
+        
+        bodyElement.innerHTML = bodyHtml;
+        
+    } else {
+        // 실패 모달
+        titleElement.innerHTML = '<i class="fas fa-exclamation-triangle text-danger me-2"></i>업로드 실패';
+        titleElement.className = 'modal-title text-danger';
+        
+        let bodyHtml = `
+            <div class="alert alert-danger mb-3">
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>업로드 실패</h6>
+                <p class="mb-0">${data.message}</p>
+            </div>
+        `;
+        
+        // 상세 정보 표시
+        if (data.details) {
+            bodyHtml += `
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-info-circle me-2"></i>상세 정보</h6>
+                    <div class="small" style="white-space: pre-line; font-family: monospace;">${data.details}</div>
+                </div>
+            `;
+        }
+        
+        // 오류 상세 정보 표시 (중복 제거를 위해 주석처리)
+        /*
+        if (data.error_details && data.error_details.length > 0) {
+            bodyHtml += `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>오류 상세 정보</h6>
+                    <div class="small" style="font-family: monospace; max-height: 200px; overflow-y: auto;">
+                        ${data.error_details.map(error => `<div class="mb-1">• ${error}</div>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        */
+        
+        // 오류 해결 방법 안내
+        bodyHtml += `
+            <div class="alert alert-light">
+                <h6><i class="fas fa-lightbulb me-2"></i>해결 방법</h6>
+                <ul class="mb-0 small">
+                    <li>엑셀 파일 형식이 올바른지 확인해주세요</li>
+                    <li>전화번호는 10-11자리 숫자로 입력해주세요</li>
+                    <li>카드번호는 16자리 숫자로 입력해주세요</li>
+                    <li>이미 등록된 카드는 다른 전화번호와 매핑할 수 없습니다</li>
+                    <li>템플릿을 다시 다운로드하여 사용해보세요</li>
+                </ul>
+            </div>
+        `;
+        
+        bodyElement.innerHTML = bodyHtml;
+    }
+    
+    modal.show();
 }
 
 // 고객 상세 정보 보기

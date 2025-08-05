@@ -5416,15 +5416,27 @@ def upload_customers_excel(request):
                     phone_clean = '0' + phone_clean
                 
                 if not re.match(r'^\d{10,11}$', phone_clean):
+                    error_detail = f"행 {idx}: 전화번호 형식 오류 - '{phone}' (올바른 형식: 01012345678)"
                     invalid_customers.append(f"행 {idx}: 전화번호 형식 오류 ({phone} -> {phone_clean})")
                     logger.debug(f"행 {idx}: 잘못된 전화번호 {phone} -> {phone_clean}")
+                    
+                    # 오류 상세 정보 저장
+                    if 'error_details' not in locals():
+                        error_details = []
+                    error_details.append(error_detail)
                     continue
                 
                 # 카드번호 검증 (16자리 숫자)
                 card_clean = re.sub(r'[^0-9]', '', str(card))
                 if not re.match(r'^\d{16}$', card_clean):
+                    error_detail = f"행 {idx}: 카드번호 형식 오류 - '{card}' (올바른 형식: 16자리 숫자)"
                     invalid_customers.append(f"행 {idx}: 카드번호 형식 오류 ({card})")
                     logger.debug(f"행 {idx}: 잘못된 카드번호 {card}")
+                    
+                    # 오류 상세 정보 저장
+                    if 'error_details' not in locals():
+                        error_details = []
+                    error_details.append(error_detail)
                     continue
                 
                 # 차량번호 정리 (선택사항)
@@ -5469,19 +5481,44 @@ def upload_customers_excel(request):
                         card = PointCard.objects.get(number=card_number)
                         logger.debug(f"카드 발견: {card_number}")
                     except PointCard.DoesNotExist:
+                        error_detail = f"행 {customer_data['row']}: 카드번호 {card_number}가 등록되지 않았습니다. 먼저 카드 관리에서 카드를 등록해주세요."
                         logger.warning(f"카드가 존재하지 않음: {card_number}")
                         error_count += 1
+                        
+                        # 오류 상세 정보 저장
+                        if 'error_details' not in locals():
+                            error_details = []
+                        error_details.append(error_detail)
                         continue
                     
-                    # 기존 고객 확인
+                    # 기존 고객 확인 (전화번호 기준)
                     from Cust_User.models import CustomerProfile
                     existing_customer = CustomerProfile.objects.filter(
                         customer_phone=phone
                     ).select_related('user').first()
                     
                     if existing_customer:
+                        error_detail = f"행 {customer_data['row']}: 전화번호 {phone}가 이미 회원가입한 고객입니다. (사용자: {existing_customer.user.username})"
                         logger.info(f"기존 고객 발견: {existing_customer.user.username} (전화번호: {phone})")
                         duplicate_count += 1
+                        continue
+                    
+                    # 카드가 이미 다른 전화번호와 매핑되어 있는지 확인
+                    from Cust_StationApp.models import PhoneCardMapping
+                    existing_card_mapping = PhoneCardMapping.objects.filter(
+                        membership_card=card,
+                        station=request.user
+                    ).first()
+                    
+                    if existing_card_mapping:
+                        error_detail = f"행 {customer_data['row']}: 카드번호 {card_number}가 이미 전화번호 {existing_card_mapping.phone_number}와 매핑되어 있습니다."
+                        logger.warning(f"카드가 이미 다른 전화번호와 매핑됨: {card_number} -> {existing_card_mapping.phone_number}")
+                        error_count += 1
+                        
+                        # 오류 상세 정보 저장
+                        if 'error_details' not in locals():
+                            error_details = []
+                        error_details.append(error_detail)
                         continue
                     
                     # 미회원 매핑 생성
@@ -5513,9 +5550,15 @@ def upload_customers_excel(request):
                         
                 except Exception as e:
                     error_count += 1
+                    error_detail = f"행 {customer_data['row']}: {str(e)}"
                     logger.error(f"고객 {customer_data} 등록 중 오류: {str(e)}")
                     import traceback
                     logger.error(f"스택 트레이스: {traceback.format_exc()}")
+                    
+                    # 오류 상세 정보 저장
+                    if 'error_details' not in locals():
+                        error_details = []
+                    error_details.append(error_detail)
             
             # 결과 메시지 생성
             message_parts = []
@@ -5537,15 +5580,23 @@ def upload_customers_excel(request):
                 if len(invalid_customers) > 5:
                     details += f" 외 {len(invalid_customers) - 5}개"
             
+            # 오류 상세 정보 추가
+            error_details_text = ""
+            if 'error_details' in locals() and error_details:
+                error_details_text = "\n\n오류 상세 정보:\n" + "\n".join(error_details[:10])  # 최대 10개까지만 표시
+                if len(error_details) > 10:
+                    error_details_text += f"\n... 외 {len(error_details) - 10}개 오류"
+            
             logger.info("=== 엑셀 고객 업로드 요청 완료 ===")
             return JsonResponse({
                 'status': 'success',
                 'message': f'고객 일괄 등록 완료: {message}',
-                'details': details,
+                'details': details + error_details_text,
                 'registered_count': registered_count,
                 'duplicate_count': duplicate_count,
                 'error_count': error_count,
-                'invalid_count': len(invalid_customers)
+                'invalid_count': len(invalid_customers),
+                'error_details': error_details if 'error_details' in locals() else []
             })
             
         except Exception as e:
