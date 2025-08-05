@@ -853,6 +853,54 @@ def register_cards_single(request):
     return JsonResponse({'status': 'error', 'message': '잘못된 요청 방식입니다.'}, status=405)
 
 @login_required
+def download_template(request):
+    """엑셀 템플릿 파일 다운로드"""
+    logger.info(f"템플릿 다운로드 요청 - 사용자: {request.user.username}")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 템플릿 다운로드 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        import os
+        from django.http import FileResponse
+        from django.conf import settings
+        
+        # 템플릿 파일 경로
+        template_path = os.path.join(
+            settings.BASE_DIR, 
+            'Cust_StationApp', 
+            'templates', 
+            'Cust_Station', 
+            'point_sample.xlsx'
+        )
+        
+        # 파일 존재 확인
+        if not os.path.exists(template_path):
+            logger.error(f"템플릿 파일을 찾을 수 없음: {template_path}")
+            return JsonResponse({
+                'status': 'error',
+                'message': '템플릿 파일을 찾을 수 없습니다.'
+            }, status=404)
+        
+        # 파일 응답 생성
+        response = FileResponse(
+            open(template_path, 'rb'),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="멤버십카드_등록_템플릿.xlsx"'
+        
+        logger.info(f"템플릿 파일 다운로드 성공: {template_path}")
+        return response
+        
+    except Exception as e:
+        logger.error(f"템플릿 다운로드 중 오류 발생: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'status': 'error',
+            'message': f'템플릿 다운로드 중 오류가 발생했습니다: {str(e)}'
+        }, status=500)
+
+@login_required
 @csrf_exempt
 def register_cards_bulk(request):
     """카드 일괄 등록"""
@@ -4852,3 +4900,268 @@ def auto_coupon_stats(request, template_id):
     except Exception as e:
         logger.error(f"자동 쿠폰 통계 조회 오류: {str(e)}")
         return JsonResponse({'status': 'error', 'message': '통계 조회 중 오류가 발생했습니다.'})
+
+@login_required
+@csrf_exempt
+def upload_cards_excel(request):
+    """엑셀 파일을 통한 카드 일괄 등록"""
+    logger.info(f"=== 엑셀 카드 업로드 요청 시작 ===")
+    logger.info(f"사용자: {request.user.username}")
+    logger.info(f"메소드: {request.method}")
+    logger.info(f"Content-Type: {request.content_type}")
+    logger.info(f"FILES 키: {list(request.FILES.keys()) if request.FILES else '없음'}")
+    logger.info(f"POST 키: {list(request.POST.keys()) if request.POST else '없음'}")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 엑셀 업로드 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    if request.method == 'POST':
+        try:
+            # 주유소 프로필에서 정유사 코드와 대리점 코드 가져오기
+            logger.info(f"주유소 프로필 조회 시작: {request.user.username}")
+            station_profile = request.user.station_profile
+            logger.info(f"주유소 프로필 조회 결과: {station_profile}")
+            
+            if not station_profile:
+                logger.error(f"주유소 프로필을 찾을 수 없음: {request.user.username}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '주유소 프로필 정보가 없습니다.'
+                }, status=400)
+
+            # 정유사 코드와 대리점 코드는 기본값 사용 (필수가 아님)
+            oil_company_code = getattr(station_profile, 'oil_company_code', '0')
+            agency_code = getattr(station_profile, 'agency_code', '000')
+            logger.info(f"정유사 코드: {oil_company_code}")
+            logger.info(f"대리점 코드: {agency_code}")
+
+            # 파일 업로드 확인
+            logger.info("파일 업로드 확인 시작")
+            if 'excel_file' not in request.FILES:
+                logger.warning("엑셀 파일이 업로드되지 않음")
+                logger.warning(f"업로드된 파일 키: {list(request.FILES.keys())}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '엑셀 파일을 선택해주세요.'
+                }, status=400)
+            
+            excel_file = request.FILES['excel_file']
+            logger.info(f"업로드된 파일명: {excel_file.name}")
+            logger.info(f"파일 크기: {excel_file.size} bytes")
+            
+            # 현재 로그인된 주유소의 TID 값 사용
+            tid = station_profile.tid if hasattr(station_profile, 'tid') and station_profile.tid else ''
+            logger.info(f"주유소 TID: {tid}")
+            
+            if not tid:
+                logger.warning(f"주유소 {request.user.username}의 TID가 설정되지 않음")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '주유소 TID가 설정되지 않았습니다. 주유소 프로필에서 TID를 설정해주세요.'
+                }, status=400)
+            
+            # 파일 확장자 검사
+            file_name = excel_file.name.lower()
+            logger.info(f"파일명 (소문자): {file_name}")
+            if not (file_name.endswith('.xlsx') or file_name.endswith('.xls')):
+                logger.warning(f"지원하지 않는 파일 형식: {file_name}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.'
+                }, status=400)
+            
+            # pandas를 사용하여 엑셀 파일 읽기
+            logger.info("엑셀 파일 읽기 시작")
+            try:
+                import pandas as pd
+                import io
+                
+                # 파일 내용을 메모리에서 읽기
+                file_content = excel_file.read()
+                excel_file.seek(0)  # 파일 포인터를 처음으로 되돌림
+                logger.info(f"파일 내용 읽기 완료: {len(file_content)} bytes")
+                
+                # 엑셀 파일 읽기
+                if file_name.endswith('.xlsx'):
+                    logger.info("openpyxl 엔진으로 엑셀 파일 읽기")
+                    df = pd.read_excel(io.BytesIO(file_content), engine='openpyxl')
+                else:
+                    logger.info("xlrd 엔진으로 엑셀 파일 읽기")
+                    df = pd.read_excel(io.BytesIO(file_content), engine='xlrd')
+                
+                logger.info(f"엑셀 파일 읽기 완료: {len(df)}행, {len(df.columns)}열")
+                logger.info(f"데이터프레임 컬럼: {list(df.columns)}")
+                logger.info(f"첫 번째 행 데이터: {df.iloc[0].tolist() if not df.empty else '빈 데이터'}")
+                
+            except ImportError as e:
+                logger.error(f"pandas 또는 openpyxl이 설치되지 않음: {str(e)}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '엑셀 파일 처리를 위한 라이브러리가 설치되지 않았습니다.'
+                }, status=500)
+            except Exception as e:
+                logger.error(f"엑셀 파일 읽기 오류: {str(e)}")
+                logger.error(f"오류 타입: {type(e)}")
+                import traceback
+                logger.error(f"스택 트레이스: {traceback.format_exc()}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'엑셀 파일을 읽을 수 없습니다: {str(e)}'
+                }, status=400)
+            
+            # 데이터 검증 및 처리
+            logger.info("데이터 검증 시작")
+            if df.empty:
+                logger.warning("엑셀 파일에 데이터가 없음")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '엑셀 파일에 데이터가 없습니다.'
+                }, status=400)
+            
+            # 카드번호가 있는 컬럼 찾기
+            logger.info(f"데이터프레임 컬럼: {list(df.columns)}")
+            
+            # 'point number' 컬럼이 있으면 사용, 없으면 첫 번째 컬럼 사용
+            card_column = None
+            if 'point number' in df.columns:
+                card_column = 'point number'
+                logger.info("'point number' 컬럼을 사용합니다.")
+            elif 'point_number' in df.columns:
+                card_column = 'point_number'
+                logger.info("'point_number' 컬럼을 사용합니다.")
+            elif 'card_number' in df.columns:
+                card_column = 'card_number'
+                logger.info("'card_number' 컬럼을 사용합니다.")
+            else:
+                # 첫 번째 컬럼 사용
+                card_column = df.columns[0]
+                logger.info(f"첫 번째 컬럼 '{card_column}'을 사용합니다.")
+            
+            # 카드번호 추출 및 문자열 변환
+            card_numbers = df[card_column].astype(str).str.strip()
+            logger.info(f"추출된 카드번호 개수: {len(card_numbers)}")
+            logger.info(f"첫 5개 카드번호: {card_numbers.head().tolist()}")
+            
+            # 카드번호 검증
+            valid_cards = []
+            invalid_cards = []
+            
+            for idx, card_number in enumerate(card_numbers, 1):
+                if pd.isna(card_number) or card_number == '' or card_number == 'nan':
+                    logger.debug(f"행 {idx}: 빈 값 건너뛰기")
+                    continue
+                
+                # 소수점 제거 (예: 1234567890123450.0 -> 1234567890123450)
+                if '.' in card_number:
+                    card_number = card_number.split('.')[0]
+                    logger.debug(f"행 {idx}: 소수점 제거 후 {card_number}")
+                
+                # 16자리 숫자인지 확인
+                if len(card_number) == 16 and card_number.isdigit():
+                    valid_cards.append(card_number)
+                    logger.debug(f"행 {idx}: 유효한 카드번호 {card_number}")
+                else:
+                    invalid_cards.append(f"행 {idx}: {card_number}")
+                    logger.debug(f"행 {idx}: 잘못된 카드번호 {card_number} (길이: {len(card_number)}, 숫자여부: {card_number.isdigit()})")
+            
+            logger.info(f"유효한 카드번호: {len(valid_cards)}개")
+            logger.info(f"잘못된 카드번호: {len(invalid_cards)}개")
+            
+            if not valid_cards:
+                logger.warning("유효한 카드번호가 없음")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '유효한 카드번호가 없습니다. 16자리 숫자만 입력해주세요.'
+                }, status=400)
+            
+            # 카드 등록 처리
+            logger.info("카드 등록 처리 시작")
+            registered_count = 0
+            duplicate_count = 0
+            error_count = 0
+            
+            for card_number in valid_cards:
+                try:
+                    logger.debug(f"카드 등록 시도: {card_number}")
+                    # get_or_create를 사용하여 중복 생성 방지
+                    card, created = PointCard.objects.get_or_create(
+                        number=card_number,
+                        defaults={
+                            'oil_company_code': oil_company_code,
+                            'agency_code': agency_code,
+                            'tids': []
+                        }
+                    )
+                    
+                    if created:
+                        registered_count += 1
+                        logger.info(f"새 카드 등록: {card_number}")
+                    else:
+                        duplicate_count += 1
+                        logger.info(f"기존 카드 발견: {card_number}")
+                    
+                    # TID 추가
+                    if tid not in card.tids:
+                        card.add_tid(tid)
+                        logger.info(f"카드에 TID 추가: {tid}")
+                    
+                    # 카드와 주유소 매핑 생성
+                    mapping, mapping_created = StationCardMapping.objects.get_or_create(
+                        station=request.user,
+                        tid=tid,
+                        card=card,
+                        defaults={'is_active': True}
+                    )
+                    
+                    # 이미 매핑이 존재하지만 비활성화된 경우 활성화
+                    if not mapping_created and not mapping.is_active:
+                        mapping.is_active = True
+                        mapping.save()
+                        logger.info(f"비활성화된 매핑을 활성화함: mapping_id={mapping.id}")
+                        
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"카드 {card_number} 등록 중 오류: {str(e)}")
+                    import traceback
+                    logger.error(f"스택 트레이스: {traceback.format_exc()}")
+            
+            # 결과 메시지 생성
+            message_parts = []
+            if registered_count > 0:
+                message_parts.append(f"새로 등록된 카드: {registered_count}장")
+            if duplicate_count > 0:
+                message_parts.append(f"기존 카드: {duplicate_count}장")
+            if error_count > 0:
+                message_parts.append(f"오류 발생: {error_count}장")
+            if invalid_cards:
+                message_parts.append(f"잘못된 형식: {len(invalid_cards)}개")
+            
+            message = ", ".join(message_parts)
+            logger.info(f"업로드 결과: {message}")
+            
+            details = ""
+            if invalid_cards:
+                details = f"잘못된 카드번호: {', '.join(invalid_cards[:5])}"
+                if len(invalid_cards) > 5:
+                    details += f" 외 {len(invalid_cards) - 5}개"
+            
+            logger.info("=== 엑셀 카드 업로드 요청 완료 ===")
+            return JsonResponse({
+                'status': 'success',
+                'message': f'엑셀 업로드 완료: {message}',
+                'details': details,
+                'registered_count': registered_count,
+                'duplicate_count': duplicate_count,
+                'error_count': error_count,
+                'invalid_count': len(invalid_cards)
+            })
+            
+        except Exception as e:
+            logger.error(f"엑셀 업로드 중 오류 발생: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': f'엑셀 업로드 중 오류가 발생했습니다: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({'status': 'error', 'message': '잘못된 요청 방식입니다.'}, status=405)

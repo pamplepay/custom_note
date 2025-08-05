@@ -172,6 +172,58 @@
         </div>
     </div>
 
+    <!-- 엑셀 업로드 폼 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-file-excel me-2"></i>엑셀 파일 업로드
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <form id="excelUploadForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="excelFile" class="form-label">엑셀 파일 선택</label>
+                            <input type="file" class="form-control" id="excelFile" name="excel_file" accept=".xlsx,.xls" required>
+                            <div class="form-text">엑셀 파일(.xlsx, .xls)만 업로드 가능합니다</div>
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-upload me-1"></i>업로드
+                        </button>
+                    </form>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex flex-column">
+                        <button type="button" class="btn btn-outline-primary mb-2" onclick="downloadTemplate()">
+                            <i class="fas fa-download me-1"></i>엑셀 템플릿 다운로드
+                        </button>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            템플릿을 다운로드하여 카드번호를 입력한 후 업로드하세요
+                        </small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 업로드 진행률 표시 -->
+            <div id="uploadProgress" class="mt-3" style="display: none;">
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" style="width: 0%" id="progressBar">0%</div>
+                </div>
+                <small class="text-muted" id="progressText">업로드 중...</small>
+            </div>
+            
+            <!-- 업로드 결과 표시 -->
+            <div id="uploadResult" class="mt-3" style="display: none;">
+                <div class="alert" id="resultAlert">
+                    <div id="resultMessage"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 등록된 카드 목록 -->
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -812,7 +864,157 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         console.error('개별 등록 폼을 찾을 수 없습니다!');
     }
+
+    // 엑셀 업로드 폼 제출
+    const excelForm = document.getElementById('excelUploadForm');
+    if (excelForm) {
+        console.log('엑셀 업로드 폼 이벤트 리스너 등록됨');
+        excelForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('엑셀 업로드 폼 제출됨');
+            
+            const fileInput = document.getElementById('excelFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showAlert('엑셀 파일을 선택해주세요.');
+                return;
+            }
+            
+            // 파일 확장자 검사
+            const allowedExtensions = ['.xlsx', '.xls'];
+            const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+            if (!allowedExtensions.includes(fileExtension)) {
+                showAlert('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.');
+                return;
+            }
+            
+            // 업로드 진행률 표시
+            showUploadProgress();
+            
+            // FormData 생성
+            const formData = new FormData();
+            formData.append('excel_file', file);
+            formData.append('csrfmiddlewaretoken', window.csrftoken);
+            
+            // 업로드 요청
+            fetch('/station/upload-cards-excel/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('엑셀 업로드 응답 상태:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('엑셀 업로드 서버 응답:', data);
+                hideUploadProgress();
+                showUploadResult(data);
+                
+                if (data.status === 'success') {
+                    // 성공 시 파일 입력 초기화 및 카드 목록 새로고침
+                    fileInput.value = '';
+                    fetchCards();
+                }
+            })
+            .catch(error => {
+                console.error('엑셀 업로드 오류:', error);
+                hideUploadProgress();
+                showUploadResult({
+                    status: 'error',
+                    message: '엑셀 업로드 중 오류가 발생했습니다: ' + error.message
+                });
+            });
+        });
+    } else {
+        console.error('엑셀 업로드 폼을 찾을 수 없습니다!');
+    }
 });
+
+// 엑셀 템플릿 다운로드 함수
+function downloadTemplate() {
+    console.log('엑셀 템플릿 다운로드 시작');
+    
+    // 실제 point_sample.xlsx 파일 다운로드
+    const link = document.createElement('a');
+    link.href = '/station/download-template/';
+    link.download = '멤버십카드_등록_템플릿.xlsx';
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// 업로드 진행률 표시 함수
+function showUploadProgress() {
+    const progressDiv = document.getElementById('uploadProgress');
+    const resultDiv = document.getElementById('uploadResult');
+    
+    if (progressDiv) progressDiv.style.display = 'block';
+    if (resultDiv) resultDiv.style.display = 'none';
+    
+    // 진행률 애니메이션
+    const progressBar = document.getElementById('progressBar');
+    if (progressBar) {
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90;
+            progressBar.style.width = progress + '%';
+            progressBar.textContent = Math.round(progress) + '%';
+        }, 200);
+        
+        // 5초 후 자동으로 100%로 설정
+        setTimeout(() => {
+            clearInterval(interval);
+            progressBar.style.width = '100%';
+            progressBar.textContent = '100%';
+        }, 5000);
+    }
+}
+
+// 업로드 진행률 숨김 함수
+function hideUploadProgress() {
+    const progressDiv = document.getElementById('uploadProgress');
+    if (progressDiv) progressDiv.style.display = 'none';
+}
+
+// 업로드 결과 표시 함수
+function showUploadResult(data) {
+    const resultDiv = document.getElementById('uploadResult');
+    const resultAlert = document.getElementById('resultAlert');
+    const resultMessage = document.getElementById('resultMessage');
+    
+    if (resultDiv && resultAlert && resultMessage) {
+        resultDiv.style.display = 'block';
+        
+        // 결과에 따른 스타일 설정
+        if (data.status === 'success') {
+            resultAlert.className = 'alert alert-success';
+            resultMessage.innerHTML = `
+                <i class="fas fa-check-circle me-2"></i>
+                <strong>업로드 성공!</strong><br>
+                ${data.message}
+                ${data.details ? `<br><small class="text-muted">${data.details}</small>` : ''}
+            `;
+        } else {
+            resultAlert.className = 'alert alert-danger';
+            resultMessage.innerHTML = `
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <strong>업로드 실패!</strong><br>
+                ${data.message}
+            `;
+        }
+        
+        // 5초 후 결과 숨김
+        setTimeout(() => {
+            resultDiv.style.display = 'none';
+        }, 5000);
+    }
+}
 
 // 쿠키에서 CSRF 토큰 가져오기
 function getCookie(name) {
