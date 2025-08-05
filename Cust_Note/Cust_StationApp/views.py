@@ -5165,3 +5165,395 @@ def upload_cards_excel(request):
             }, status=500)
     
     return JsonResponse({'status': 'error', 'message': '잘못된 요청 방식입니다.'}, status=405)
+
+@login_required
+def download_customer_template(request):
+    """고객 등록 템플릿 다운로드"""
+    logger.info(f"=== 고객 등록 템플릿 다운로드 요청 ===")
+    logger.info(f"사용자: {request.user.username}")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 템플릿 다운로드 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    try:
+        # 템플릿 파일 경로
+        template_path = os.path.join(
+            settings.BASE_DIR, 
+            'Cust_StationApp', 
+            'templates', 
+            'Cust_Station', 
+            'customer_sample.xlsx'
+        )
+        
+        logger.info(f"템플릿 파일 경로: {template_path}")
+        
+        if not os.path.exists(template_path):
+            logger.error(f"템플릿 파일이 존재하지 않음: {template_path}")
+            return JsonResponse({
+                'status': 'error',
+                'message': '템플릿 파일을 찾을 수 없습니다.'
+            }, status=404)
+        
+        # 파일 응답
+        response = FileResponse(
+            open(template_path, 'rb'),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="고객등록_템플릿.xlsx"'
+        
+        logger.info("고객 등록 템플릿 다운로드 완료")
+        return response
+        
+    except Exception as e:
+        logger.error(f"템플릿 다운로드 중 오류: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'status': 'error',
+            'message': f'템플릿 다운로드 중 오류가 발생했습니다: {str(e)}'
+        }, status=500)
+
+@login_required
+@csrf_exempt
+def upload_customers_excel(request):
+    """엑셀 파일을 통한 고객 일괄 등록"""
+    logger.info(f"=== 엑셀 고객 업로드 요청 시작 ===")
+    logger.info(f"사용자: {request.user.username}")
+    logger.info(f"메소드: {request.method}")
+    logger.info(f"Content-Type: {request.content_type}")
+    logger.info(f"FILES 키: {list(request.FILES.keys()) if request.FILES else '없음'}")
+    logger.info(f"POST 키: {list(request.POST.keys()) if request.POST else '없음'}")
+    
+    if not request.user.is_station:
+        logger.warning(f"권한 없는 사용자의 엑셀 업로드 시도: {request.user.username}")
+        return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
+    
+    if request.method == 'POST':
+        try:
+            # 주유소 프로필에서 정유사 코드와 대리점 코드 가져오기
+            logger.info(f"주유소 프로필 조회 시작: {request.user.username}")
+            station_profile = request.user.station_profile
+            logger.info(f"주유소 프로필 조회 결과: {station_profile}")
+            
+            if not station_profile:
+                logger.error(f"주유소 프로필을 찾을 수 없음: {request.user.username}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '주유소 프로필 정보가 없습니다.'
+                }, status=400)
+
+            # 정유사 코드와 대리점 코드는 기본값 사용 (필수가 아님)
+            oil_company_code = getattr(station_profile, 'oil_company_code', '0')
+            agency_code = getattr(station_profile, 'agency_code', '000')
+            logger.info(f"정유사 코드: {oil_company_code}")
+            logger.info(f"대리점 코드: {agency_code}")
+
+            # 파일 업로드 확인
+            logger.info("파일 업로드 확인 시작")
+            if 'excel_file' not in request.FILES:
+                logger.warning("엑셀 파일이 업로드되지 않음")
+                logger.warning(f"업로드된 파일 키: {list(request.FILES.keys())}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '엑셀 파일을 선택해주세요.'
+                }, status=400)
+            
+            excel_file = request.FILES['excel_file']
+            logger.info(f"업로드된 파일명: {excel_file.name}")
+            logger.info(f"파일 크기: {excel_file.size} bytes")
+            
+            # 현재 로그인된 주유소의 TID 값 사용
+            tid = station_profile.tid if hasattr(station_profile, 'tid') and station_profile.tid else ''
+            logger.info(f"주유소 TID: {tid}")
+            
+            if not tid:
+                logger.warning(f"주유소 {request.user.username}의 TID가 설정되지 않음")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '주유소 TID가 설정되지 않았습니다. 주유소 프로필에서 TID를 설정해주세요.'
+                }, status=400)
+            
+            # 파일 확장자 검사
+            file_name = excel_file.name.lower()
+            logger.info(f"파일명 (소문자): {file_name}")
+            if not (file_name.endswith('.xlsx') or file_name.endswith('.xls')):
+                logger.warning(f"지원하지 않는 파일 형식: {file_name}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.'
+                }, status=400)
+            
+            # pandas를 사용하여 엑셀 파일 읽기
+            logger.info("엑셀 파일 읽기 시작")
+            try:
+                import pandas as pd
+                import io
+                
+                # 파일 내용을 메모리에서 읽기
+                file_content = excel_file.read()
+                excel_file.seek(0)  # 파일 포인터를 처음으로 되돌림
+                logger.info(f"파일 내용 읽기 완료: {len(file_content)} bytes")
+                
+                # 엑셀 파일 읽기
+                if file_name.endswith('.xlsx'):
+                    logger.info("openpyxl 엔진으로 엑셀 파일 읽기")
+                    df = pd.read_excel(io.BytesIO(file_content), engine='openpyxl')
+                else:
+                    logger.info("xlrd 엔진으로 엑셀 파일 읽기")
+                    df = pd.read_excel(io.BytesIO(file_content), engine='xlrd')
+                
+                logger.info(f"엑셀 파일 읽기 완료: {len(df)}행, {len(df.columns)}열")
+                logger.info(f"데이터프레임 컬럼: {list(df.columns)}")
+                logger.info(f"첫 번째 행 데이터: {df.iloc[0].tolist() if not df.empty else '빈 데이터'}")
+                
+            except ImportError as e:
+                logger.error(f"pandas 또는 openpyxl이 설치되지 않음: {str(e)}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '엑셀 파일 처리를 위한 라이브러리가 설치되지 않았습니다.'
+                }, status=500)
+            except Exception as e:
+                logger.error(f"엑셀 파일 읽기 오류: {str(e)}")
+                logger.error(f"오류 타입: {type(e)}")
+                import traceback
+                logger.error(f"스택 트레이스: {traceback.format_exc()}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'엑셀 파일을 읽을 수 없습니다: {str(e)}'
+                }, status=400)
+            
+            # 데이터 검증 및 처리
+            logger.info("데이터 검증 시작")
+            if df.empty:
+                logger.warning("엑셀 파일에 데이터가 없음")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '엑셀 파일에 데이터가 없습니다.'
+                }, status=400)
+            
+            # 컬럼 찾기
+            logger.info(f"데이터프레임 컬럼: {list(df.columns)}")
+            
+            # 컬럼명 매핑
+            phone_column = None
+            card_column = None
+            car_column = None
+            
+            # 전화번호 컬럼 찾기
+            for col in df.columns:
+                col_lower = str(col).lower()
+                if 'phone' in col_lower or '전화' in col_lower or '폰' in col_lower:
+                    phone_column = col
+                    logger.info(f"전화번호 컬럼 발견: {col}")
+                    break
+            
+            # 카드번호 컬럼 찾기
+            for col in df.columns:
+                col_lower = str(col).lower()
+                if 'card' in col_lower or '카드' in col_lower or 'point' in col_lower:
+                    card_column = col
+                    logger.info(f"카드번호 컬럼 발견: {col}")
+                    break
+            
+            # 차량번호 컬럼 찾기
+            for col in df.columns:
+                col_lower = str(col).lower()
+                if 'car' in col_lower or '차량' in col_lower or '차' in col_lower:
+                    car_column = col
+                    logger.info(f"차량번호 컬럼 발견: {col}")
+                    break
+            
+            # 필수 컬럼 확인
+            if not phone_column:
+                phone_column = df.columns[0] if len(df.columns) > 0 else None
+                logger.info(f"전화번호 컬럼을 첫 번째 컬럼으로 설정: {phone_column}")
+            
+            if not card_column:
+                card_column = df.columns[1] if len(df.columns) > 1 else None
+                logger.info(f"카드번호 컬럼을 두 번째 컬럼으로 설정: {card_column}")
+            
+            if not car_column and len(df.columns) > 2:
+                car_column = df.columns[2]
+                logger.info(f"차량번호 컬럼을 세 번째 컬럼으로 설정: {car_column}")
+            
+            # 데이터 추출
+            phone_numbers = df[phone_column].astype(str).str.strip() if phone_column else pd.Series()
+            card_numbers = df[card_column].astype(str).str.strip() if card_column else pd.Series()
+            car_numbers = df[car_column].astype(str).str.strip() if car_column else pd.Series()
+            
+            logger.info(f"추출된 전화번호 개수: {len(phone_numbers)}")
+            logger.info(f"추출된 카드번호 개수: {len(card_numbers)}")
+            logger.info(f"추출된 차량번호 개수: {len(car_numbers)}")
+            
+            # 데이터 검증 및 처리
+            valid_customers = []
+            invalid_customers = []
+            
+            for idx, (phone, card, car) in enumerate(zip(phone_numbers, card_numbers, car_numbers), 1):
+                # 빈 값 처리
+                if pd.isna(phone) or phone == '' or phone == 'nan':
+                    logger.debug(f"행 {idx}: 전화번호 빈 값 건너뛰기")
+                    continue
+                
+                if pd.isna(card) or card == '' or card == 'nan':
+                    logger.debug(f"행 {idx}: 카드번호 빈 값 건너뛰기")
+                    continue
+                
+                # 소수점 제거
+                if '.' in str(phone):
+                    phone = str(phone).split('.')[0]
+                if '.' in str(card):
+                    card = str(card).split('.')[0]
+                if car and '.' in str(car):
+                    car = str(car).split('.')[0]
+                
+                # 전화번호 검증 및 정리
+                phone_clean = re.sub(r'[^0-9]', '', str(phone))
+                
+                # 엑셀에서 앞의 0이 제거된 경우 복원
+                if len(phone_clean) == 10 and phone_clean.startswith('1'):
+                    phone_clean = '0' + phone_clean
+                elif len(phone_clean) == 9 and phone_clean.startswith('1'):
+                    phone_clean = '0' + phone_clean
+                
+                if not re.match(r'^\d{10,11}$', phone_clean):
+                    invalid_customers.append(f"행 {idx}: 전화번호 형식 오류 ({phone} -> {phone_clean})")
+                    logger.debug(f"행 {idx}: 잘못된 전화번호 {phone} -> {phone_clean}")
+                    continue
+                
+                # 카드번호 검증 (16자리 숫자)
+                card_clean = re.sub(r'[^0-9]', '', str(card))
+                if not re.match(r'^\d{16}$', card_clean):
+                    invalid_customers.append(f"행 {idx}: 카드번호 형식 오류 ({card})")
+                    logger.debug(f"행 {idx}: 잘못된 카드번호 {card}")
+                    continue
+                
+                # 차량번호 정리 (선택사항)
+                car_clean = None
+                if car and str(car).strip() and str(car).strip() != 'nan':
+                    car_clean = str(car).strip()
+                
+                valid_customers.append({
+                    'phone': phone_clean,
+                    'card': card_clean,
+                    'car': car_clean,
+                    'row': idx
+                })
+                logger.debug(f"행 {idx}: 유효한 고객 데이터 - 전화번호: {phone_clean}, 카드번호: {card_clean}, 차량번호: {car_clean}")
+            
+            logger.info(f"유효한 고객 데이터: {len(valid_customers)}개")
+            logger.info(f"잘못된 고객 데이터: {len(invalid_customers)}개")
+            
+            if not valid_customers:
+                logger.warning("유효한 고객 데이터가 없음")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': '유효한 고객 데이터가 없습니다. 전화번호와 카드번호를 확인해주세요.'
+                }, status=400)
+            
+            # 고객 등록 처리
+            logger.info("고객 등록 처리 시작")
+            registered_count = 0
+            duplicate_count = 0
+            error_count = 0
+            
+            for customer_data in valid_customers:
+                try:
+                    logger.debug(f"고객 등록 시도: {customer_data}")
+                    
+                    phone = customer_data['phone']
+                    card_number = customer_data['card']
+                    car_number = customer_data['car']
+                    
+                    # 카드 존재 확인
+                    try:
+                        card = PointCard.objects.get(number=card_number)
+                        logger.debug(f"카드 발견: {card_number}")
+                    except PointCard.DoesNotExist:
+                        logger.warning(f"카드가 존재하지 않음: {card_number}")
+                        error_count += 1
+                        continue
+                    
+                    # 기존 고객 확인
+                    from Cust_User.models import CustomerProfile
+                    existing_customer = CustomerProfile.objects.filter(
+                        customer_phone=phone
+                    ).select_related('user').first()
+                    
+                    if existing_customer:
+                        logger.info(f"기존 고객 발견: {existing_customer.user.username} (전화번호: {phone})")
+                        duplicate_count += 1
+                        continue
+                    
+                    # 미회원 매핑 생성
+                    logger.info(f"신규 고객 등록 - 미회원 매핑 생성: 전화번호 {phone}, 카드번호 {card_number}")
+                    
+                    # 차량 번호가 빈 문자열이면 None으로 설정
+                    car_number_clean = car_number.strip() if car_number else None
+                    if car_number_clean == '':
+                        car_number_clean = None
+                    
+                    # 미회원 매핑 생성
+                    from Cust_StationApp.models import PhoneCardMapping
+                    mapping, created = PhoneCardMapping.objects.get_or_create(
+                        phone_number=phone,
+                        membership_card=card,
+                        station=request.user,
+                        defaults={
+                            'car_number': car_number_clean,
+                            'is_used': False
+                        }
+                    )
+                    
+                    if created:
+                        registered_count += 1
+                        logger.info(f"새 고객 등록 완료: 전화번호 {phone}")
+                    else:
+                        duplicate_count += 1
+                        logger.info(f"기존 매핑 발견: 전화번호 {phone}")
+                        
+                except Exception as e:
+                    error_count += 1
+                    logger.error(f"고객 {customer_data} 등록 중 오류: {str(e)}")
+                    import traceback
+                    logger.error(f"스택 트레이스: {traceback.format_exc()}")
+            
+            # 결과 메시지 생성
+            message_parts = []
+            if registered_count > 0:
+                message_parts.append(f"새로 등록된 고객: {registered_count}명")
+            if duplicate_count > 0:
+                message_parts.append(f"기존 고객: {duplicate_count}명")
+            if error_count > 0:
+                message_parts.append(f"오류 발생: {error_count}명")
+            if invalid_customers:
+                message_parts.append(f"잘못된 형식: {len(invalid_customers)}개")
+            
+            message = ", ".join(message_parts)
+            logger.info(f"업로드 결과: {message}")
+            
+            details = ""
+            if invalid_customers:
+                details = f"잘못된 데이터: {', '.join(invalid_customers[:5])}"
+                if len(invalid_customers) > 5:
+                    details += f" 외 {len(invalid_customers) - 5}개"
+            
+            logger.info("=== 엑셀 고객 업로드 요청 완료 ===")
+            return JsonResponse({
+                'status': 'success',
+                'message': f'고객 일괄 등록 완료: {message}',
+                'details': details,
+                'registered_count': registered_count,
+                'duplicate_count': duplicate_count,
+                'error_count': error_count,
+                'invalid_count': len(invalid_customers)
+            })
+            
+        except Exception as e:
+            logger.error(f"엑셀 고객 업로드 중 오류 발생: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': f'고객 일괄 등록 중 오류가 발생했습니다: {str(e)}'
+            }, status=500)
+    
+    logger.warning(f"잘못된 요청 방식: {request.method}")
+    return JsonResponse({'status': 'error', 'message': '잘못된 요청 방식입니다.'}, status=405)

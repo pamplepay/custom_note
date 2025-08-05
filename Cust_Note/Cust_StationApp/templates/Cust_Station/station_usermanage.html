@@ -433,9 +433,14 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <h2 class="mb-0">고객 노트</h2>
-                        <button type="button" class="btn btn-primary" id="addCustomerBtn">
-                            <i class="fas fa-user-plus me-2"></i>신규 고객 등록
-                        </button>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-primary" id="addCustomerBtn">
+                                <i class="fas fa-user-plus me-2"></i>직접 등록
+                            </button>
+                            <button type="button" class="btn btn-success" id="addCustomerExcelBtn">
+                                <i class="fas fa-file-excel me-2"></i>엑셀 등록
+                            </button>
+                        </div>
                     </div>
                     
                     <!-- 고객 통계 -->
@@ -878,6 +883,99 @@
             </div>
             <div class="modal-footer border-0 pt-0">
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 고객 엑셀 등록 모달 -->
+<div class="modal fade" id="customerExcelRegistrationModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-excel me-2"></i>고객 엑셀 일괄 등록
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <!-- 엑셀 파일 업로드 섹션 -->
+                        <div class="mb-4">
+                            <label class="h6 mb-3">
+                                <i class="fas fa-file-excel me-2"></i>엑셀 파일 선택
+                            </label>
+                            <div class="border rounded p-3 bg-light">
+                                <div class="mb-3">
+                                    <label for="customerExcelFile" class="form-label">엑셀 파일</label>
+                                    <input type="file" class="form-control" id="customerExcelFile" 
+                                           accept=".xlsx,.xls" style="height: 45px;">
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle me-1"></i>엑셀 파일(.xlsx, .xls)만 업로드 가능합니다
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex gap-2 mb-3">
+                                    <button type="button" class="btn btn-outline-primary" onclick="downloadCustomerTemplate()">
+                                        <i class="fas fa-download me-1"></i>템플릿 다운로드
+                                    </button>
+                                    <button type="button" class="btn btn-success" onclick="uploadCustomerExcel()">
+                                        <i class="fas fa-upload me-1"></i>고객 일괄 등록
+                                    </button>
+                                </div>
+                                
+                                <!-- 업로드 진행률 -->
+                                <div id="customerUploadProgress" class="progress mb-3" style="display: none;">
+                                    <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                </div>
+                                
+                                <!-- 업로드 결과 -->
+                                <div id="customerUploadResult" class="alert" style="display: none;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <!-- 사용법 안내 -->
+                        <div class="card bg-light border-0 h-100">
+                            <div class="card-body">
+                                <h6 class="card-title text-primary mb-3">
+                                    <i class="fas fa-info-circle me-2"></i>사용법 안내
+                                </h6>
+                                <div class="mb-3">
+                                    <h6 class="text-success">1. 템플릿 다운로드</h6>
+                                    <small class="text-muted">템플릿 다운로드 버튼을 클릭하여 엑셀 파일을 다운로드하세요.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <h6 class="text-success">2. 데이터 입력</h6>
+                                    <small class="text-muted">다운로드한 템플릿에 고객 정보를 입력하세요.</small>
+                                    <ul class="small text-muted mt-1">
+                                        <li>전화번호: 10-11자리 숫자</li>
+                                        <li>카드번호: 16자리 숫자</li>
+                                        <li>차량번호: 선택사항</li>
+                                    </ul>
+                                </div>
+                                <div class="mb-3">
+                                    <h6 class="text-success">3. 파일 업로드</h6>
+                                    <small class="text-muted">입력 완료한 엑셀 파일을 선택하고 일괄 등록 버튼을 클릭하세요.</small>
+                                </div>
+                                <div class="alert alert-warning small">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    <strong>주의사항:</strong>
+                                    <ul class="mb-0 mt-1">
+                                        <li>기존 고객은 중복 등록되지 않습니다</li>
+                                        <li>카드번호는 미리 등록된 카드만 사용 가능합니다</li>
+                                        <li>전화번호와 카드번호는 필수 입력 항목입니다</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
             </div>
         </div>
     </div>
@@ -2089,6 +2187,13 @@ document.getElementById('addCustomerBtn').addEventListener('click', function() {
     modal.show();
 });
 
+// 고객 엑셀 등록 버튼 클릭 이벤트
+document.getElementById('addCustomerExcelBtn').addEventListener('click', function() {
+    // 엑셀 등록 모달 열기
+    const modal = new bootstrap.Modal(document.getElementById('customerExcelRegistrationModal'));
+    modal.show();
+});
+
 // 고객 목록 새로고침 함수
 function loadCustomerList() {
     const currentPage = new URLSearchParams(window.location.search).get('page') || 1;
@@ -3021,6 +3126,127 @@ document.addEventListener('DOMContentLoaded', function() {
         setupCustomerListToggle();
     }
 });
+
+// 고객 등록 템플릿 다운로드 함수
+function downloadCustomerTemplate() {
+    console.log('[DEBUG] 고객 등록 템플릿 다운로드 시작');
+    
+    // Django URL로 템플릿 다운로드 요청
+    fetch('/station/download-customer-template/', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.blob();
+    })
+    .then(blob => {
+        // 파일 다운로드
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '고객등록_템플릿.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        console.log('[DEBUG] 고객 등록 템플릿 다운로드 완료');
+        showToast('success', '고객 등록 템플릿이 다운로드되었습니다.');
+    })
+    .catch(error => {
+        console.error('[ERROR] 템플릿 다운로드 실패:', error);
+        showToast('error', '템플릿 다운로드 중 오류가 발생했습니다.');
+    });
+}
+
+// 고객 엑셀 업로드 함수
+function uploadCustomerExcel() {
+    console.log('[DEBUG] 고객 엑셀 업로드 시작');
+    
+    const fileInput = document.getElementById('customerExcelFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showToast('error', '엑셀 파일을 선택해주세요.');
+        return;
+    }
+    
+    // 파일 확장자 검사
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+        showToast('error', '엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.');
+        return;
+    }
+    
+    // FormData 생성
+    const formData = new FormData();
+    formData.append('excel_file', file);
+    
+    // 진행률 표시
+    const progressDiv = document.getElementById('customerUploadProgress');
+    const progressBar = progressDiv.querySelector('.progress-bar');
+    const resultDiv = document.getElementById('customerUploadResult');
+    
+    progressDiv.style.display = 'block';
+    resultDiv.style.display = 'none';
+    progressBar.style.width = '0%';
+    progressBar.textContent = '업로드 중...';
+    
+    // 업로드 요청
+    fetch('/station/upload-customers-excel/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        console.log('[DEBUG] 응답 상태:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('[DEBUG] 업로드 결과:', data);
+        
+        progressDiv.style.display = 'none';
+        resultDiv.style.display = 'block';
+        
+        if (data.status === 'success') {
+            resultDiv.className = 'alert alert-success';
+            resultDiv.innerHTML = `
+                <h6><i class="fas fa-check-circle me-2"></i>고객 일괄 등록 완료</h6>
+                <p class="mb-2">${data.message}</p>
+                ${data.details ? `<small class="text-muted">${data.details}</small>` : ''}
+            `;
+            
+            // 고객 목록 새로고침
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        } else {
+            resultDiv.className = 'alert alert-danger';
+            resultDiv.innerHTML = `
+                <h6><i class="fas fa-exclamation-triangle me-2"></i>업로드 실패</h6>
+                <p class="mb-0">${data.message}</p>
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('[ERROR] 고객 엑셀 업로드 실패:', error);
+        
+        progressDiv.style.display = 'none';
+        resultDiv.style.display = 'block';
+        resultDiv.className = 'alert alert-danger';
+        resultDiv.innerHTML = `
+            <h6><i class="fas fa-exclamation-triangle me-2"></i>업로드 실패</h6>
+            <p class="mb-0">고객 엑셀 업로드 중 오류가 발생했습니다: ${error.message}</p>
+        `;
+    });
+}
 
 // 고객 상세 정보 보기
 function showCustomerHistoryModal(customerId) {
