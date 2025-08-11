@@ -4369,48 +4369,192 @@ def get_coupon_statistics(request):
         total_available = coupons.filter(status='AVAILABLE').count()
         total_expired = coupons.filter(status='EXPIRED').count()
         
+        logger.info("🟢 [USAGE-RATE] 사용률 계산 시작")
+        logger.info(f"   - 전체 발행수: {total_issued}")
+        logger.info(f"   - 사용된 쿠폰수: {total_used}")
+        logger.info(f"   - 사용 가능한 쿠폰수: {total_available}")
+        logger.info(f"   - 만료된 쿠폰수: {total_expired}")
+        
         # 사용률 계산
-        usage_rate = (total_used / total_issued * 100) if total_issued > 0 else 0
+        if total_issued > 0:
+            usage_rate_raw = (total_used / total_issued * 100)
+            usage_rate = round(usage_rate_raw, 1)  # 소수점 1자리로 반올림
+            logger.info(f"   - 사용률 원본값: {usage_rate_raw}")
+            logger.info(f"   - 사용률 반올림값: {usage_rate}")
+        else:
+            usage_rate = 0
+            logger.info(f"   - 발행수가 0이므로 사용률: 0%")
+        
+        # 쿠폰 상태별 상세 분석 (처음 5개)
+        status_samples = {}
+        for status in ['AVAILABLE', 'USED', 'EXPIRED']:
+            sample_coupons = coupons.filter(status=status)[:3]
+            status_samples[status] = []
+            for coupon in sample_coupons:
+                status_samples[status].append({
+                    'id': coupon.id,
+                    'issued_date': coupon.issued_date,
+                    'used_date': coupon.used_date,
+                    'status': coupon.status
+                })
+        
+        logger.info("🟢 [USAGE-RATE] 쿠폰 상태별 샘플:")
+        for status, samples in status_samples.items():
+            logger.info(f"   - {status}: {len(samples)}개 샘플")
+            for idx, sample in enumerate(samples):
+                logger.info(f"     {idx+1}. ID:{sample['id']}, 발행:{sample['issued_date']}, 사용:{sample['used_date']}, 상태:{sample['status']}")
+                
+        logger.info(f"🟢 [USAGE-RATE] 최종 사용률: {usage_rate}%")
         
         # 3. 쿠폰 타입별 통계
         type_stats = []
-        for template in templates.filter(is_active=True):
+        logger.info("🟢 [TYPE-STATS] 쿠폰 타입별 통계 계산 시작")
+        
+        # 3-1. 수동 쿠폰 템플릿 (CouponTemplate) 통계
+        manual_templates = templates.filter(is_active=True)
+        logger.info(f"🟢 [TYPE-STATS] 활성 수동 템플릿 수: {manual_templates.count()}")
+        
+        for template in manual_templates:
             template_coupons = coupons.filter(coupon_template=template)
             issued_count = template_coupons.count()
             used_count = template_coupons.filter(status='USED').count()
             
-            type_stats.append({
-                'name': template.coupon_name,
-                'type_code': template.coupon_type.type_code,
-                'issued': issued_count,
-                'used': used_count,
-                'usage_rate': (used_count / issued_count * 100) if issued_count > 0 else 0
-            })
+            logger.info(f"🟢 [TYPE-STATS] 수동 템플릿: {template.coupon_name}")
+            logger.info(f"   - 템플릿 ID: {template.id}")
+            logger.info(f"   - 쿠폰 타입: {template.coupon_type.type_code if template.coupon_type else 'None'}")
+            logger.info(f"   - 발행수: {issued_count}")
+            logger.info(f"   - 사용수: {used_count}")
+            
+            if issued_count > 0:
+                type_stats.append({
+                    'name': template.coupon_name,
+                    'type_code': template.coupon_type.type_code if template.coupon_type else 'UNKNOWN',
+                    'issued': issued_count,
+                    'used': used_count,
+                    'usage_rate': (used_count / issued_count * 100) if issued_count > 0 else 0
+                })
+                logger.info(f"   - ✅ type_stats에 추가됨")
+            else:
+                logger.info(f"   - ⚠️ 발행수 0으로 제외됨")
+        
+        # 3-2. 자동 쿠폰 템플릿 (AutoCouponTemplate) 통계
+        from .models import AutoCouponTemplate
+        auto_templates = AutoCouponTemplate.objects.filter(
+            station=request.user,
+            is_active=True
+        )
+        logger.info(f"🟢 [TYPE-STATS] 활성 자동 템플릿 수: {auto_templates.count()}")
+        
+        for auto_template in auto_templates:
+            auto_template_coupons = coupons.filter(auto_coupon_template=auto_template)
+            issued_count = auto_template_coupons.count()
+            used_count = auto_template_coupons.filter(status='USED').count()
+            
+            logger.info(f"🟢 [TYPE-STATS] 자동 템플릿: {auto_template.coupon_name}")
+            logger.info(f"   - 템플릿 ID: {auto_template.id}")
+            logger.info(f"   - 쿠폰 타입: {auto_template.coupon_type}")
+            logger.info(f"   - 발행수: {issued_count}")
+            logger.info(f"   - 사용수: {used_count}")
+            
+            if issued_count > 0:
+                type_stats.append({
+                    'name': auto_template.coupon_name,
+                    'type_code': auto_template.coupon_type,
+                    'issued': issued_count,
+                    'used': used_count,
+                    'usage_rate': (used_count / issued_count * 100) if issued_count > 0 else 0
+                })
+                logger.info(f"   - ✅ type_stats에 추가됨")
+            else:
+                logger.info(f"   - ⚠️ 발행수 0으로 제외됨")
+        
+        logger.info(f"🟢 [TYPE-STATS] 최종 type_stats 항목 수: {len(type_stats)}")
+        for idx, stat in enumerate(type_stats):
+            logger.info(f"   - {idx+1}: {stat['name']} ({stat['type_code']}) - 발행:{stat['issued']}, 사용:{stat['used']}")
         
         # 4. 월별 발행 추이 (최근 6개월)
         monthly_stats = []
+        logger.info(f"🟢 [MONTHLY-STATS] 월별 통계 계산 시작 - 현재월: {current_month}")
+        
         for i in range(6):
-            month_start = (current_month - timedelta(days=32*i)).replace(day=1)
-            month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            # 올바른 월별 계산: 년/월 단위로 이전 월 계산
+            target_year = current_month.year
+            target_month = current_month.month - i
+            
+            # 월이 0 이하로 가면 이전 년도로 이동
+            while target_month <= 0:
+                target_month += 12
+                target_year -= 1
+            
+            # 해당 월의 시작과 끝 계산
+            from calendar import monthrange
+            month_start = datetime(target_year, target_month, 1, tzinfo=current_month.tzinfo)
+            last_day = monthrange(target_year, target_month)[1]
+            month_end = datetime(target_year, target_month, last_day, 23, 59, 59, tzinfo=current_month.tzinfo)
+            
+            logger.info(f"🟢 [MONTHLY-STATS] {i}번째 월 계산:")
+            logger.info(f"   - 월 시작: {month_start}")
+            logger.info(f"   - 월 종료: {month_end}")
             
             month_issued = coupons.filter(
                 issued_date__gte=month_start,
                 issued_date__lte=month_end
             ).count()
             
-            month_used = coupons.filter(
+            # 사용 쿠폰 상세 로깅
+            used_coupons_query = coupons.filter(
                 used_date__gte=month_start,
                 used_date__lte=month_end,
                 status='USED'
-            ).count()
+            )
+            month_used = used_coupons_query.count()
+            
+            logger.info(f"   - 발행수: {month_issued}")
+            logger.info(f"   - 사용수: {month_used}")
+            
+            # 7월 데이터일 경우 추가 상세 로깅
+            if target_year == 2025 and target_month == 7:
+                logger.info(f"🔍 [JULY-DEBUG] 7월 데이터 상세 분석:")
+                
+                # 7월 사용된 쿠폰들의 상세 정보
+                july_used_coupons = used_coupons_query[:10]  # 최대 10개만 로깅
+                for idx, coupon in enumerate(july_used_coupons):
+                    logger.info(f"   - 쿠폰 {idx+1}: ID={coupon.id}, used_date={coupon.used_date}, status={coupon.status}")
+                
+                # 7월에 issued_date가 있지만 used_date가 null인 쿠폰 확인
+                july_issued_not_used = coupons.filter(
+                    issued_date__gte=month_start,
+                    issued_date__lte=month_end,
+                    used_date__isnull=True
+                ).count()
+                logger.info(f"   - 7월 발행되었으나 미사용: {july_issued_not_used}개")
+                
+                # 7월에 used_date는 있지만 status가 USED가 아닌 것들
+                july_used_date_but_not_used_status = coupons.filter(
+                    used_date__gte=month_start,
+                    used_date__lte=month_end,
+                ).exclude(status='USED').count()
+                logger.info(f"   - 7월 used_date 있으나 status!=USED: {july_used_date_but_not_used_status}개")
+                
+                # 전체 7월 관련 쿠폰 (issued_date 또는 used_date가 7월인 것)
+                july_all_coupons = coupons.filter(
+                    Q(issued_date__gte=month_start, issued_date__lte=month_end) |
+                    Q(used_date__gte=month_start, used_date__lte=month_end)
+                ).count()
+                logger.info(f"   - 7월 관련 전체 쿠폰: {july_all_coupons}개")
             
             monthly_stats.append({
-                'month': month_start.strftime('%Y-%m'),
+                'month': f"{target_year:04d}-{target_month:02d}",
                 'issued': month_issued,
                 'used': month_used
             })
         
         monthly_stats.reverse()  # 시간순으로 정렬
+        
+        # 월별 통계 최종 결과 로깅
+        logger.info(f"🟢 [MONTHLY-STATS] 최종 월별 통계 결과:")
+        for stat in monthly_stats:
+            logger.info(f"   - {stat['month']}: 발행={stat['issued']}, 사용={stat['used']}")
         
         # 5. 쿠폰 수량 정보
         quota = StationCouponQuota.objects.filter(station=request.user).first()
