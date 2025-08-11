@@ -1303,6 +1303,12 @@ class AutoCouponTemplate(models.Model):
         default=True, 
         verbose_name='활성 상태'
     )
+    max_issue_count = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name='최대 발행수',
+        help_text="null이면 무제한 발행"
+    )
     issued_count = models.IntegerField(
         default=0, 
         verbose_name='현재 발행수'
@@ -1369,14 +1375,49 @@ class AutoCouponTemplate(models.Model):
             return False
         return True
     
+    def can_issue_more(self):
+        """더 발행할 수 있는지 확인"""
+        if self.max_issue_count is None:
+            return True  # 무제한 발행
+        return self.issued_count < self.max_issue_count
     
+    def get_remaining_count(self):
+        """남은 발행 가능 수량"""
+        if self.max_issue_count is None:
+            return None  # 무제한
+        return max(0, self.max_issue_count - self.issued_count)
     
+    def get_issue_progress_rate(self):
+        """발행 진행률 (%) - max_issue_count가 설정된 경우만"""
+        if self.max_issue_count is None or self.max_issue_count == 0:
+            return None
+        return round(self.issued_count / self.max_issue_count * 100, 1)
     
     def is_already_issued_to_customer(self, customer):
         """해당 고객에게 이미 발행되었는지 확인"""
         # AutoCouponTemplate과 연결된 쿠폰 발행 이력 확인
         # (CustomerCoupon 모델에 auto_template 필드 추가 필요)
         return False  # 임시로 False 반환
+    
+    def can_issue_to_customer(self, customer):
+        """고객에게 발행 가능한지 종합 체크"""
+        # 활성 상태 확인
+        if not self.is_active:
+            return False, "비활성화된 템플릿"
+        
+        # 유효 기간 확인
+        if not self.is_valid_today():
+            return False, "유효 기간이 아님"
+        
+        # 최대 발행수 확인
+        if not self.can_issue_more():
+            return False, f"최대 발행수 도달 ({self.issued_count}/{self.max_issue_count})"
+        
+        # 중복 발행 확인 (필요 시)
+        if self.is_already_issued_to_customer(customer):
+            return False, "이미 발행된 고객"
+        
+        return True, "발행 가능"
     
     def issue_to_customer(self, customer):
         """고객에게 쿠폰 발행"""
@@ -1393,7 +1434,7 @@ class AutoCouponTemplate(models.Model):
             self.total_issued += 1
             self.save(update_fields=['issued_count', 'total_issued'])
             
-            logger.info(f"자동 쿠폰 발행 성공: {self.template_name} -> {customer.username}")
+            logger.info(f"자동 쿠폰 발행 성공: {self.coupon_name} -> {customer.username}")
             return True, "발행 성공"
             
         except Exception as e:

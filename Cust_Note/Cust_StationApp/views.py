@@ -4642,16 +4642,23 @@ def auto_coupon_create(request):
 @require_http_methods(["GET"])
 def auto_coupon_detail(request, template_id):
     """자동 쿠폰 템플릿 상세 조회"""
+    logger.info(f"🔍 [AUTO-COUPON-DETAIL] 요청 시작 - template_id: {template_id}, user: {request.user.username}")
+    
     if not request.user.is_station:
+        logger.error(f"❌ [AUTO-COUPON-DETAIL] 권한 없음 - user: {request.user.username}, is_station: {request.user.user_type}")
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
     
     try:
         from .models import AutoCouponTemplate
         
+        logger.info(f"🔍 [AUTO-COUPON-DETAIL] 템플릿 조회 시도 - template_id: {template_id}, station: {request.user.username}")
+        
         template = AutoCouponTemplate.objects.get(
             id=template_id,
             station=request.user
         )
+        
+        logger.info(f"✅ [AUTO-COUPON-DETAIL] 템플릿 조회 성공 - template: {template.coupon_name}, type: {template.coupon_type}")
         
         data = {
             'id': template.id,
@@ -4685,9 +4692,20 @@ def auto_coupon_detail(request, template_id):
         })
         
     except AutoCouponTemplate.DoesNotExist:
+        logger.error(f"❌ [AUTO-COUPON-DETAIL] 템플릿 없음 - template_id: {template_id}, station: {request.user.username}")
+        
+        # 추가 디버깅: 해당 주유소의 모든 자동쿠폰 템플릿 확인
+        all_templates = AutoCouponTemplate.objects.filter(station=request.user)
+        logger.info(f"🔍 [AUTO-COUPON-DETAIL] 주유소 전체 자동쿠폰 템플릿 수: {all_templates.count()}")
+        for tmpl in all_templates:
+            logger.info(f"   - 템플릿 ID: {tmpl.id}, 이름: {tmpl.coupon_name}, 타입: {tmpl.coupon_type}")
+            
         return JsonResponse({'status': 'error', 'message': '템플릿을 찾을 수 없습니다.'}, status=404)
     except Exception as e:
-        logger.error(f"자동 쿠폰 상세 조회 오류: {str(e)}")
+        logger.error(f"❌ [AUTO-COUPON-DETAIL] 예외 발생 - template_id: {template_id}, station: {request.user.username}, error: {str(e)}")
+        logger.error(f"❌ [AUTO-COUPON-DETAIL] 예외 타입: {type(e).__name__}")
+        import traceback
+        logger.error(f"❌ [AUTO-COUPON-DETAIL] 스택 트레이스: {traceback.format_exc()}")
         return JsonResponse({'status': 'error', 'message': '조회 중 오류가 발생했습니다.'})
 
 
@@ -4695,71 +4713,143 @@ def auto_coupon_detail(request, template_id):
 @require_http_methods(["POST", "PUT"])
 def auto_coupon_update(request, template_id):
     """자동 쿠폰 템플릿 수정"""
+    logger.info(f"🟢 [BACKEND-LOG] auto_coupon_update 시작 - template_id: {template_id}, user: {request.user.username}")
+    
     if not request.user.is_station:
+        logger.warning(f"🟠 [BACKEND-LOG] 권한 없음 - user: {request.user.username}, is_station: {request.user.is_station}")
         return JsonResponse({'status': 'error', 'message': '권한이 없습니다.'}, status=403)
     
     try:
         from .models import AutoCouponTemplate
         from datetime import datetime
         
+        # POST 데이터 전체 로깅
+        logger.info("🟢 [BACKEND-LOG] 받은 POST 데이터:")
+        for key, value in request.POST.items():
+            logger.info(f"🟢 [BACKEND-LOG]   {key}: '{value}' (타입: {type(value).__name__})")
+        
         template = AutoCouponTemplate.objects.get(
             id=template_id,
             station=request.user
         )
+        logger.info(f"🟢 [BACKEND-LOG] 템플릿 조회 성공 - ID: {template.id}, 이름: {template.coupon_name}")
         
         # 필수 필드만 체크 (업데이트는 부분 수정 가능)
         
         # 기본 정보 업데이트
         if request.POST.get('coupon_name'):
+            old_name = template.coupon_name
             template.coupon_name = request.POST.get('coupon_name')
+            logger.info(f"🟢 [BACKEND-LOG] coupon_name 업데이트: '{old_name}' → '{template.coupon_name}'")
+            
         if request.POST.get('description') is not None:
+            old_desc = template.description
             template.description = request.POST.get('description')
+            logger.info(f"🟢 [BACKEND-LOG] description 업데이트: '{old_desc}' → '{template.description}'")
+            
         if request.POST.get('benefit_type'):
+            old_type = template.benefit_type
             template.benefit_type = request.POST.get('benefit_type')
+            logger.info(f"🟢 [BACKEND-LOG] benefit_type 업데이트: '{old_type}' → '{template.benefit_type}'")
+            
         if request.POST.get('discount_amount') is not None:
-            template.discount_amount = request.POST.get('discount_amount', 0)
+            old_amount = template.discount_amount
+            discount_amount_raw = request.POST.get('discount_amount', 0)
+            logger.info(f"🟢 [BACKEND-LOG] discount_amount 원본값: '{discount_amount_raw}' (타입: {type(discount_amount_raw).__name__})")
+            
+            if discount_amount_raw == '':
+                logger.warning(f"🟠 [BACKEND-LOG] discount_amount가 빈 문자열임 - 기본값 0으로 설정")
+                template.discount_amount = 0
+            else:
+                try:
+                    template.discount_amount = float(discount_amount_raw)
+                    logger.info(f"🟢 [BACKEND-LOG] discount_amount 성공 변환: {template.discount_amount}")
+                except (ValueError, TypeError) as e:
+                    logger.error(f"🔴 [BACKEND-ERROR] discount_amount 변환 오류: {e}")
+                    template.discount_amount = 0
+            logger.info(f"🟢 [BACKEND-LOG] discount_amount 업데이트: {old_amount} → {template.discount_amount}")
+            
         if request.POST.get('product_name') is not None:
+            old_product = template.product_name
             template.product_name = request.POST.get('product_name', '')
+            logger.info(f"🟢 [BACKEND-LOG] product_name 업데이트: '{old_product}' → '{template.product_name}'")
         
         
         # 유효기간 업데이트
         if 'is_permanent' in request.POST:
-            is_permanent = request.POST.get('is_permanent') == 'true'
+            is_permanent_raw = request.POST.get('is_permanent')
+            is_permanent = is_permanent_raw == 'true'
+            old_permanent = template.is_permanent
             template.is_permanent = is_permanent
+            logger.info(f"🟢 [BACKEND-LOG] is_permanent 업데이트: {old_permanent} → {is_permanent} (원본: '{is_permanent_raw}')")
             
             if not is_permanent:
                 valid_from = request.POST.get('valid_from')
                 valid_until = request.POST.get('valid_until')
+                logger.info(f"🟢 [BACKEND-LOG] 유효기간 처리 - valid_from: '{valid_from}', valid_until: '{valid_until}'")
+                
                 if valid_from:
                     try:
+                        old_from = template.valid_from
                         template.valid_from = datetime.strptime(valid_from, '%Y-%m-%d').date()
-                    except ValueError:
-                        pass
+                        logger.info(f"🟢 [BACKEND-LOG] valid_from 업데이트: {old_from} → {template.valid_from}")
+                    except ValueError as e:
+                        logger.error(f"🔴 [BACKEND-ERROR] valid_from 변환 오류: {e}")
+                        
                 if valid_until:
                     try:
+                        old_until = template.valid_until
                         template.valid_until = datetime.strptime(valid_until, '%Y-%m-%d').date()
-                    except ValueError:
-                        pass
+                        logger.info(f"🟢 [BACKEND-LOG] valid_until 업데이트: {old_until} → {template.valid_until}")
+                    except ValueError as e:
+                        logger.error(f"🔴 [BACKEND-ERROR] valid_until 변환 오류: {e}")
             else:
+                logger.info("🟢 [BACKEND-LOG] 영구 쿠폰으로 설정 - valid_from/valid_until을 None으로 설정")
                 template.valid_from = None
                 template.valid_until = None
         
         # 조건 데이터 업데이트
         if 'threshold_amount' in request.POST:
+            old_condition = template.condition_data.copy()
             condition_data = template.condition_data.copy()
             
-            threshold_amount = request.POST.get('threshold_amount')
-            if threshold_amount:
+            threshold_amount_raw = request.POST.get('threshold_amount')
+            logger.info(f"🟢 [BACKEND-LOG] threshold_amount 처리 - 원본값: '{threshold_amount_raw}' (타입: {type(threshold_amount_raw).__name__})")
+            
+            if threshold_amount_raw:
                 try:
-                    condition_data['threshold_amount'] = float(threshold_amount)
-                except ValueError:
+                    condition_data['threshold_amount'] = float(threshold_amount_raw)
+                    logger.info(f"🟢 [BACKEND-LOG] threshold_amount 변환 성공: {condition_data['threshold_amount']}")
+                except ValueError as e:
+                    logger.error(f"🔴 [BACKEND-ERROR] threshold_amount 변환 오류: {e}")
                     condition_data.pop('threshold_amount', None)
             else:
+                logger.info("🟢 [BACKEND-LOG] threshold_amount가 빈값 - condition_data에서 제거")
                 condition_data.pop('threshold_amount', None)
             
             template.condition_data = condition_data
+            logger.info(f"🟢 [BACKEND-LOG] condition_data 업데이트: {old_condition} → {condition_data}")
         
+        # max_issue_count 업데이트 (새로 추가된 필드)
+        if 'max_issue_count' in request.POST:
+            max_issue_count_raw = request.POST.get('max_issue_count')
+            logger.info(f"🟢 [BACKEND-LOG] max_issue_count 처리 - 원본값: '{max_issue_count_raw}' (타입: {type(max_issue_count_raw).__name__})")
+            
+            if max_issue_count_raw == '' or max_issue_count_raw is None:
+                logger.info("🟢 [BACKEND-LOG] max_issue_count가 빈값 - None으로 설정 (무제한)")
+                template.max_issue_count = None
+            else:
+                try:
+                    old_count = template.max_issue_count
+                    template.max_issue_count = int(max_issue_count_raw)
+                    logger.info(f"🟢 [BACKEND-LOG] max_issue_count 업데이트: {old_count} → {template.max_issue_count}")
+                except (ValueError, TypeError) as e:
+                    logger.error(f"🔴 [BACKEND-ERROR] max_issue_count 변환 오류: {e}")
+                    # 오류시 기존값 유지
+        
+        logger.info("🟢 [BACKEND-LOG] 템플릿 저장 시작")
         template.save()
+        logger.info("🟢 [BACKEND-LOG] 템플릿 저장 완료")
         
         return JsonResponse({
             'status': 'success',
@@ -4767,9 +4857,13 @@ def auto_coupon_update(request, template_id):
         })
         
     except AutoCouponTemplate.DoesNotExist:
+        logger.error(f"🔴 [BACKEND-ERROR] 템플릿을 찾을 수 없음 - template_id: {template_id}, user: {request.user.username}")
         return JsonResponse({'status': 'error', 'message': '템플릿을 찾을 수 없습니다.'}, status=404)
     except Exception as e:
-        logger.error(f"자동 쿠폰 수정 오류: {str(e)}")
+        logger.error(f"🔴 [BACKEND-ERROR] auto_coupon_update 예외 발생: {str(e)}")
+        logger.error(f"🔴 [BACKEND-ERROR] 예외 타입: {type(e).__name__}")
+        import traceback
+        logger.error(f"🔴 [BACKEND-ERROR] 스택 트레이스:\n{traceback.format_exc()}")
         return JsonResponse({'status': 'error', 'message': '수정 중 오류가 발생했습니다.'})
 
 

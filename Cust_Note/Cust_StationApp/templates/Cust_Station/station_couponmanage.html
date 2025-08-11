@@ -387,11 +387,94 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        <tr>
-                                                            <td colspan="7" class="text-center text-muted">
-                                                                <i class="fas fa-spinner fa-spin me-2"></i>로딩 중...
-                                                            </td>
-                                                        </tr>
+                                                        {% if all_coupons %}
+                                                            {% for coupon in all_coupons %}
+                                                            <tr>
+                                                                <td>
+                                                                    {{ coupon.customer.username }}
+                                                                    {% if coupon.customer.customer_profile.phone_number %}
+                                                                        <br><small class="text-muted">{{ coupon.customer.customer_profile.phone_number }}</small>
+                                                                    {% endif %}
+                                                                </td>
+                                                                <td>
+                                                                    {% if coupon.auto_coupon_template %}
+                                                                        {{ coupon.auto_coupon_template.coupon_name }}
+                                                                    {% elif coupon.coupon_template %}
+                                                                        {{ coupon.coupon_template.coupon_name }}
+                                                                    {% else %}
+                                                                        -
+                                                                    {% endif %}
+                                                                </td>
+                                                                <td>
+                                                                    {% if coupon.auto_coupon_template %}
+                                                                        {% if coupon.auto_coupon_template.coupon_type == 'SIGNUP' %}
+                                                                            <span class="badge bg-primary">회원가입</span>
+                                                                        {% elif coupon.auto_coupon_template.coupon_type == 'CUMULATIVE' %}
+                                                                            <span class="badge bg-success">누적매출</span>
+                                                                        {% elif coupon.auto_coupon_template.coupon_type == 'MONTHLY' %}
+                                                                            <span class="badge bg-warning">전월매출</span>
+                                                                        {% else %}
+                                                                            <span class="badge bg-secondary">{{ coupon.auto_coupon_template.coupon_type }}</span>
+                                                                        {% endif %}
+                                                                    {% elif coupon.coupon_template %}
+                                                                        {% if coupon.coupon_template.coupon_type %}
+                                                                            <span class="badge bg-info">{{ coupon.coupon_template.coupon_type.type_name }}</span>
+                                                                        {% else %}
+                                                                            <span class="badge bg-secondary">수동</span>
+                                                                        {% endif %}
+                                                                    {% else %}
+                                                                        -
+                                                                    {% endif %}
+                                                                </td>
+                                                                <td>
+                                                                    {% if coupon.status == 'AVAILABLE' %}
+                                                                        <span class="badge bg-success">사용가능</span>
+                                                                    {% elif coupon.status == 'USED' %}
+                                                                        <span class="badge bg-secondary">사용완료</span>
+                                                                    {% elif coupon.status == 'EXPIRED' %}
+                                                                        <span class="badge bg-danger">만료</span>
+                                                                    {% else %}
+                                                                        <span class="badge bg-light text-dark">{{ coupon.status }}</span>
+                                                                    {% endif %}
+                                                                </td>
+                                                                <td>{{ coupon.issued_date|date:"Y-m-d H:i" }}</td>
+                                                                <td>
+                                                                    {% if coupon.auto_coupon_template %}
+                                                                        {% if coupon.auto_coupon_template.is_permanent %}
+                                                                            <span class="text-success">무기한</span>
+                                                                        {% elif coupon.auto_coupon_template.valid_until %}
+                                                                            {{ coupon.auto_coupon_template.valid_until|date:"Y-m-d" }}
+                                                                        {% else %}
+                                                                            -
+                                                                        {% endif %}
+                                                                    {% elif coupon.coupon_template %}
+                                                                        {% if coupon.coupon_template.is_permanent %}
+                                                                            <span class="text-success">무기한</span>
+                                                                        {% elif coupon.coupon_template.valid_until %}
+                                                                            {{ coupon.coupon_template.valid_until|date:"Y-m-d" }}
+                                                                        {% else %}
+                                                                            -
+                                                                        {% endif %}
+                                                                    {% else %}
+                                                                        -
+                                                                    {% endif %}
+                                                                </td>
+                                                                <td>
+                                                                    {% if coupon.used_date %}
+                                                                        {{ coupon.used_date|date:"Y-m-d H:i" }}
+                                                                    {% else %}
+                                                                        -
+                                                                    {% endif %}
+                                                                </td>
+                                                            </tr>
+                                                            {% endfor %}
+                                                        {% else %}
+                                                            <tr>
+                                                                <td colspan="7" class="text-center text-muted">
+                                                                    <i class="fas fa-ticket-alt me-2"></i>발행된 쿠폰이 없습니다.
+                                                                </td>
+                                                            </tr>
+                                                        {% endif %}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -400,37 +483,6 @@
                                 </div>
                             </div>
 
-                            <!-- 통계 정보 -->
-                            <div class="row mt-4">
-                                <div class="col-md-6">
-                                    <div class="card border">
-                                        <div class="card-header bg-white">
-                                            <h6 class="mb-0">
-                                                <i class="fas fa-chart-pie me-2"></i>쿠폰 상태별 통계
-                                            </h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <canvas id="couponStatusChart" width="300" height="200"></canvas>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="card border">
-                                        <div class="card-header bg-white">
-                                            <h6 class="mb-0">
-                                                <i class="fas fa-shopping-cart me-2"></i>쿠폰 구매 요청 현황
-                                            </h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <div id="purchaseRequestList">
-                                                <p class="text-muted text-center">
-                                                    <i class="fas fa-spinner fa-spin me-2"></i>로딩 중...
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
                         <!-- 통계 현황 탭 -->
@@ -501,7 +553,7 @@
                                             </h6>
                                         </div>
                                         <div class="card-body">
-                                            <canvas id="monthlyChart" width="400" height="200"></canvas>
+                                            <canvas id="monthlyChart"></canvas>
                                         </div>
                                     </div>
                                 </div>
@@ -513,102 +565,12 @@
                                             </h6>
                                         </div>
                                         <div class="card-body">
-                                            <canvas id="typeChart" width="400" height="200"></canvas>
+                                            <canvas id="typeChart"></canvas>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- 상세 통계 -->
-                            <div class="row mb-4">
-                                <div class="col-lg-6 mb-4">
-                                    <div class="card border h-100">
-                                        <div class="card-header bg-white">
-                                            <h6 class="mb-0">
-                                                <i class="fas fa-coins me-2"></i>쿠폰 수량 현황
-                                            </h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="progress mb-3" style="height: 20px;">
-                                                <div class="progress-bar bg-danger" role="progressbar" id="quotaProgressBar" style="width: 0%"></div>
-                                            </div>
-                                            <div class="row text-center">
-                                                <div class="col-4">
-                                                    <div class="text-muted small">총 수량</div>
-                                                    <div class="fw-bold" id="totalQuota">-</div>
-                                                </div>
-                                                <div class="col-4">
-                                                    <div class="text-muted small">사용량</div>
-                                                    <div class="fw-bold text-danger" id="usedQuota">-</div>
-                                                </div>
-                                                <div class="col-4">
-                                                    <div class="text-muted small">잔여량</div>
-                                                    <div class="fw-bold text-success" id="remainingQuota">-</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-lg-6 mb-4">
-                                    <div class="card border h-100">
-                                        <div class="card-header bg-white">
-                                            <h6 class="mb-0">
-                                                <i class="fas fa-robot me-2"></i>자동 쿠폰 현황
-                                            </h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <div class="row">
-                                                <div class="col-4 text-center">
-                                                    <div class="text-primary">
-                                                        <i class="fas fa-user-plus fa-2x"></i>
-                                                    </div>
-                                                    <div class="small text-muted mt-2">회원가입</div>
-                                                    <div class="fw-bold" id="signupCoupons">-</div>
-                                                </div>
-                                                <div class="col-4 text-center">
-                                                    <div class="text-success">
-                                                        <i class="fas fa-chart-line fa-2x"></i>
-                                                    </div>
-                                                    <div class="small text-muted mt-2">누적매출</div>
-                                                    <div class="fw-bold" id="cumulativeCoupons">-</div>
-                                                </div>
-                                                <div class="col-4 text-center">
-                                                    <div class="text-warning">
-                                                        <i class="fas fa-calendar fa-2x"></i>
-                                                    </div>
-                                                    <div class="small text-muted mt-2">월별혜택</div>
-                                                    <div class="fw-bold" id="monthlyCoupons">-</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 최근 활동 -->
-                            <div class="row">
-                                <div class="col-12">
-                                    <div class="card border">
-                                        <div class="card-header bg-white">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <h6 class="mb-0">
-                                                    <i class="fas fa-history me-2"></i>최근 활동 (7일)
-                                                </h6>
-                                                <button class="btn btn-outline-primary btn-sm" onclick="loadStatistics()">
-                                                    <i class="fas fa-sync-alt me-1"></i>새로고침
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div class="card-body">
-                                            <div id="recentActivities">
-                                                <div class="text-center text-muted">
-                                                    <i class="fas fa-spinner fa-spin me-2"></i>로딩 중...
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -1186,20 +1148,40 @@ function loadTemplateData_OLD(templateId) {
 
 // 템플릿 저장
 function saveTemplate() {
+    console.log('🔵 [FRONTEND-LOG] saveTemplate() 시작');
     const form = document.getElementById('templateForm');
     const formData = new FormData(form);
     const templateId = document.getElementById('templateId').value;
     
+    console.log('🔵 [FRONTEND-LOG] 기본 폼 데이터:');
+    for (let [key, value] of formData.entries()) {
+        console.log(`🔵 [FRONTEND-LOG]   ${key}: "${value}" (타입: ${typeof value})`);
+    }
+    
     // 조건 데이터 구성
     const conditionData = {};
     if (currentTemplateType === 'CUMULATIVE' || currentTemplateType === 'MONTHLY') {
-        conditionData.threshold_amount = parseInt(formData.get('threshold_amount')) || 0;
+        const thresholdAmount = formData.get('threshold_amount');
+        console.log(`🔵 [FRONTEND-LOG] threshold_amount 원본값: "${thresholdAmount}" (타입: ${typeof thresholdAmount})`);
+        conditionData.threshold_amount = parseInt(thresholdAmount) || 0;
+        console.log(`🔵 [FRONTEND-LOG] threshold_amount 변환값: ${conditionData.threshold_amount} (타입: ${typeof conditionData.threshold_amount})`);
     }
+    console.log('🔵 [FRONTEND-LOG] conditionData 구성:', JSON.stringify(conditionData));
     formData.append('condition_data', JSON.stringify(conditionData));
+    
+    // 추가된 데이터 확인
+    console.log('🔵 [FRONTEND-LOG] 최종 FormData (condition_data 포함):');
+    for (let [key, value] of formData.entries()) {
+        console.log(`🔵 [FRONTEND-LOG]   ${key}: "${value}" (타입: ${typeof value})`);
+    }
     
     const url = templateId ? 
         `/station/auto-coupons/${templateId}/update/` : 
         '/station/auto-coupons/create/';
+    
+    console.log(`🔵 [FRONTEND-LOG] 요청 URL: ${url}`);
+    console.log(`🔵 [FRONTEND-LOG] 템플릿 ID: ${templateId}`);
+    console.log(`🔵 [FRONTEND-LOG] 현재 템플릿 타입: ${currentTemplateType}`);
     
     fetch(url, {
         method: 'POST',
@@ -1208,9 +1190,14 @@ function saveTemplate() {
         },
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log(`🔵 [FRONTEND-LOG] 서버 응답 상태: ${response.status} ${response.statusText}`);
+        return response.json();
+    })
     .then(data => {
+        console.log('🔵 [FRONTEND-LOG] 서버 응답 데이터:', JSON.stringify(data, null, 2));
         if (data.status === 'success') {
+            console.log('🔵 [FRONTEND-LOG] 성공 처리 시작');
             // 모달 닫기
             hideModalWithDOMManipulation();
             
@@ -1219,11 +1206,13 @@ function saveTemplate() {
             
             showToast(data.message || (templateId ? '템플릿이 수정되었습니다.' : '새 템플릿이 생성되었습니다.'), 'success');
         } else {
+            console.log('🔴 [FRONTEND-ERROR] 서버에서 오류 응답:', data);
             showToast(data.message || '오류가 발생했습니다.', 'error');
         }
     })
     .catch(error => {
-        console.error('템플릿 저장 오류:', error);
+        console.error('🔴 [FRONTEND-ERROR] 템플릿 저장 오류:', error);
+        console.error('🔴 [FRONTEND-ERROR] 오류 상세:', error.message, error.stack);
         showToast((isAddMode ? '템플릿 생성' : '템플릿 저장') + ' 중 오류가 발생했습니다.', 'error');
     });
 }
@@ -1672,35 +1661,87 @@ function saveMonthlyCouponSettings() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== DOMContentLoaded 이벤트 시작 ===');
+    
     // 새로운 자동 쿠폰 CRUD 시스템 초기화
+    console.log('1. loadAllTemplates 호출');
     loadAllTemplates();
     
     // 기존 시스템 초기화
+    console.log('2. initializePage 호출');
     initializePage();
     
     // 탭 변경 이벤트 리스너
-    document.querySelectorAll('#couponTabs button[data-bs-toggle="tab"]').forEach(function(tab) {
+    console.log('3. 탭 이벤트 리스너 등록 시작');
+    const tabButtons = document.querySelectorAll('#couponTabs button[data-bs-toggle="tab"]');
+    console.log('   - 찾은 탭 버튼 개수:', tabButtons.length);
+    
+    tabButtons.forEach(function(tab, index) {
+        const tabId = tab.id;
+        const targetPane = tab.getAttribute('data-bs-target');
+        console.log(`   - 탭 ${index}: ID="${tabId}", Target="${targetPane}"`);
+        
         tab.addEventListener('shown.bs.tab', function(event) {
+            console.log('=== 탭 전환 이벤트 발생 ===');
+            console.log('   - 이전 탭:', event.relatedTarget ? event.relatedTarget.id : 'none');
+            console.log('   - 현재 탭:', event.target.id);
+            
             var targetTab = event.target.getAttribute('data-bs-target');
+            console.log('   - Target 속성:', targetTab);
+            
             if (targetTab === '#auto-coupon') {
+                console.log('   → 자동 쿠폰 탭 활성화 - loadAutoCouponStatus() 호출');
                 loadAutoCouponStatus();
             } else if (targetTab === '#manual-coupon') {
+                console.log('   → 수동 쿠폰 탭 활성화 - loadManualCouponData() 호출');
                 loadManualCouponData();
             } else if (targetTab === '#coupon-management') {
+                console.log('   → 쿠폰 관리 탭 활성화 - loadCouponManagementData() 호출');
                 loadCouponManagementData();
+            } else {
+                console.log('   → 알 수 없는 탭:', targetTab);
             }
         });
+        
+        // click 이벤트도 추가로 로깅
+        tab.addEventListener('click', function(event) {
+            console.log(`[클릭 이벤트] 탭 "${tabId}" 클릭됨`);
+        });
     });
+    
+    console.log('4. 탭 이벤트 리스너 등록 완료');
     
     // Auto coupon templates will be loaded dynamically
     
     // 수동 쿠폰 폼 이벤트
+    console.log('5. setupManualCouponForms 호출');
     setupManualCouponForms();
     
+    console.log('=== DOMContentLoaded 이벤트 종료 ===');
+    
+    // 초기 탭 상태 확인
+    console.log('=== 초기 탭 상태 확인 ===');
+    const activeTab = document.querySelector('#couponTabs .nav-link.active');
+    const activePane = document.querySelector('#couponTabContent .tab-pane.active');
+    if (activeTab) {
+        console.log('   - 활성 탭 버튼:', activeTab.id, '/ Target:', activeTab.getAttribute('data-bs-target'));
+    }
+    if (activePane) {
+        console.log('   - 활성 탭 패널:', activePane.id);
+    }
+    
+    // 모든 탭 패널 상태 확인
+    document.querySelectorAll('#couponTabContent .tab-pane').forEach(function(pane) {
+        const isActive = pane.classList.contains('active');
+        const isShow = pane.classList.contains('show');
+        console.log(`   - 패널 "${pane.id}": active=${isActive}, show=${isShow}`);
+    });
 });
 
 function initializePage() {
+    console.log('=== initializePage 함수 실행 ===');
     // Load data for different tabs
+    console.log('   - loadCouponTypes 호출');
     loadCouponTypes();
     loadCouponTemplates();
     loadGroups();
@@ -1915,55 +1956,33 @@ function loadCustomers() {
 
 // 쿠폰 관리 탭 관련 함수들
 function loadCouponManagementData() {
+    console.log('=== loadCouponManagementData 함수 실행 ===');
+    console.log('   - refreshCouponList 호출 예정');
     refreshCouponList();
-    loadPurchaseRequests();
+    console.log('=== loadCouponManagementData 함수 종료 ===');
 }
 
 function refreshCouponList() {
-    // 쿠폰 목록 새로고침 로직
-    const tbody = document.querySelector('#couponListTable tbody');
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted"><i class="fas fa-spinner fa-spin me-2"></i>로딩 중...</td></tr>';
-    
-    // TODO: 실제 쿠폰 목록 API 호출
-}
-
-function loadPurchaseRequests() {
-    fetch('{% url "station:purchase_request_status" %}')
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                updatePurchaseRequestList(data.data.requests);
-            }
-        })
-        .catch(error => console.error('구매 요청 로드 오류:', error));
-}
-
-function updatePurchaseRequestList(requests) {
-    const container = document.getElementById('purchaseRequestList');
-    
-    if (requests.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center">구매 요청이 없습니다.</p>';
-        return;
+    console.log('=== refreshCouponList 함수 실행 ===');
+    console.log('   - 쿠폰 목록 테이블 확인');
+    const table = document.querySelector('#couponListTable');
+    if (table) {
+        console.log('   - 테이블 찾음:', table);
+        const tbody = table.querySelector('tbody');
+        if (tbody) {
+            console.log('   - tbody 찾음, 현재 행 개수:', tbody.rows.length);
+            // 페이지 새로고침 대신 로그만 출력 (테스트용)
+            console.log('   - 페이지 새로고침 대신 데이터 확인만 수행');
+            // window.location.reload();
+        } else {
+            console.error('   - tbody를 찾을 수 없음!');
+        }
+    } else {
+        console.error('   - 쿠폰 목록 테이블을 찾을 수 없음!');
     }
-    
-    let html = '';
-    requests.forEach(req => {
-        const statusClass = req.status_code === 'APPROVED' ? 'success' : 
-                           req.status_code === 'REJECTED' ? 'danger' : 'warning';
-        
-        html += `
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <div>
-                    <strong>${req.quantity}개</strong>
-                    <small class="text-muted">${req.requested_at}</small>
-                </div>
-                <span class="badge bg-${statusClass}">${req.status}</span>
-            </div>
-        `;
-    });
-    
-    container.innerHTML = html;
+    console.log('=== refreshCouponList 함수 종료 ===');
 }
+
 
 // 쿠폰 구매 요청 관련 함수들
 function requestCouponPurchase() {
@@ -1992,7 +2011,6 @@ function submitPurchaseRequest() {
         if (data.status === 'success') {
             showToast(data.message, 'success');
             bootstrap.Modal.getInstance(document.getElementById('purchaseRequestModal')).hide();
-            loadPurchaseRequests();
         } else {
             showToast(data.message || '구매 요청에 실패했습니다.', 'error');
         }
@@ -2008,19 +2026,73 @@ let monthlyChart = null;
 let typeChart = null;
 
 function loadStatistics() {
+    console.log('🔄 [STATS] loadStatistics 함수 시작');
+    console.log('🔄 [STATS] 현재 시간:', new Date().toISOString());
+    
+    // 통계 탭 활성화 상태 확인
+    const statisticsTab = document.getElementById('statistics-tab');
+    const statisticsPane = document.getElementById('statistics');
+    console.log('📊 [STATS] 통계 탭 상태 확인:');
+    console.log('   - 탭 버튼 존재:', !!statisticsTab);
+    console.log('   - 탭 버튼 active 클래스:', statisticsTab?.classList.contains('active'));
+    console.log('   - 탭 패널 존재:', !!statisticsPane);
+    console.log('   - 탭 패널 active 클래스:', statisticsPane?.classList.contains('active'));
+    
+    // 캔버스 요소들 상태 확인
+    const monthlyCanvas = document.getElementById('monthlyChart');
+    const typeCanvas = document.getElementById('typeChart');
+    console.log('🎨 [CANVAS] 캔버스 요소 상태:');
+    console.log('   - monthlyChart 존재:', !!monthlyCanvas);
+    if (monthlyCanvas) {
+        console.log('   - monthlyChart 크기:', {
+            width: monthlyCanvas.width,
+            height: monthlyCanvas.height,
+            clientWidth: monthlyCanvas.clientWidth,
+            clientHeight: monthlyCanvas.clientHeight,
+            offsetWidth: monthlyCanvas.offsetWidth,
+            offsetHeight: monthlyCanvas.offsetHeight,
+            style: monthlyCanvas.style.cssText
+        });
+    }
+    console.log('   - typeChart 존재:', !!typeCanvas);
+    if (typeCanvas) {
+        console.log('   - typeChart 크기:', {
+            width: typeCanvas.width,
+            height: typeCanvas.height,
+            clientWidth: typeCanvas.clientWidth,
+            clientHeight: typeCanvas.clientHeight,
+            offsetWidth: typeCanvas.offsetWidth,
+            offsetHeight: typeCanvas.offsetHeight,
+            style: typeCanvas.style.cssText
+        });
+    }
+    
+    // 기존 차트 인스턴스 상태 확인
+    console.log('📈 [CHARTS] 기존 차트 인스턴스:');
+    console.log('   - monthlyChart 존재:', !!monthlyChart);
+    console.log('   - typeChart 존재:', !!typeChart);
+    
     fetch('{% url "station:coupon_statistics" %}')
-        .then(response => response.json())
+        .then(response => {
+            console.log('✅ [API] 통계 API 응답 받음');
+            return response.json();
+        })
         .then(data => {
+            console.log('📊 [API] 통계 데이터:', data);
             if (data.status === 'success') {
+                console.log('✅ [API] 통계 데이터 성공, updateStatisticsDisplay 호출');
                 updateStatisticsDisplay(data.data);
             } else {
+                console.error('❌ [API] 통계 데이터 로드 실패:', data.message);
                 showToast('통계 데이터 로드 실패: ' + data.message, 'error');
             }
         })
         .catch(error => {
-            console.error('통계 로드 오류:', error);
+            console.error('❌ [API] 통계 로드 오류:', error);
             showToast('통계 데이터 로드 중 오류가 발생했습니다.', 'error');
         });
+    
+    console.log('🔄 [STATS] loadStatistics 함수 종료 (비동기 요청 시작함)');
 }
 
 function updateStatisticsDisplay(data) {
@@ -2030,41 +2102,71 @@ function updateStatisticsDisplay(data) {
     document.getElementById('totalAvailableCount').textContent = data.basic_stats.total_available.toLocaleString();
     document.getElementById('usageRate').textContent = data.basic_stats.usage_rate + '%';
     
-    // 2. 쿠폰 수량 현황 업데이트
-    const quotaUsageRate = data.quota_info.quota_usage_rate;
-    document.getElementById('totalQuota').textContent = data.quota_info.total_quota.toLocaleString();
-    document.getElementById('usedQuota').textContent = data.quota_info.used_quota.toLocaleString();
-    document.getElementById('remainingQuota').textContent = data.quota_info.remaining_quota.toLocaleString();
-    document.getElementById('quotaProgressBar').style.width = quotaUsageRate + '%';
-    document.getElementById('quotaProgressBar').textContent = Math.round(quotaUsageRate) + '%';
-    
-    // 3. 자동 쿠폰 현황 업데이트
-    document.getElementById('signupCoupons').textContent = data.auto_coupon_stats.signup_coupons.toLocaleString();
-    document.getElementById('cumulativeCoupons').textContent = data.auto_coupon_stats.cumulative_coupons.toLocaleString();
-    document.getElementById('monthlyCoupons').textContent = data.auto_coupon_stats.monthly_coupons.toLocaleString();
-    
-    // 4. 월별 차트 업데이트
+    // 2. 월별 차트 업데이트
     updateMonthlyChart(data.monthly_stats);
     
-    // 5. 타입별 차트 업데이트
+    // 3. 타입별 차트 업데이트
     updateTypeChart(data.type_stats);
-    
-    // 6. 최근 활동 업데이트
-    updateRecentActivities(data.recent_activities);
 }
 
 function updateMonthlyChart(monthlyData) {
-    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    console.log('📈 [MONTHLY] updateMonthlyChart 시작');
+    console.log('📈 [MONTHLY] 입력 데이터:', monthlyData);
+    
+    const canvas = document.getElementById('monthlyChart');
+    console.log('🎨 [MONTHLY] 캔버스 상태 (업데이트 전):');
+    console.log('   - 캔버스 존재:', !!canvas);
+    if (canvas) {
+        console.log('   - 캔버스 크기:', {
+            width: canvas.width,
+            height: canvas.height,
+            clientWidth: canvas.clientWidth,
+            clientHeight: canvas.clientHeight,
+            offsetWidth: canvas.offsetWidth,
+            offsetHeight: canvas.offsetHeight,
+            style: canvas.style.cssText
+        });
+        console.log('   - 부모 컨테이너 크기:', {
+            parentWidth: canvas.parentElement?.offsetWidth,
+            parentHeight: canvas.parentElement?.offsetHeight,
+            parentStyle: canvas.parentElement?.style.cssText
+        });
+    }
+    
+    const ctx = canvas.getContext('2d');
+    console.log('🎨 [MONTHLY] Context 획득:', !!ctx);
     
     // 기존 차트 제거
+    console.log('🗑️ [MONTHLY] 기존 차트 확인 및 제거:');
+    console.log('   - 기존 monthlyChart 존재:', !!monthlyChart);
     if (monthlyChart) {
+        console.log('   - 기존 차트 제거 중...');
         monthlyChart.destroy();
+        console.log('   - 기존 차트 제거 완료');
+        monthlyChart = null;
     }
+    
+    // 캔버스 상태 다시 확인 (차트 제거 후)
+    console.log('🎨 [MONTHLY] 캔버스 상태 (차트 제거 후):');
+    console.log('   - 캔버스 크기:', {
+        width: canvas.width,
+        height: canvas.height,
+        clientWidth: canvas.clientWidth,
+        clientHeight: canvas.clientHeight,
+        offsetWidth: canvas.offsetWidth,
+        offsetHeight: canvas.offsetHeight
+    });
     
     const labels = monthlyData.map(item => item.month);
     const issuedData = monthlyData.map(item => item.issued);
     const usedData = monthlyData.map(item => item.used);
     
+    console.log('📊 [MONTHLY] 차트 데이터 준비:');
+    console.log('   - 라벨:', labels);
+    console.log('   - 발행 데이터:', issuedData);
+    console.log('   - 사용 데이터:', usedData);
+    
+    console.log('🔨 [MONTHLY] 새 차트 생성 중...');
     monthlyChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -2088,7 +2190,7 @@ function updateMonthlyChart(monthlyData) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
             plugins: {
                 legend: {
                     position: 'top',
@@ -2101,17 +2203,70 @@ function updateMonthlyChart(monthlyData) {
             }
         }
     });
+    
+    console.log('✅ [MONTHLY] 새 차트 생성 완료');
+    console.log('🎨 [MONTHLY] 최종 캔버스 상태:');
+    console.log('   - 캔버스 크기:', {
+        width: canvas.width,
+        height: canvas.height,
+        clientWidth: canvas.clientWidth,
+        clientHeight: canvas.clientHeight,
+        offsetWidth: canvas.offsetWidth,
+        offsetHeight: canvas.offsetHeight
+    });
+    console.log('📈 [MONTHLY] updateMonthlyChart 완료');
 }
 
 function updateTypeChart(typeData) {
-    const ctx = document.getElementById('typeChart').getContext('2d');
+    console.log('🥧 [TYPE] updateTypeChart 시작');
+    console.log('🥧 [TYPE] 입력 데이터:', typeData);
     
-    // 기존 차트 제거
-    if (typeChart) {
-        typeChart.destroy();
+    const canvas = document.getElementById('typeChart');
+    console.log('🎨 [TYPE] 캔버스 상태 (업데이트 전):');
+    console.log('   - 캔버스 존재:', !!canvas);
+    if (canvas) {
+        console.log('   - 캔버스 크기:', {
+            width: canvas.width,
+            height: canvas.height,
+            clientWidth: canvas.clientWidth,
+            clientHeight: canvas.clientHeight,
+            offsetWidth: canvas.offsetWidth,
+            offsetHeight: canvas.offsetHeight,
+            style: canvas.style.cssText
+        });
+        console.log('   - 부모 컨테이너 크기:', {
+            parentWidth: canvas.parentElement?.offsetWidth,
+            parentHeight: canvas.parentElement?.offsetHeight,
+            parentStyle: canvas.parentElement?.style.cssText
+        });
     }
     
+    const ctx = canvas.getContext('2d');
+    console.log('🎨 [TYPE] Context 획득:', !!ctx);
+    
+    // 기존 차트 제거
+    console.log('🗑️ [TYPE] 기존 차트 확인 및 제거:');
+    console.log('   - 기존 typeChart 존재:', !!typeChart);
+    if (typeChart) {
+        console.log('   - 기존 차트 제거 중...');
+        typeChart.destroy();
+        console.log('   - 기존 차트 제거 완료');
+        typeChart = null;
+    }
+    
+    // 캔버스 상태 다시 확인 (차트 제거 후)
+    console.log('🎨 [TYPE] 캔버스 상태 (차트 제거 후):');
+    console.log('   - 캔버스 크기:', {
+        width: canvas.width,
+        height: canvas.height,
+        clientWidth: canvas.clientWidth,
+        clientHeight: canvas.clientHeight,
+        offsetWidth: canvas.offsetWidth,
+        offsetHeight: canvas.offsetHeight
+    });
+    
     if (typeData.length === 0) {
+        console.log('⚠️ [TYPE] 데이터가 없음, 빈 메시지 표시');
         ctx.fillText('데이터가 없습니다.', 50, 100);
         return;
     }
@@ -2127,6 +2282,12 @@ function updateTypeChart(typeData) {
         'rgba(255, 159, 64, 0.8)'
     ];
     
+    console.log('📊 [TYPE] 차트 데이터 준비:');
+    console.log('   - 라벨:', labels);
+    console.log('   - 데이터:', data);
+    console.log('   - 색상 개수:', colors.length);
+    
+    console.log('🔨 [TYPE] 새 차트 생성 중...');
     typeChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -2140,7 +2301,7 @@ function updateTypeChart(typeData) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
             plugins: {
                 legend: {
                     position: 'bottom',
@@ -2148,45 +2309,167 @@ function updateTypeChart(typeData) {
             }
         }
     });
+    
+    console.log('✅ [TYPE] 새 차트 생성 완료');
+    console.log('🎨 [TYPE] 최종 캔버스 상태:');
+    console.log('   - 캔버스 크기:', {
+        width: canvas.width,
+        height: canvas.height,
+        clientWidth: canvas.clientWidth,
+        clientHeight: canvas.clientHeight,
+        offsetWidth: canvas.offsetWidth,
+        offsetHeight: canvas.offsetHeight
+    });
+    console.log('🥧 [TYPE] updateTypeChart 완료');
 }
 
-function updateRecentActivities(activities) {
-    const container = document.getElementById('recentActivities');
-    
-    if (activities.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center">최근 7일간 활동이 없습니다.</p>';
-        return;
-    }
-    
-    let html = '<div class="timeline">';
-    activities.forEach(activity => {
-        const iconClass = activity.type === 'issued' ? 'fa-plus-circle text-primary' : 'fa-check-circle text-success';
-        html += `
-            <div class="timeline-item mb-3">
-                <div class="d-flex align-items-center">
-                    <i class="fas ${iconClass} me-3"></i>
-                    <div class="flex-grow-1">
-                        <div class="fw-bold">${activity.message}</div>
-                        <small class="text-muted">${activity.timestamp}</small>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    html += '</div>';
-    
-    container.innerHTML = html;
-}
 
 // 탭 변경 시 통계 로드
 document.addEventListener('DOMContentLoaded', function() {
-    // 통계 탭 클릭 시 데이터 로드
-    document.getElementById('statistics-tab').addEventListener('click', function() {
-        setTimeout(() => {
-            loadStatistics();
-        }, 100); // 탭 전환 애니메이션 후 로드
-    });
+    console.log('🚀 [INIT] DOMContentLoaded - 이벤트 리스너 등록 중...');
+    
+    const statisticsTab = document.getElementById('statistics-tab');
+    if (statisticsTab) {
+        console.log('✅ [INIT] statistics-tab 요소 찾음');
+        
+        // Bootstrap 탭 이벤트 사용
+        statisticsTab.addEventListener('shown.bs.tab', function(event) {
+            console.log('🎯 [EVENT] shown.bs.tab 이벤트 발생!');
+            console.log('   - 이벤트 시간:', new Date().toISOString());
+            console.log('   - 타겟 탭:', event.target.id);
+            console.log('   - 타겟 패널:', event.target.getAttribute('data-bs-target'));
+            console.log('   - 이전 탭:', event.relatedTarget?.id || 'none');
+            
+            // 캔버스 요소들 존재 여부 확인
+            const monthlyCanvas = document.getElementById('monthlyChart');
+            const typeCanvas = document.getElementById('typeChart');
+            console.log('🎨 [EVENT] 캔버스 요소 확인:');
+            console.log('   - monthlyChart 존재:', !!monthlyCanvas);
+            console.log('   - typeChart 존재:', !!typeCanvas);
+            
+            if (monthlyCanvas && typeCanvas) {
+                console.log('✅ [EVENT] 캔버스 요소들 존재, loadStatistics 및 모니터링 시작');
+                startStatisticsMonitoring();
+                loadStatistics();
+            } else {
+                console.error('❌ [EVENT] 캔버스 요소가 없음! 통계 로드 중단');
+            }
+        });
+        
+        console.log('✅ [INIT] shown.bs.tab 이벤트 리스너 등록 완료');
+    } else {
+        console.error('❌ [INIT] statistics-tab 요소를 찾을 수 없음!');
+    }
 });
+
+// 캔버스 크기 모니터링 함수
+function startCanvasMonitoring() {
+    console.log('🔍 [MONITOR] 캔버스 크기 모니터링 시작');
+    
+    const monitorInterval = setInterval(function() {
+        const monthlyCanvas = document.getElementById('monthlyChart');
+        const typeCanvas = document.getElementById('typeChart');
+        const currentTime = new Date().toISOString();
+        
+        if (monthlyCanvas) {
+            console.log(`📏 [${currentTime}] monthlyChart 크기:`, {
+                width: monthlyCanvas.width,
+                height: monthlyCanvas.height,
+                clientWidth: monthlyCanvas.clientWidth,
+                clientHeight: monthlyCanvas.clientHeight,
+                offsetWidth: monthlyCanvas.offsetWidth,
+                offsetHeight: monthlyCanvas.offsetHeight
+            });
+            
+            // 비정상적인 크기 확장 감지
+            if (monthlyCanvas.height > 1000 || monthlyCanvas.offsetHeight > 1000) {
+                console.error('🚨 [ALERT] monthlyChart 크기 비정상 확장 감지!');
+                console.error('   - 캔버스 높이:', monthlyCanvas.height);
+                console.error('   - 오프셋 높이:', monthlyCanvas.offsetHeight);
+                clearInterval(monitorInterval);
+            }
+        }
+        
+        if (typeCanvas) {
+            console.log(`📏 [${currentTime}] typeChart 크기:`, {
+                width: typeCanvas.width,
+                height: typeCanvas.height,
+                clientWidth: typeCanvas.clientWidth,
+                clientHeight: typeCanvas.clientHeight,
+                offsetWidth: typeCanvas.offsetWidth,
+                offsetHeight: typeCanvas.offsetHeight
+            });
+            
+            // 비정상적인 크기 확장 감지
+            if (typeCanvas.height > 1000 || typeCanvas.offsetHeight > 1000) {
+                console.error('🚨 [ALERT] typeChart 크기 비정상 확장 감지!');
+                console.error('   - 캔버스 높이:', typeCanvas.height);
+                console.error('   - 오프셋 높이:', typeCanvas.offsetHeight);
+                clearInterval(monitorInterval);
+            }
+        }
+    }, 1000); // 1초마다 모니터링
+    
+    // 30초 후 모니터링 자동 종료
+    setTimeout(function() {
+        console.log('⏰ [MONITOR] 캔버스 크기 모니터링 자동 종료 (30초 경과)');
+        clearInterval(monitorInterval);
+    }, 30000);
+}
+
+// 통계 탭 활성화 시 모니터링 시작
+function startStatisticsMonitoring() {
+    console.log('🎯 [MONITOR] 통계 모니터링 시작');
+    startCanvasMonitoring();
+}
+
+// 디버그 함수 - 현재 탭 상태 확인
+function debugTabState() {
+    console.log('=== 현재 탭 상태 디버그 ===');
+    
+    // 활성 탭 버튼 확인
+    const activeTabButton = document.querySelector('#couponTabs .nav-link.active');
+    if (activeTabButton) {
+        console.log('활성 탭 버튼:');
+        console.log('   - ID:', activeTabButton.id);
+        console.log('   - Text:', activeTabButton.textContent.trim());
+        console.log('   - Target:', activeTabButton.getAttribute('data-bs-target'));
+        console.log('   - aria-selected:', activeTabButton.getAttribute('aria-selected'));
+    } else {
+        console.log('활성 탭 버튼을 찾을 수 없음');
+    }
+    
+    // 활성 탭 패널 확인
+    const activeTabPane = document.querySelector('#couponTabContent .tab-pane.active');
+    if (activeTabPane) {
+        console.log('활성 탭 패널:');
+        console.log('   - ID:', activeTabPane.id);
+        console.log('   - Classes:', activeTabPane.className);
+        
+        // 패널 내용 확인
+        if (activeTabPane.id === 'coupon-management') {
+            const table = activeTabPane.querySelector('#couponListTable');
+            console.log('   - 쿠폰 목록 테이블 존재:', table ? '있음' : '없음');
+            if (table) {
+                const tbody = table.querySelector('tbody');
+                console.log('   - tbody 행 개수:', tbody ? tbody.rows.length : 0);
+            }
+        }
+    } else {
+        console.log('활성 탭 패널을 찾을 수 없음');
+    }
+    
+    // 모든 탭 상태 요약
+    console.log('모든 탭 패널 상태:');
+    document.querySelectorAll('#couponTabContent .tab-pane').forEach(pane => {
+        console.log(`   - ${pane.id}: active=${pane.classList.contains('active')}, show=${pane.classList.contains('show')}`);
+    });
+    
+    console.log('=== 디버그 종료 ===');
+}
+
+// 전역 함수로 등록 (콘솔에서 직접 호출 가능)
+window.debugTabState = debugTabState;
 
 // 유틸리티 함수들
 function showToast(message, type = 'info') {
