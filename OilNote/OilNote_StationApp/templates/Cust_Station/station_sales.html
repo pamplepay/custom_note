@@ -1,0 +1,1024 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}매출 노트{% endblock %}
+
+{% block extra_css %}
+<style>
+    .file-list-container {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+    }
+    
+    .file-list-container::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .file-list-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+    
+    .file-list-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+    
+    .file-list-container::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+    
+    .sticky-header {
+        position: sticky;
+        top: 0;
+        background-color: white;
+        z-index: 1;
+        border-bottom: 2px solid #dee2e6;
+    }
+    
+    .file-row:hover {
+        background-color: #f8f9fa;
+    }
+    
+    /* 모바일 반응형 스타일 */
+    @media (max-width: 768px) {
+        .file-list-container {
+            max-height: 250px;
+        }
+        
+        .file-name-full {
+            display: none;
+        }
+        
+        .file-name-mobile {
+            display: block;
+        }
+        
+        .btn-group-sm .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .table th, .table td {
+            padding: 0.5rem 0.25rem;
+        }
+        
+        .card-body {
+            padding: 1rem;
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+        }
+        
+        .badge {
+            font-size: 0.7rem;
+        }
+        
+        .table {
+            font-size: 0.875rem;
+        }
+    }
+    
+    /* 작은 모바일 화면 (iPhone SE 등) */
+    @media (max-width: 375px) {
+        .file-list-container {
+            max-height: 200px;
+        }
+        
+        .btn-group-sm .btn {
+            padding: 0.2rem 0.4rem;
+            font-size: 0.7rem;
+        }
+        
+        .table th, .table td {
+            padding: 0.4rem 0.2rem;
+        }
+        
+        .card-body {
+            padding: 0.75rem;
+        }
+    }
+    
+    @media (min-width: 769px) {
+        .file-name-mobile {
+            display: none;
+        }
+        
+        .file-name-full {
+            display: block;
+        }
+    }
+    
+    /* 파일명 축약 로직을 위한 스타일 */
+    .file-name-container {
+        position: relative;
+    }
+    
+    .file-name-mobile {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    /* 날짜별 매출 통계 리스트 컨테이너 */
+    .statistics-list-container {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+    }
+    
+    .statistics-list-container .table {
+        margin-bottom: 0;
+    }
+    
+    .statistics-list-container .table thead {
+        position: sticky;
+        top: 0;
+        background: #f8f9fa;
+        z-index: 1;
+    }
+    
+    .statistics-list-container .table thead th {
+        border-bottom: 2px solid #dee2e6;
+        background: #f8f9fa;
+    }
+    
+    /* 모바일 반응형 */
+    @media (max-width: 768px) {
+        .statistics-list-container {
+            max-height: 250px;
+        }
+        
+        .statistics-list-container .table {
+            font-size: 0.875rem;
+        }
+        
+        .statistics-list-container .table th,
+        .statistics-list-container .table td {
+            padding: 0.5rem 0.25rem;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .statistics-list-container {
+            max-height: 200px;
+        }
+        
+        .statistics-list-container .table {
+            font-size: 0.8rem;
+        }
+        
+        .statistics-list-container .table th,
+        .statistics-list-container .table td {
+            padding: 0.4rem 0.2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">매출 노트</h2>
+    
+    <!-- 매출 데이터 업로드 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">매출 데이터 업로드</h5>
+            <form id="uploadForm" class="row g-3" enctype="multipart/form-data">
+                <div class="col-md-8">
+                    <input type="file" class="form-control" id="sales_file" name="sales_file" accept=".xlsx" required>
+                    
+                </div>
+                <div class="col-md-4 d-flex align-items-start">
+                    <button type="submit" class="btn btn-success">업로드</button>
+                </div>
+                <div class="form-text">
+                    * 엑셀 파일(.xlsx)만 업로드 가능합니다.<br>                        
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 업로드된 엑셀 파일 목록 -->
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">
+                업로드된 엑셀 파일 목록 
+                <span class="badge bg-secondary">{{ uploaded_files|length }}개</span>
+            </h5>
+            <div class="file-list-container">
+                <table class="table table-striped mb-0">
+                    <thead class="sticky-header">
+                        <tr>
+                            <th style="width: 60%;">파일명</th>
+                            <th style="width: 40%;">작업</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in uploaded_files %}
+                        <tr class="file-row">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-file-excel text-success me-2"></i>
+                                    <div class="file-name-container">
+                                        <!-- 데스크톱용 전체 파일명 -->
+                                        <span class="file-name-full text-truncate" title="{{ file.filename }}">{{ file.filename }}</span>
+                                        <!-- 모바일용 축약 파일명 -->
+                                        <span class="file-name-mobile" title="{{ file.filename }}">
+                                            {% if file.filename|length > 20 %}
+                                                {{ file.filename|slice:":15" }}...{{ file.filename|slice:"-5:" }}
+                                            {% else %}
+                                                {{ file.filename }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button class="btn btn-outline-info analyze-file" data-filename="{{ file.filename }}" title="분석">
+                                        <i class="fas fa-chart-bar"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger delete-file" data-filename="{{ file.filename }}" title="삭제">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    <button class="btn btn-outline-primary download-file" data-filename="{{ file.filename }}" title="다운로드">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center text-muted py-4">
+                                <i class="fas fa-inbox fa-2x mb-2"></i>
+                                <br>업로드된 엑셀 파일이 없습니다.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if uploaded_files|length > 3 %}
+            <div class="text-center mt-3">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    스크롤하여 더 많은 파일을 확인하세요 (총 {{ uploaded_files|length }}개)
+                </small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+<!-- 날짜별 매출 통계 -->
+<div class="card mt-4">
+    <div class="card-body">
+        <h5 class="card-title d-flex justify-content-between align-items-center">
+            <span>
+                날짜별 매출 통계 
+                <span class="badge bg-primary">{{ sales_statistics|length }}개</span>
+            </span>
+            <button class="btn btn-outline-secondary btn-sm" id="viewAllStatisticsBtn">
+                <i class="fas fa-list"></i> 전체 상세 리스트 보기
+            </button>
+        </h5>
+        <div class="statistics-list-container">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>날짜</th>
+                        <th>총 거래건수</th>
+                        <th>총 판매수량</th>
+                        <th>총 판매금액</th>
+                        <th>평균 단가</th>
+                        <th>최다 판매 제품</th>
+                        <th>작업</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stat in sales_statistics %}
+                    <tr class="stat-row" data-stat-id="{{ stat.id }}">
+                        <td>
+                            <strong>{{ stat.sale_date|date:"Y-m-d" }}</strong>
+                            <br><small class="text-muted">{{ stat.source_file }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ stat.total_transactions }}건</span>
+                        </td>
+                        <td>{{ stat.total_quantity|floatformat:2 }}L</td>
+                        <td>
+                            <strong class="text-success">{{ stat.total_amount|floatformat:0 }}원</strong>
+                        </td>
+                        <td>{{ stat.avg_unit_price|floatformat:0 }}원/L</td>
+                        <td>
+                            <span class="badge bg-warning">{{ stat.top_product }}</span>
+                            <br><small class="text-muted">{{ stat.top_product_count }}회</small>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-primary view-details" 
+                                        data-stat-id="{{ stat.id }}" 
+                                        data-sale-date="{{ stat.sale_date|date:'Y-m-d' }}"
+                                        title="통계 상세보기">
+                                    <i class="fas fa-chart-pie"></i>
+                                </button>
+                                <button class="btn btn-outline-info view-sales-list" 
+                                        data-stat-id="{{ stat.id }}" 
+                                        data-sale-date="{{ stat.sale_date|date:'Y-m-d' }}"
+                                        title="매출 리스트 보기">
+                                    <i class="fas fa-list"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <i class="fas fa-chart-bar fa-2x mb-2"></i>
+                            <br>분석된 통계 데이터가 없습니다.<br>
+                            <small>엑셀 파일을 업로드하고 분석해주세요.</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if sales_statistics|length > 4 %}
+        <div class="text-center mt-3">
+            <small class="text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                스크롤하여 더 많은 통계를 확인하세요 (총 {{ sales_statistics|length }}개)
+            </small>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 상세보기 모달 (개별) -->
+<div class="modal fade" id="statisticsModal" tabindex="-1" aria-labelledby="statisticsModalLabel">
+    <div class="modal-dialog modal-lg modal-dialog-centered" style="margin-top: 80px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="statisticsModalLabel">매출 상세 정보</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기" tabindex="0"></button>
+            </div>
+            <div class="modal-body">
+                <div id="statisticsDetails">
+                    <!-- 상세 정보가 여기에 로드됩니다 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 전체 리스트 상세보기 모달 -->
+<div class="modal fade" id="statisticsListModal" tabindex="-1" aria-labelledby="statisticsListModalLabel">
+    <div class="modal-dialog modal-xl modal-dialog-centered" style="margin-top: 80px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="statisticsListModalLabel">전체 매출 통계 상세 리스트</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기" tabindex="0"></button>
+            </div>
+            <div class="modal-body">
+                <div id="statisticsListDetails">
+                    <!-- 전체 리스트가 여기에 로드됩니다 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 매출 리스트 상세보기 모달 -->
+<div class="modal fade" id="salesListModal" tabindex="-1" aria-labelledby="salesListModalLabel">
+    <div class="modal-dialog modal-xl modal-dialog-centered" style="margin-top: 80px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="salesListModalLabel">매출 리스트 상세보기</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기" tabindex="0"></button>
+            </div>
+            <div class="modal-body">
+                <div id="salesListDetails">
+                    <!-- 매출 리스트가 여기에 로드됩니다 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+/* 모달이 네브바와 겹치지 않도록 스타일 추가 */
+.modal-dialog {
+    margin-top: 80px !important;
+    margin-bottom: 20px !important;
+}
+
+/* 모달이 화면 높이를 초과할 경우 스크롤 가능하도록 */
+.modal-body {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}
+
+/* 모달 헤더 고정 */
+.modal-header {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1;
+}
+</style>
+<script>
+// 전역 변수로 중복 초기화 방지
+if (typeof window.salesPageInitialized === 'undefined') {
+    window.salesPageInitialized = true;
+    
+    // 즉시 실행 함수로 스코프 분리
+    (function() {
+        console.log('매출 페이지 JavaScript 초기화'); // 디버그 로그
+        
+        // DOM이 로드된 후 실행
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeSalesPage);
+        } else {
+            initializeSalesPage();
+        }
+        
+        function initializeSalesPage() {
+            console.log('이벤트 리스너 초기화 시작'); // 디버그 로그
+            
+    // 매출 데이터 업로드
+            const uploadForm = document.getElementById('uploadForm');
+            let isUploading = false; // 업로드 중복 방지 플래그
+            
+            if (uploadForm && !uploadForm.hasAttribute('data-initialized')) {
+                uploadForm.setAttribute('data-initialized', 'true');
+                
+                uploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+                    
+                    // 이미 업로드 중이면 중단
+                    if (isUploading) {
+                        console.log('이미 업로드 중입니다.');
+                        return;
+                    }
+                    
+                    isUploading = true; // 업로드 시작
+                    
+        const formData = new FormData(this);
+                    const submitButton = this.querySelector('button[type="submit"]');
+                    const originalText = submitButton.textContent;
+                    
+                    // 버튼 비활성화
+                    submitButton.disabled = true;
+                    submitButton.textContent = '업로드 중...';
+                    
+                    console.log('파일 업로드 시작'); // 디버그 로그
+        
+        fetch('{% url "station:upload_sales" %}', {
+        method: 'POST',
+        headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+        },
+            body: formData
+    })
+                    .then(response => {
+                        console.log('서버 응답 상태:', response.status); // 디버그 로그
+                        return response.json();
+                    })
+    .then(data => {
+                        console.log('서버 응답 데이터:', data); // 디버그 로그
+            if (data.error) {
+                alert(data.error);
+            } else {
+                alert(data.message);
+                            // 페이지 새로고침
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+            }
+        })
+        .catch(error => {
+                        console.error('업로드 오류:', error); // 디버그 로그
+            alert('오류가 발생했습니다.');
+                    })
+                    .finally(() => {
+                        // 업로드 완료 후 상태 초기화
+                        isUploading = false;
+                        submitButton.disabled = false;
+                        submitButton.textContent = originalText;
+                    });
+                });
+            }
+
+            // 파일 분석
+            document.querySelectorAll('.analyze-file').forEach(button => {
+                if (!button.hasAttribute('data-initialized')) {
+                    button.setAttribute('data-initialized', 'true');
+                    
+        button.addEventListener('click', function() {
+                        const filename = this.dataset.filename;
+                        const originalText = this.textContent;
+                        
+                        // 버튼 비활성화
+                        this.disabled = true;
+                        this.textContent = '분석 중...';
+                        
+                        console.log('파일 분석 시작:', filename);
+                        
+                        const formData = new FormData();
+                        formData.append('filename', filename);
+                        
+                        fetch('{% url "station:analyze_sales" %}', {
+                            method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                            },
+                            body: formData
+                        })
+                        .then(response => {
+                            console.log('분석 응답 상태:', response.status);
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log('분석 응답 데이터:', data);
+                            if (data.error) {
+                                alert(data.error);
+                            } else {
+                                alert(data.message);
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 1000);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('분석 오류:', error);
+                            alert('분석 중 오류가 발생했습니다.');
+                        })
+                        .finally(() => {
+                            // 버튼 상태 초기화
+                            this.disabled = false;
+                            this.textContent = originalText;
+                        });
+                    });
+                }
+            });
+
+            // 파일 다운로드
+            document.querySelectorAll('.download-file').forEach(button => {
+                if (!button.hasAttribute('data-initialized')) {
+                    button.setAttribute('data-initialized', 'true');
+                    
+                    button.addEventListener('click', function() {
+                        const filename = this.dataset.filename;
+                        console.log('파일 다운로드 시작:', filename);
+                        
+                        // 다운로드 링크 생성
+                        const downloadUrl = `{% url "station:download_uploaded_file" %}?filename=${encodeURIComponent(filename)}`;
+                        
+                        // 새 창에서 다운로드
+                        window.open(downloadUrl, '_blank');
+                    });
+                }
+            });
+
+            // 파일 삭제
+            document.querySelectorAll('.delete-file').forEach(button => {
+                if (!button.hasAttribute('data-initialized')) {
+                    button.setAttribute('data-initialized', 'true');
+                    
+                    button.addEventListener('click', function() {
+                        const filename = this.dataset.filename;
+                        
+                        if (confirm(`정말 "${filename}" 파일을 삭제하시겠습니까?`)) {
+                            console.log('파일 삭제 시작:', filename);
+                            
+                            const formData = new FormData();
+                            formData.append('filename', filename);
+                            
+                            fetch('{% url "station:delete_sales_file" %}', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRFToken': '{{ csrf_token }}'
+                                },
+                                body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+        } else {
+                        alert(data.message);
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 1000);
+        }
+    })
+    .catch(error => {
+                    alert('오류가 발생했습니다.');
+        console.error('Error:', error);
+                });
+            }
+        });
+                }
+            });
+        }
+        
+        // 상세보기 버튼 이벤트 리스너
+        document.querySelectorAll('.view-details').forEach(button => {
+            if (!button.hasAttribute('data-initialized')) {
+                button.setAttribute('data-initialized', 'true');
+                
+                button.addEventListener('click', function() {
+                    const statId = this.dataset.statId;
+                    const saleDate = this.dataset.saleDate;
+                    
+                    console.log('상세보기 요청:', statId, saleDate);
+                    
+                    // 모달 제목 설정
+                    document.getElementById('statisticsModalLabel').textContent = `${saleDate} 매출 상세 정보`;
+                    
+                    // 로딩 표시
+                    document.getElementById('statisticsDetails').innerHTML = `
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">상세 정보를 불러오는 중...</p>
+                        </div>
+                    `;
+                    
+                    // 모달 표시 (접근성 개선)
+                    const modalElement = document.getElementById('statisticsModal');
+                    const modal = new bootstrap.Modal(modalElement);
+                    
+                    // 모달 접근성 이벤트 리스너 추가
+                    modalElement.addEventListener('hide.bs.modal', function () {
+                        const activeElement = document.activeElement;
+                        if (activeElement && modalElement.contains(activeElement)) {
+                            activeElement.blur();
+                        }
+                    });
+                    
+                    modalElement.addEventListener('hidden.bs.modal', function () {
+                        // 모달을 열기 전에 포커스했던 요소로 돌아가기
+                        const triggerElement = document.querySelector('[data-bs-target="#statisticsModal"]');
+                        if (triggerElement) {
+                            triggerElement.focus();
+                        }
+                    });
+                    
+                    modalElement.addEventListener('shown.bs.modal', function () {
+                        // 모달이 열린 후 첫 번째 포커스 가능한 요소에 포커스
+                        const firstFocusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                        if (firstFocusable) {
+                            firstFocusable.focus();
+                        }
+                    });
+                    
+                    modal.show();
+                    
+                    // 해당 날짜의 상세 데이터 가져오기
+                    fetch(`{% url "station:get_sales_details" %}?date=${saleDate}&stat_id=${encodeURIComponent(statId)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.error) {
+                                document.getElementById('statisticsDetails').innerHTML = `
+                                    <div class="alert alert-danger">
+                                        <i class="fas fa-exclamation-triangle"></i> ${data.error}
+                                    </div>
+                                `;
+                            } else {
+                                // 상세 정보 표시
+                                let detailsHtml = `
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6><i class="fas fa-chart-pie"></i> 기본 통계</h6>
+                                            <table class="table table-sm">
+                                                <tr><td>총 거래건수</td><td><strong>${data.total_transactions}건</strong></td></tr>
+                                                <tr><td>총 판매수량</td><td><strong>${data.total_quantity}L</strong></td></tr>
+                                                <tr><td>총 판매금액</td><td><strong class="text-success">${data.total_amount}원</strong></td></tr>
+                                                <tr><td>평균 단가</td><td><strong>${data.avg_unit_price}원/L</strong></td></tr>
+                                            </table>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6><i class="fas fa-star"></i> 최다 판매 제품</h6>
+                                            <table class="table table-sm">
+                                                <tr><td>제품명</td><td><strong>${data.top_product}</strong></td></tr>
+                                                <tr><td>판매 횟수</td><td><strong>${data.top_product_count}회</strong></td></tr>
+                                                <tr><td>원본 파일</td><td><small>${data.source_file}</small></td></tr>
+                                                <tr><td>분석 시간</td><td><small>${data.created_at}</small></td></tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                `;
+                                
+                                // 제품별 판매 현황이 있으면 추가
+                                if (data.product_breakdown && data.product_breakdown.length > 0) {
+                                    detailsHtml += `
+                                        <hr>
+                                        <h6><i class="fas fa-list"></i> 제품별 판매 현황</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>제품명</th>
+                                                        <th>판매 횟수</th>
+                                                        <th>판매 수량</th>
+                                                        <th>판매 금액</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                    `;
+                                    
+                                    data.product_breakdown.forEach(product => {
+                                        detailsHtml += `
+                                            <tr>
+                                                <td>${product.product_name}</td>
+                                                <td>${product.count}회</td>
+                                                <td>${product.quantity}L</td>
+                                                <td>${product.amount}원</td>
+                                            </tr>
+                                        `;
+                                    });
+                                    
+                                    detailsHtml += `
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    `;
+                                }
+                                
+                                document.getElementById('statisticsDetails').innerHTML = detailsHtml;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('상세 정보 로드 오류:', error);
+                            document.getElementById('statisticsDetails').innerHTML = `
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> 상세 정보를 불러오는 중 오류가 발생했습니다.
+                                </div>
+                            `;
+    });
+});
+            }
+        });
+        
+        // 매출 리스트 상세보기 버튼 이벤트 리스너
+        document.querySelectorAll('.view-sales-list').forEach(button => {
+            if (!button.hasAttribute('data-initialized')) {
+                button.setAttribute('data-initialized', 'true');
+                
+                button.addEventListener('click', function() {
+                    const statId = this.dataset.statId;
+                    const saleDate = this.dataset.saleDate;
+                    
+                    console.log('매출 리스트 상세보기 요청:', statId, saleDate);
+                    
+                    // 모달 제목 설정
+                    document.getElementById('salesListModalLabel').textContent = `${saleDate} 매출 리스트 상세보기`;
+                    
+                    // 로딩 표시
+                    document.getElementById('salesListDetails').innerHTML = `
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">매출 리스트를 불러오는 중...</p>
+                        </div>
+                    `;
+                    
+                    // 모달 표시 (접근성 개선)
+                    const modalElement = document.getElementById('salesListModal');
+                    const modal = new bootstrap.Modal(modalElement);
+                    
+                    // 모달 접근성 이벤트 리스너 추가
+                    modalElement.addEventListener('hide.bs.modal', function () {
+                        const activeElement = document.activeElement;
+                        if (activeElement && modalElement.contains(activeElement)) {
+                            activeElement.blur();
+                        }
+                    });
+                    
+                    modalElement.addEventListener('hidden.bs.modal', function () {
+                        // 모달을 열기 전에 포커스했던 요소로 돌아가기
+                        const triggerElement = document.querySelector('[data-bs-target="#salesListModal"]');
+                        if (triggerElement) {
+                            triggerElement.focus();
+                        }
+                    });
+                    
+                    modalElement.addEventListener('shown.bs.modal', function () {
+                        // 모달이 열린 후 첫 번째 포커스 가능한 요소에 포커스
+                        const firstFocusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                        if (firstFocusable) {
+                            firstFocusable.focus();
+                        }
+                    });
+                    
+                    modal.show();
+                    
+                    // 해당 날짜의 매출 리스트 데이터 가져오기
+                    fetch(`{% url "station:get_sales_list" %}?date=${saleDate}&stat_id=${encodeURIComponent(statId)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.error) {
+                                document.getElementById('salesListDetails').innerHTML = `
+                                    <div class="alert alert-danger">
+                                        <i class="fas fa-exclamation-triangle"></i> ${data.error}
+                                    </div>
+                                `;
+                            } else {
+                                // 매출 리스트 테이블 생성
+                                let listHtml = `
+                                    <div class="mb-3">
+                                        <h6><i class="fas fa-calendar"></i> ${data.sale_date} - 총 ${data.total_count}건의 매출</h6>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>시간</th>
+                                                    <th>고객번호</th>
+                                                    <th>고객명</th>
+                                                    <th>제품</th>
+                                                    <th>수량(L)</th>
+                                                    <th>단가(원)</th>
+                                                    <th>금액(원)</th>
+                                                    <th>결제방법</th>
+                                                    <th>영수증번호</th>
+                                                    <th>승인번호</th>
+                                                    <th>고객카드번호</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                `;
+                                
+                                data.sales_list.forEach(sale => {
+                                    listHtml += `
+                                        <tr>
+                                            <td>${sale.sale_time}</td>
+                                            <td>${sale.customer_number}</td>
+                                            <td>${sale.customer_name}</td>
+                                            <td>${sale.product_pack}</td>
+                                            <td>${sale.sale_quantity}</td>
+                                            <td>${sale.sale_unit_price}</td>
+                                            <td class="text-success fw-bold">${sale.sale_amount}</td>
+                                            <td>${sale.payment_method}</td>
+                                            <td>${sale.receipt_number}</td>
+                                            <td>${sale.approval_number}</td>
+                                            <td>${sale.customer_card_number}</td>
+                                        </tr>
+                                    `;
+                                });
+                                
+                                listHtml += `
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                `;
+                                
+                                document.getElementById('salesListDetails').innerHTML = listHtml;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('매출 리스트 로드 오류:', error);
+                            document.getElementById('salesListDetails').innerHTML = `
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> 매출 리스트를 불러오는 중 오류가 발생했습니다.
+                                </div>
+                            `;
+                        });
+                });
+            }
+        });
+        
+        // 전체 상세 리스트 보기 버튼 이벤트 리스너
+        const viewAllBtn = document.getElementById('viewAllStatisticsBtn');
+        if (viewAllBtn && !viewAllBtn.hasAttribute('data-initialized')) {
+            viewAllBtn.setAttribute('data-initialized', 'true');
+            viewAllBtn.addEventListener('click', function() {
+                // 모달 제목
+                document.getElementById('statisticsListModalLabel').textContent = '전체 매출 통계 상세 리스트';
+                // 로딩 표시
+                document.getElementById('statisticsListDetails').innerHTML = `
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">전체 리스트를 불러오는 중...</p>
+                    </div>
+                `;
+                // 모달 표시 (접근성 개선)
+                const modalElement = document.getElementById('statisticsListModal');
+                const modal = new bootstrap.Modal(modalElement);
+                
+                // 모달 접근성 이벤트 리스너 추가
+                modalElement.addEventListener('hide.bs.modal', function () {
+                    const activeElement = document.activeElement;
+                    if (activeElement && modalElement.contains(activeElement)) {
+                        activeElement.blur();
+                    }
+                });
+                
+                modalElement.addEventListener('hidden.bs.modal', function () {
+                    // 모달을 열기 전에 포커스했던 요소로 돌아가기
+                    const triggerElement = document.querySelector('[data-bs-target="#statisticsListModal"]');
+                    if (triggerElement) {
+                        triggerElement.focus();
+                    }
+                });
+                
+                modalElement.addEventListener('shown.bs.modal', function () {
+                    // 모달이 열린 후 첫 번째 포커스 가능한 요소에 포커스
+                    const firstFocusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                    if (firstFocusable) {
+                        firstFocusable.focus();
+                    }
+                });
+                
+                modal.show();
+                // 전체 리스트 데이터 가져오기 (API 필요, 예시 URL)
+                fetch('{% url "station:get_sales_statistics_list" %}')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            document.getElementById('statisticsListDetails').innerHTML = `
+                                <div class="alert alert-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> ${data.error}
+                                </div>
+                            `;
+                        } else {
+                            // 리스트 테이블 생성
+                            let listHtml = `<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>날짜</th><th>TID</th><th>총 거래건수</th><th>총 판매수량</th><th>총 판매금액</th><th>평균 단가</th><th>최다 판매 제품</th><th>원본 파일</th></tr></thead><tbody>`;
+                            data.statistics.forEach(stat => {
+                                listHtml += `<tr><td>${stat.sale_date}</td><td>${stat.tid}</td><td>${stat.total_transactions}</td><td>${stat.total_quantity}</td><td>${stat.total_amount}</td><td>${stat.avg_unit_price}</td><td>${stat.top_product} (${stat.top_product_count}회)</td><td>${stat.source_file}</td></tr>`;
+                            });
+                            listHtml += '</tbody></table></div>';
+                            document.getElementById('statisticsListDetails').innerHTML = listHtml;
+                        }
+                    })
+                    .catch(error => {
+                        document.getElementById('statisticsListDetails').innerHTML = `<div class="alert alert-danger"><i class="fas fa-exclamation-triangle"></i> 리스트를 불러오는 중 오류가 발생했습니다.</div>`;
+                    });
+            });
+        }
+        
+        // 뒤로 가기 버튼 처리
+        window.addEventListener('popstate', function(event) {
+            // 열린 모달들 확인
+            const openModals = document.querySelectorAll('.modal.show');
+            
+            if (openModals.length > 0) {
+                // 가장 최근에 열린 모달 닫기
+                const lastOpenModal = openModals[openModals.length - 1];
+                const modalInstance = bootstrap.Modal.getInstance(lastOpenModal);
+                
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+                
+                // 브라우저 히스토리에서 뒤로 가기 이벤트 무효화
+                event.preventDefault();
+                history.pushState(null, null, window.location.href);
+            }
+        });
+        
+        // 모달이 열릴 때 히스토리에 상태 추가
+        document.addEventListener('DOMContentLoaded', function() {
+            const modals = ['statisticsModal', 'statisticsListModal', 'salesListModal'];
+            
+            modals.forEach(modalId => {
+                const modalElement = document.getElementById(modalId);
+                if (modalElement) {
+                    modalElement.addEventListener('show.bs.modal', function() {
+                        // 모달이 열릴 때 히스토리에 상태 추가
+                        history.pushState({modal: modalId}, null, window.location.href);
+                    });
+                    
+                    modalElement.addEventListener('hidden.bs.modal', function() {
+                        // 모달이 닫힐 때 히스토리에서 상태 제거 (뒤로 가기로 닫힌 경우가 아닌 경우)
+                        if (history.state && history.state.modal === modalId) {
+                            history.back();
+                        }
+                    });
+                }
+            });
+        });
+    })();
+}
+</script>
+{% endblock %} 

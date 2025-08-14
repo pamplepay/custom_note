@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Style 4</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            background: #f8f9fa;
+        }
+
+        .split-container {
+            display: flex;
+            width: 100%;
+            min-height: 100vh;
+        }
+
+        .image-section {
+            flex: 1;
+            background: url('https://source.unsplash.com/random/1920x1080/?nature') center/cover;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .image-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .image-content {
+            position: relative;
+            z-index: 1;
+            color: white;
+            text-align: center;
+            max-width: 400px;
+        }
+
+        .image-content h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+
+        .image-content p {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .login-section {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            background: white;
+        }
+
+        .login-content {
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            margin-bottom: 40px;
+        }
+
+        .login-header h1 {
+            font-size: 32px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            border-color: #4a90e2;
+            outline: none;
+        }
+
+        .options-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .remember-me input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .forgot-password {
+            color: #4a90e2;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: #4a90e2;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .login-btn:hover {
+            background: #357abd;
+        }
+
+        .social-login {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .social-login p {
+            color: #666;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .social-login p::before,
+        .social-login p::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 45%;
+            height: 1px;
+            background: #e1e1e1;
+        }
+
+        .social-login p::before {
+            left: 0;
+        }
+
+        .social-login p::after {
+            right: 0;
+        }
+
+        .social-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .social-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #e1e1e1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .social-btn:hover {
+            border-color: #4a90e2;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .image-section {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="split-container">
+        <div class="image-section">
+            <div class="image-overlay"></div>
+            <div class="image-content">
+                <h2>환영합니다</h2>
+                <p>로그인하여 더 많은 기능을 경험해보세요. 당신만의 특별한 경험이 기다리고 있습니다.</p>
+            </div>
+        </div>
+        <div class="login-section">
+            <div class="login-content">
+                <div class="login-header">
+                    <h1>로그인</h1>
+                    <p>계정에 로그인하여 시작하세요</p>
+                </div>
+                <form>
+                    <div class="input-group">
+                        <label for="email">이메일</label>
+                        <input type="email" id="email" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="password">비밀번호</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <div class="options-group">
+                        <div class="remember-me">
+                            <input type="checkbox" id="remember">
+                            <label for="remember">로그인 상태 유지</label>
+                        </div>
+                        <a href="#" class="forgot-password">비밀번호 찾기</a>
+                    </div>
+                    <button type="submit" class="login-btn">로그인</button>
+                    <div class="social-login">
+                        <p>또는</p>
+                        <div class="social-buttons">
+                            <div class="social-btn">G</div>
+                            <div class="social-btn">F</div>
+                            <div class="social-btn">T</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

@@ -1,0 +1,220 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Oil Note - 주유소 목록{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">주유소 목록</h3>
+                </div>
+                <div class="card-body">
+                    <!-- 검색 폼 -->
+                    <form method="get" class="mb-4">
+                        <div class="input-group">
+                            <input type="text" name="search" class="form-control" placeholder="주유소 이름 또는 주소로 검색" value="{{ search_query }}">
+                            <button type="submit" class="btn btn-primary">검색</button>
+                        </div>
+                    </form>
+
+                    <!-- 주유소 목록 -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>주유소명</th>
+                                    <th>주소</th>
+                                    <th>전화번호</th>
+                                    <th>상세정보</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for station in stations %}
+                                <tr>
+                                    <td>{{ station.station_name }}</td>
+                                    <td>{{ station.station_address }}</td>
+                                    <td>{{ station.station_phone }}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-info" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#stationModal{{ station.id }}">
+                                            상세보기
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center">등록된 주유소가 없습니다.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 페이지네이션 -->
+                    {% if stations.paginator.num_pages > 1 %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if stations.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}">&laquo; 처음</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ stations.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">이전</a>
+                            </li>
+                            {% endif %}
+
+                            {% for num in stations.paginator.page_range %}
+                                {% if num == stations.number %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                                {% elif num > stations.number|add:'-3' and num < stations.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if stations.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ stations.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">다음</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ stations.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}">마지막 &raquo;</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 주유소 상세정보 모달 -->
+{% for station in stations %}
+<div class="modal fade" id="stationModal{{ station.id }}" tabindex="-1" aria-labelledby="stationModalLabel{{ station.id }}">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="stationModalLabel{{ station.id }}">{{ station.station_name }} 상세정보</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row">
+                    <dt class="col-sm-4">주유소명</dt>
+                    <dd class="col-sm-8">{{ station.station_name }}</dd>
+
+                    <dt class="col-sm-4">주소</dt>
+                    <dd class="col-sm-8">{{ station.station_address }}</dd>
+
+                    <dt class="col-sm-4">전화번호</dt>
+                    <dd class="col-sm-8">{{ station.station_phone }}</dd>
+
+                    <dt class="col-sm-4">대표자</dt>
+                    <dd class="col-sm-8">{{ station.owner_name }}</dd>
+
+                    <dt class="col-sm-4">사업자번호</dt>
+                    <dd class="col-sm-8">{{ station.business_number }}</dd>
+                </dl>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .list-group-item {
+        border: none;
+        padding: 1rem 1.25rem;
+        transition: all 0.2s ease;
+    }
+    .list-group-item:hover {
+        background-color: #f8f9fa;
+    }
+    .badge {
+        font-weight: normal;
+    }
+    .card {
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 모든 주유소 모달에 접근성 개선 적용
+    const stationModals = document.querySelectorAll('[id^="stationModal"]');
+    
+    stationModals.forEach(modalElement => {
+        // 모달이 닫히기 전에 포커스 제거
+        modalElement.addEventListener('hide.bs.modal', function () {
+            const activeElement = document.activeElement;
+            if (activeElement && modalElement.contains(activeElement)) {
+                activeElement.blur();
+            }
+        });
+        
+        // 모달이 완전히 닫힌 후 포커스 복원
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            // 모달을 열기 전에 포커스했던 요소로 돌아가기
+            const triggerElement = document.querySelector(`[data-bs-target="#${modalElement.id}"]`);
+            if (triggerElement) {
+                triggerElement.focus();
+            }
+        });
+        
+        // 모달이 열린 후 첫 번째 포커스 가능한 요소에 포커스
+        modalElement.addEventListener('shown.bs.modal', function () {
+            const firstFocusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (firstFocusable) {
+                firstFocusable.focus();
+            }
+        });
+        
+        // 모달이 열릴 때 히스토리에 상태 추가
+        modalElement.addEventListener('show.bs.modal', function() {
+            history.pushState({modal: modalElement.id}, null, window.location.href);
+        });
+        
+        modalElement.addEventListener('hidden.bs.modal', function() {
+            // 모달이 닫힐 때 히스토리에서 상태 제거 (뒤로 가기로 닫힌 경우가 아닌 경우)
+            if (history.state && history.state.modal === modalElement.id) {
+                history.back();
+            }
+        });
+    });
+    
+    // 뒤로 가기 버튼 처리
+    window.addEventListener('popstate', function(event) {
+        // 열린 모달들 확인
+        const openModals = document.querySelectorAll('.modal.show');
+        
+        if (openModals.length > 0) {
+            // 가장 최근에 열린 모달 닫기
+            const lastOpenModal = openModals[openModals.length - 1];
+            const modalInstance = bootstrap.Modal.getInstance(lastOpenModal);
+            
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+            
+            // 브라우저 히스토리에서 뒤로 가기 이벤트 무효화
+            event.preventDefault();
+            history.pushState(null, null, window.location.href);
+        }
+    });
+});
+</script>
+{% endblock %} 
