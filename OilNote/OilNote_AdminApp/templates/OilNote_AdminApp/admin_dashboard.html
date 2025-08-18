@@ -1,0 +1,299 @@
+{% extends 'base/base.html' %}
+
+{% block title %}관리자 대시보드 - Oil Note{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- 사이드바 -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'admin_panel:admin_dashboard' %}">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            대시보드
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:system_logs' %}">
+                            <i class="fas fa-list-alt me-2"></i>
+                            시스템 로그
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:admin_actions' %}">
+                            <i class="fas fa-user-cog me-2"></i>
+                            관리자 액션
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:system_config' %}">
+                            <i class="fas fa-cogs me-2"></i>
+                            시스템 설정
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:data_backup' %}">
+                            <i class="fas fa-database me-2"></i>
+                            데이터 백업
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:maintenance_schedule' %}">
+                            <i class="fas fa-tools me-2"></i>
+                            유지보수 일정
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:user_management' %}">
+                            <i class="fas fa-users me-2"></i>
+                            사용자 관리
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:system_statistics' %}">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            시스템 통계
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- 메인 콘텐츠 -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">관리자 대시보드</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <span class="text-muted">마지막 업데이트: {{ last_update|date:"Y-m-d H:i" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 통계 카드 -->
+            <div class="row mb-4">
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        총 사용자
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_users }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-users fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-success shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                        총 주유소
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_stations }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-gas-pump fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-info shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                        총 매출
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_sales|floatformat:0 }}원</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card border-left-warning shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="row no-gutters align-items-center">
+                                <div class="col mr-2">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                        오늘 매출
+                                    </div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">{{ today_sales|floatformat:0 }}원</div>
+                                </div>
+                                <div class="col-auto">
+                                    <i class="fas fa-calendar-day fa-2x text-gray-300"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 최근 활동 -->
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">최근 시스템 로그</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_logs %}
+                                <div class="list-group list-group-flush">
+                                    {% for log in recent_logs %}
+                                    <div class="list-group-item">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1">{{ log.message }}</h6>
+                                            <small class="text-muted">{{ log.created_at|date:"m-d H:i" }}</small>
+                                        </div>
+                                        <small class="text-muted">{{ log.level }}</small>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted">최근 로그가 없습니다.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">최근 관리자 액션</h6>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_actions %}
+                                <div class="list-group list-group-flush">
+                                    {% for action in recent_actions %}
+                                    <div class="list-group-item">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1">{{ action.action_type }}</h6>
+                                            <small class="text-muted">{{ action.created_at|date:"m-d H:i" }}</small>
+                                        </div>
+                                        <small class="text-muted">{{ action.description }}</small>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted">최근 액션이 없습니다.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 빠른 액션 -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow mb-4">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 font-weight-bold text-primary">빠른 액션</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <a href="{% url 'admin_panel:system_config' %}" class="btn btn-primary btn-block">
+                                        <i class="fas fa-cogs me-2"></i>시스템 설정
+                                    </a>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <a href="{% url 'admin_panel:data_backup' %}" class="btn btn-success btn-block">
+                                        <i class="fas fa-database me-2"></i>데이터 백업
+                                    </a>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <a href="{% url 'admin_panel:user_management' %}" class="btn btn-info btn-block">
+                                        <i class="fas fa-users me-2"></i>사용자 관리
+                                    </a>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <a href="{% url 'admin_panel:system_statistics' %}" class="btn btn-warning btn-block">
+                                        <i class="fas fa-chart-bar me-2"></i>통계 보기
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    padding: 48px 0 0;
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+}
+
+.sidebar .nav-link {
+    font-weight: 500;
+    color: #333;
+}
+
+.sidebar .nav-link.active {
+    color: #007bff;
+}
+
+.sidebar .nav-link:hover {
+    color: #007bff;
+}
+
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+
+.text-gray-300 {
+    color: #dddfeb !important;
+}
+
+.text-gray-800 {
+    color: #5a5c69 !important;
+}
+
+@media (max-width: 767.98px) {
+    .sidebar {
+        position: static;
+        height: auto;
+        padding-top: 0;
+    }
+}
+</style>
+{% endblock %}

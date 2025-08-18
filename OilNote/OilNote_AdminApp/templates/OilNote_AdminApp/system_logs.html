@@ -1,0 +1,237 @@
+{% extends 'base/base.html' %}
+
+{% block title %}시스템 로그 - Oil Note{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- 사이드바 -->
+        <nav class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:admin_dashboard' %}">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            대시보드
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'admin_panel:system_logs' %}">
+                            <i class="fas fa-list-alt me-2"></i>
+                            시스템 로그
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:admin_actions' %}">
+                            <i class="fas fa-user-cog me-2"></i>
+                            관리자 액션
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:system_config' %}">
+                            <i class="fas fa-cogs me-2"></i>
+                            시스템 설정
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:data_backup' %}">
+                            <i class="fas fa-database me-2"></i>
+                            데이터 백업
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:maintenance_schedule' %}">
+                            <i class="fas fa-tools me-2"></i>
+                            유지보수 일정
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:user_management' %}">
+                            <i class="fas fa-users me-2"></i>
+                            사용자 관리
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_panel:system_statistics' %}">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            시스템 통계
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- 메인 콘텐츠 -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">시스템 로그</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+                            <i class="fas fa-sync-alt me-1"></i>새로고침
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 필터 -->
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <form method="get" class="row g-3">
+                                <div class="col-md-3">
+                                    <label for="level" class="form-label">로그 레벨</label>
+                                    <select class="form-select" id="level" name="level">
+                                        <option value="">모든 레벨</option>
+                                        <option value="DEBUG" {% if request.GET.level == 'DEBUG' %}selected{% endif %}>DEBUG</option>
+                                        <option value="INFO" {% if request.GET.level == 'INFO' %}selected{% endif %}>INFO</option>
+                                        <option value="WARNING" {% if request.GET.level == 'WARNING' %}selected{% endif %}>WARNING</option>
+                                        <option value="ERROR" {% if request.GET.level == 'ERROR' %}selected{% endif %}>ERROR</option>
+                                        <option value="CRITICAL" {% if request.GET.level == 'CRITICAL' %}selected{% endif %}>CRITICAL</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="start_date" class="form-label">시작 날짜</label>
+                                    <input type="date" class="form-control" id="start_date" name="start_date" value="{{ request.GET.start_date }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="end_date" class="form-label">종료 날짜</label>
+                                    <input type="date" class="form-control" id="end_date" name="end_date" value="{{ request.GET.end_date }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">&nbsp;</label>
+                                    <div>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-search me-1"></i>필터
+                                        </button>
+                                        <a href="{% url 'admin_panel:system_logs' %}" class="btn btn-secondary">
+                                            <i class="fas fa-times me-1"></i>초기화
+                                        </a>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 로그 테이블 -->
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">시스템 로그 목록</h6>
+                </div>
+                <div class="card-body">
+                    {% if logs %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                                <thead>
+                                    <tr>
+                                        <th>시간</th>
+                                        <th>레벨</th>
+                                        <th>메시지</th>
+                                        <th>모듈</th>
+                                        <th>사용자</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in logs %}
+                                    <tr class="{% if log.level == 'ERROR' or log.level == 'CRITICAL' %}table-danger{% elif log.level == 'WARNING' %}table-warning{% endif %}">
+                                        <td>{{ log.created_at|date:"Y-m-d H:i:s" }}</td>
+                                        <td>
+                                            <span class="badge {% if log.level == 'ERROR' or log.level == 'CRITICAL' %}bg-danger{% elif log.level == 'WARNING' %}bg-warning{% elif log.level == 'INFO' %}bg-info{% else %}bg-secondary{% endif %}">
+                                                {{ log.level }}
+                                            </span>
+                                        </td>
+                                        <td>{{ log.message }}</td>
+                                        <td>{{ log.module }}</td>
+                                        <td>{{ log.user.username|default:"-" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- 페이지네이션 -->
+                        {% if logs.has_other_pages %}
+                        <nav aria-label="로그 페이지네이션">
+                            <ul class="pagination justify-content-center">
+                                {% if logs.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% if request.GET.level %}&level={{ request.GET.level }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">처음</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ logs.previous_page_number }}{% if request.GET.level %}&level={{ request.GET.level }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">이전</a>
+                                    </li>
+                                {% endif %}
+
+                                {% for num in logs.paginator.page_range %}
+                                    {% if logs.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% elif num > logs.number|add:'-3' and num < logs.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% if request.GET.level %}&level={{ request.GET.level }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">{{ num }}</a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% if logs.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ logs.next_page_number }}{% if request.GET.level %}&level={{ request.GET.level }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">다음</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ logs.paginator.num_pages }}{% if request.GET.level %}&level={{ request.GET.level }}{% endif %}{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}">마지막</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">로그가 없습니다.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    padding: 48px 0 0;
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+}
+
+.sidebar .nav-link {
+    font-weight: 500;
+    color: #333;
+}
+
+.sidebar .nav-link.active {
+    color: #007bff;
+}
+
+.sidebar .nav-link:hover {
+    color: #007bff;
+}
+
+@media (max-width: 767.98px) {
+    .sidebar {
+        position: static;
+        height: auto;
+        padding-top: 0;
+    }
+}
+</style>
+{% endblock %}

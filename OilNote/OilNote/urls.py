@@ -26,7 +26,10 @@ import os
 def home(request):
     # 로그인한 사용자는 해당 메인 페이지로 리다이렉트
     if request.user.is_authenticated:
-        if request.user.user_type == 'CUSTOMER':
+        # 어드민 계정(슈퍼유저)인 경우 OilNote_AdminApp 대시보드로 이동
+        if request.user.is_superuser:
+            return redirect('admin_panel:admin_dashboard')
+        elif request.user.user_type == 'CUSTOMER':
             return redirect('customer:main')
         elif request.user.user_type == 'STATION':
             return redirect('station:main')
@@ -39,6 +42,7 @@ urlpatterns = [
     path('station/', include('OilNote_StationApp.urls')),
     path('user/', include('OilNote_User.urls')),
     path('customer/', include('OilNote_UserApp.urls')),
+    path('admin-panel/', include('OilNote_AdminApp.urls')),
     path('ftp/', include('ftp_data_loader.urls')),
     
     # Favicon

@@ -168,6 +168,10 @@ class CustomLoginView(LoginView):
         if next_url:
             return next_url
             
+        # 어드민 계정(슈퍼유저)인 경우 OilNote_AdminApp 대시보드로 이동
+        if self.request.user.is_superuser:
+            return reverse_lazy('admin_panel:admin_dashboard')
+            
         if self.request.user.user_type == 'CUSTOMER':
             return reverse_lazy('customer:main')
         else:  # STATION
