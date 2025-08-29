@@ -142,9 +142,18 @@ class StationSignUpView(CreateView):
             user = form.instance
             if not user.pk:  # 아직 저장되지 않은 경우에만 저장
                 user = form.save()
+            
+            # stations_manage 값 확인
+            stations_manage = form.cleaned_data.get('stations_manage', False)
+            
             login(self.request, user)
-            messages.success(self.request, '주유소 회원가입이 완료되었습니다.')
-            return redirect('station:main')
+            
+            if stations_manage:
+                messages.success(self.request, '주유소 회원가입이 완료되었습니다. 주유소 관리 시스템으로 이동합니다.')
+                return redirect('stations_manage:dashboard')
+            else:
+                messages.success(self.request, '주유소 회원가입이 완료되었습니다.')
+                return redirect('station:main')
             
         except IntegrityError as e:
             # 중복된 username 오류 처리
@@ -175,7 +184,11 @@ class CustomLoginView(LoginView):
         if self.request.user.user_type == 'CUSTOMER':
             return reverse_lazy('customer:main')
         else:  # STATION
-            return reverse_lazy('station:main')
+            # stations_manage가 선택된 경우 새로운 사이트로 이동
+            if self.request.user.stations_manage:
+                return reverse_lazy('stations_manage:dashboard')
+            else:
+                return reverse_lazy('station:main')
     
     def form_valid(self, form):
         response = super().form_valid(form)

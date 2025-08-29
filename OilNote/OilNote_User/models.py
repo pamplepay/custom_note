@@ -21,6 +21,7 @@ class CustomUser(AbstractUser):
     station_name = models.CharField(max_length=100, blank=True, null=True, verbose_name='주유소명')
     station_address = models.CharField(max_length=200, blank=True, null=True, verbose_name='주유소 주소')
     business_number = models.CharField(max_length=20, blank=True, null=True, verbose_name='사업자 번호')
+    stations_manage = models.BooleanField(default=False, verbose_name='주유소 관리 시스템 사용')
     
     # 일반 고객 관련 필드
     car_number = models.CharField(max_length=20, blank=True, null=True, verbose_name='차량 번호')

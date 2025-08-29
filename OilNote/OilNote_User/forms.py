@@ -38,6 +38,11 @@ class StationSignUpForm(CustomUserCreationForm):
     phone = forms.CharField(max_length=20, label='주유소 전화번호')
     address = forms.CharField(max_length=200, label='주유소 주소')
     business_number = forms.CharField(max_length=20, label='사업자 등록번호')
+    stations_manage = forms.BooleanField(
+        required=False, 
+        label='주유소 관리 시스템 사용',
+        help_text='주유소 판매관리 시스템을 사용하시겠습니까?'
+    )
     
     class Meta(CustomUserCreationForm.Meta):
         fields = CustomUserCreationForm.Meta.fields + ('user_type',)
@@ -79,6 +84,9 @@ class StationSignUpForm(CustomUserCreationForm):
         
     def save(self, commit=True):
         user = super().save(commit=False)
+        # stations_manage 값 설정
+        user.stations_manage = self.cleaned_data.get('stations_manage', False)
+        
         if commit:
             user.save()
             # StationProfile 생성 (중복 방지)
