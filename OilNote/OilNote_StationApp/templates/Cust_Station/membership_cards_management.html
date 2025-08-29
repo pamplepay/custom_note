@@ -1,0 +1,175 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Oil Note - 멤버십카드 관리{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- 페이지 헤더 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="fas fa-credit-card me-2 text-primary"></i>멤버십카드 관리
+                    </h1>
+                    <p class="text-muted mb-0">주유소 멤버십카드 현황을 확인하고 관리하세요.</p>
+                </div>
+                <div>
+                    <a href="{% url 'station:cardmanage' %}" class="btn btn-primary">
+                        <i class="fas fa-cog me-1"></i>상세 관리
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 카드 통계 -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-credit-card fa-2x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">전체 카드</h5>
+                    <h3 class="text-primary mb-0">{{ total_cards }}장</h3>
+                    <small class="text-muted">등록된 총 카드 수</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-check-circle fa-2x text-success"></i>
+                    </div>
+                    <h5 class="card-title">사용 가능</h5>
+                    <h3 class="text-success mb-0">{{ active_cards }}장</h3>
+                    <small class="text-muted">고객에게 발급 가능한 카드</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="bg-warning bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-clock fa-2x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">사용중</h5>
+                    <h3 class="text-warning mb-0">{{ inactive_cards }}장</h3>
+                    <small class="text-muted">고객이 사용 중인 카드</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 사용 현황 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-chart-pie me-2"></i>카드 사용 현황
+                    </h5>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">사용 현황</h6>
+                            <span class="text-muted">100.0%</span>
+                        </div>
+                        <div class="progress" style="height: 15px;">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 style="width: {{ active_percentage }}%" 
+                                 aria-valuenow="{{ active_percentage }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                {{ active_percentage|floatformat:1 }}%
+                            </div>
+                            <div class="progress-bar bg-warning" role="progressbar" 
+                                 style="width: {{ inactive_percentage }}%" 
+                                 aria-valuenow="{{ inactive_percentage }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                {{ inactive_percentage|floatformat:1 }}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-circle text-success me-2"></i>
+                                <span>사용 가능 ({{ active_cards }}장)</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-circle text-warning me-2"></i>
+                                <span>사용중 ({{ inactive_cards }}장)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 빠른 액션 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-bolt me-2"></i>빠른 액션
+                    </h5>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <a href="{% url 'station:cardmanage' %}" class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3">
+                                <i class="fas fa-plus fa-2x mb-2"></i>
+                                <span>카드 등록</span>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'station:cardmanage' %}" class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3">
+                                <i class="fas fa-user-plus fa-2x mb-2"></i>
+                                <span>고객 등록</span>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'station:cardmanage' %}" class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3">
+                                <i class="fas fa-search fa-2x mb-2"></i>
+                                <span>카드 조회</span>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'station:cardmanage' %}" class="btn btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3">
+                                <i class="fas fa-file-excel fa-2x mb-2"></i>
+                                <span>엑셀 업로드</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.btn {
+    transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+</style>
+{% endblock %} 

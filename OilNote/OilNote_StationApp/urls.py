@@ -12,6 +12,10 @@ urlpatterns = [
     path('update-customer-info/', views.update_customer_info, name='update_customer_info'),
     path('couponmanage/', views.station_couponmanage, name='couponmanage'),
     
+    # 운영노트 서브 메뉴
+    path('membership-cards/', views.membership_cards_management, name='membership_cards'),
+    path('customer-groups/', views.customer_groups_management, name='customer_groups'),
+    
     # 카드 관리 API
     path('get-cards/', views.get_cards, name='get_cards'),
     path('get-unused-cards/', views.get_unused_cards, name='get_unused_cards'),

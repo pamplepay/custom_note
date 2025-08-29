@@ -400,12 +400,30 @@ def station_management(request):
     active_percentage = (active_cards / total_cards * 100) if total_cards > 0 else 0
     inactive_percentage = (inactive_cards / total_cards * 100) if total_cards > 0 else 0
     
+    # 그룹 통계 계산
+    groups = Group.objects.filter(station=request.user)
+    total_groups = groups.count()
+    
+    # 그룹별 고객 수 계산
+    total_group_customers = 0
+    for group in groups:
+        total_group_customers += group.get_customer_count()
+    
+    # 미분류 고객 수 계산
+    from OilNote_User.models import CustomerProfile
+    ungrouped_customers = CustomerProfile.objects.filter(
+        group__isnull=True
+    ).count()
+    
     context = {
         'total_cards': total_cards,
         'active_cards': active_cards,
         'inactive_cards': inactive_cards,
         'active_percentage': active_percentage,
         'inactive_percentage': inactive_percentage,
+        'total_groups': total_groups,
+        'total_group_customers': total_group_customers,
+        'ungrouped_customers': ungrouped_customers,
     }
     
     return render(request, 'Cust_Station/station_management.html', context)
@@ -5846,3 +5864,62 @@ def upload_customers_excel(request):
     
     logger.warning(f"잘못된 요청 방식: {request.method}")
     return JsonResponse({'status': 'error', 'message': '잘못된 요청 방식입니다.'}, status=405)
+
+
+@login_required
+def membership_cards_management(request):
+    """멤버십카드 관리 페이지"""
+    if not request.user.is_station:
+        messages.error(request, '주유소 회원만 접근할 수 있습니다.')
+        return redirect('home')
+    
+    # 현재 주유소의 카드 매핑 수 조회
+    mappings = StationCardMapping.objects.filter(station=request.user, tid=request.user.station_profile.tid, is_active=True)
+    total_cards = mappings.count()
+    active_cards = mappings.filter(card__is_used=False).count()
+    inactive_cards = mappings.filter(card__is_used=True).count()
+    
+    # 비율 계산
+    active_percentage = (active_cards / total_cards * 100) if total_cards > 0 else 0
+    inactive_percentage = (inactive_cards / total_cards * 100) if total_cards > 0 else 0
+    
+    context = {
+        'total_cards': total_cards,
+        'active_cards': active_cards,
+        'inactive_cards': inactive_cards,
+        'active_percentage': active_percentage,
+        'inactive_percentage': inactive_percentage,
+    }
+    
+    return render(request, 'Cust_Station/membership_cards_management.html', context)
+
+
+@login_required
+def customer_groups_management(request):
+    """고객 그룹 관리 페이지"""
+    if not request.user.is_station:
+        messages.error(request, '주유소 회원만 접근할 수 있습니다.')
+        return redirect('home')
+    
+    # 그룹 통계 계산
+    groups = Group.objects.filter(station=request.user)
+    total_groups = groups.count()
+    
+    # 그룹별 고객 수 계산
+    total_group_customers = 0
+    for group in groups:
+        total_group_customers += group.get_customer_count()
+    
+    # 미분류 고객 수 계산
+    from OilNote_User.models import CustomerProfile
+    ungrouped_customers = CustomerProfile.objects.filter(
+        group__isnull=True
+    ).count()
+    
+    context = {
+        'total_groups': total_groups,
+        'total_group_customers': total_group_customers,
+        'ungrouped_customers': ungrouped_customers,
+    }
+    
+    return render(request, 'Cust_Station/customer_groups_management.html', context)

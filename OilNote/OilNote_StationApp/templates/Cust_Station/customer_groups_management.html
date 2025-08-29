@@ -1,0 +1,302 @@
+{% extends 'base/base.html' %}
+
+{% block title %}Oil Note - 고객 그룹 관리{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- 페이지 헤더 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="fas fa-users me-2 text-info"></i>고객 그룹 관리
+                    </h1>
+                    <p class="text-muted mb-0">고객을 그룹별로 분류하고 관리하세요.</p>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createGroupModal">
+                        <i class="fas fa-plus me-1"></i>그룹 생성
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 그룹 통계 -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="bg-info bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-users fa-2x text-info"></i>
+                    </div>
+                    <h5 class="card-title">전체 그룹</h5>
+                    <h3 class="text-info mb-0">{{ total_groups }}개</h3>
+                    <small class="text-muted">생성된 그룹 수</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-user-friends fa-2x text-success"></i>
+                    </div>
+                    <h5 class="card-title">그룹별 고객</h5>
+                    <h3 class="text-success mb-0">{{ total_group_customers }}명</h3>
+                    <small class="text-muted">그룹에 속한 고객 수</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="bg-warning bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fas fa-user fa-2x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">미분류 고객</h5>
+                    <h3 class="text-warning mb-0">{{ ungrouped_customers }}명</h3>
+                    <small class="text-muted">그룹에 속하지 않은 고객</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 그룹 목록 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-list me-2"></i>그룹 목록
+                    </h5>
+                    
+                    <div id="groupsList" class="row g-3">
+                        <!-- 그룹 목록이 여기에 동적으로 로드됩니다 -->
+                        <div class="col-12">
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-users fa-3x mb-3"></i>
+                                <h5>등록된 그룹이 없습니다</h5>
+                                <p>새 그룹을 생성하여 고객을 분류해보세요.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 빠른 액션 -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-bolt me-2"></i>빠른 액션
+                    </h5>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <button type="button" class="btn btn-outline-primary w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3" data-bs-toggle="modal" data-bs-target="#createGroupModal">
+                                <i class="fas fa-plus fa-2x mb-2"></i>
+                                <span>그룹 생성</span>
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'station:usermanage' %}" class="btn btn-outline-success w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3">
+                                <i class="fas fa-user-plus fa-2x mb-2"></i>
+                                <span>고객 관리</span>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'station:groupmanage' %}" class="btn btn-outline-info w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3">
+                                <i class="fas fa-cog fa-2x mb-2"></i>
+                                <span>상세 관리</span>
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{% url 'station:couponmanage' %}" class="btn btn-outline-warning w-100 h-100 d-flex flex-column align-items-center justify-content-center p-3">
+                                <i class="fas fa-ticket-alt fa-2x mb-2"></i>
+                                <span>쿠폰 관리</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 그룹 생성 모달 -->
+<div class="modal fade" id="createGroupModal" tabindex="-1" aria-labelledby="createGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createGroupModalLabel">
+                    <i class="fas fa-users me-2"></i>새 그룹 생성
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <form id="createGroupForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="groupName" class="form-label">그룹명</label>
+                        <input type="text" class="form-control" id="groupName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="groupDescription" class="form-label">설명</label>
+                        <textarea class="form-control" id="groupDescription" name="description" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">생성</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 그룹 목록 로드
+    loadGroups();
+    
+    // 그룹 생성 폼 제출
+    document.getElementById('createGroupForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        createGroup();
+    });
+});
+
+function loadGroups() {
+    fetch('{% url "station:get_groups" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                displayGroups(data.groups);
+            }
+        })
+        .catch(error => {
+            console.error('그룹 목록 로드 중 오류:', error);
+        });
+}
+
+function displayGroups(groups) {
+    const groupsList = document.getElementById('groupsList');
+    
+    if (groups.length === 0) {
+        groupsList.innerHTML = `
+            <div class="col-12">
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-users fa-3x mb-3"></i>
+                    <h5>등록된 그룹이 없습니다</h5>
+                    <p>새 그룹을 생성하여 고객을 분류해보세요.</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    groupsList.innerHTML = groups.map(group => `
+        <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h6 class="card-title mb-0">${group.name}</h6>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="editGroup(${group.id})">수정</a></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteGroup(${group.id})">삭제</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p class="card-text text-muted small">${group.description || '설명 없음'}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge bg-primary">${group.customer_count}명</span>
+                        <small class="text-muted">${group.created_at}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function createGroup() {
+    const formData = new FormData(document.getElementById('createGroupForm'));
+    
+    fetch('{% url "station:create_group" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 모달 닫기
+            const modal = bootstrap.Modal.getInstance(document.getElementById('createGroupModal'));
+            modal.hide();
+            
+            // 폼 초기화
+            document.getElementById('createGroupForm').reset();
+            
+            // 그룹 목록 새로고침
+            loadGroups();
+            
+            // 성공 메시지 표시
+            showAlert('success', '그룹이 성공적으로 생성되었습니다.');
+        } else {
+            showAlert('error', data.message || '그룹 생성 중 오류가 발생했습니다.');
+        }
+    })
+    .catch(error => {
+        console.error('그룹 생성 중 오류:', error);
+        showAlert('error', '그룹 생성 중 오류가 발생했습니다.');
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showAlert(type, message) {
+    // 간단한 알림 표시 (실제 구현에서는 더 정교한 알림 시스템 사용)
+    alert(message);
+}
+</script>
+
+<style>
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.btn {
+    transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+</style>
+{% endblock %} 
