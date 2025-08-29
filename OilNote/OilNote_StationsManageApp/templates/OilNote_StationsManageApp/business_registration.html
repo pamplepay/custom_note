@@ -69,9 +69,21 @@
     
     .sidebar-menu .nav-link.active {
         color: #ffffff !important;
-        background: #3498db;
-        border-left: 4px solid #2980b9;
-        font-weight: 600;
+        background: rgba(52, 152, 219, 0.15);
+        border-left: 3px solid #3498db;
+        font-weight: 500;
+        position: relative;
+    }
+    
+    .sidebar-menu .nav-link.active::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+        border-radius: 0 2px 2px 0;
     }
     
     .sidebar-menu .nav-link i {
@@ -254,51 +266,107 @@
     
     .menu-toggle {
         position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .menu-toggle:hover {
+        background: #5a6f8a !important;
+        transform: translateX(5px);
     }
     
     .toggle-icon {
         position: absolute;
         right: 1rem;
         transition: transform 0.3s ease;
+        font-size: 0.8rem;
     }
     
     .menu-toggle.active .toggle-icon {
         transform: rotate(180deg);
     }
     
+    .menu-toggle.active {
+        background: transparent !important;
+        color: #ffffff !important;
+        border-left: none;
+        font-weight: 500;
+        position: relative;
+    }
+    
+    .menu-toggle.active::before {
+        display: none;
+    }
+    
     .submenu {
         display: none;
         background: #2c3e50;
         border-left: 3px solid #3498db;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        max-height: 0;
     }
     
     .submenu.show {
         display: block;
+        max-height: 500px;
+        animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
     
     .submenu-link {
-        padding: 0.5rem 1.5rem 0.5rem 3rem !important;
-        font-size: 0.9rem;
+        padding: 0.6rem 1.5rem 0.6rem 3.5rem !important;
+        font-size: 0.85rem;
         color: #bdc3c7 !important;
         border-left: none !important;
+        transition: all 0.2s ease;
+        position: relative;
     }
     
     .submenu-link:hover {
         color: #ffffff !important;
         background: #34495e !important;
-        transform: none !important;
+        transform: translateX(5px) !important;
+        padding-left: 4rem !important;
     }
     
     .submenu-link.active {
         color: #ffffff !important;
-        background: #2980b9 !important;
+        background: rgba(41, 128, 185, 0.15) !important;
         border-left: 3px solid #3498db !important;
+        font-weight: 500;
+        position: relative;
+    }
+    
+    .submenu-link.active::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+        border-radius: 0 2px 2px 0;
     }
     
     .submenu-link i {
-        font-size: 0.7rem;
-        width: 15px;
+        font-size: 0.6rem;
+        width: 12px;
         margin-right: 8px;
+        opacity: 0.7;
+    }
+    
+    .submenu-link:hover i {
+        opacity: 1;
     }
     
     /* 사이드바 토글 버튼 (모바일용) */
@@ -323,6 +391,15 @@
         .sidebar-toggle {
             display: block !important;
         }
+    }
+    
+    /* 메인 콘텐츠 영역 조정 */
+    .main-content {
+        margin-left: 280px;
+        padding: 2rem;
+        min-height: calc(100vh - 4.5rem);
+        background: #f8f9fa;
+        transition: margin-left 0.3s ease;
     }
     
     /* 반응형 웹 */
@@ -410,6 +487,131 @@
             font-size: 0.85rem;
         }
     }
+    
+    /* 서브메뉴 사이드바 스타일 */
+    .submenu-sidebar {
+        position: fixed;
+        top: 4.5rem;
+        left: 280px;
+        height: calc(100vh - 4.5rem);
+        width: 250px;
+        background: #2c3e50;
+        overflow-y: auto;
+        z-index: 999;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        border-right: 1px solid #34495e;
+    }
+    
+    .submenu-sidebar.show {
+        transform: translateX(0);
+    }
+    
+    .submenu-sidebar-header {
+        padding: 1rem;
+        border-bottom: 1px solid #34495e;
+        background: #34495e;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .submenu-sidebar-title {
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .submenu-close-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+    }
+    
+    .submenu-close-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .submenu-sidebar-menu {
+        padding: 1rem 0;
+    }
+    
+    .submenu-sidebar-link {
+        color: #ffffff !important;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        background: transparent;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        width: 100%;
+    }
+    
+    .submenu-sidebar-link:hover {
+        color: #ffffff !important;
+        background: #5a6f8a;
+        transform: translateX(5px);
+        font-weight: 600;
+    }
+    
+    .submenu-sidebar-link.active {
+        color: #ffffff !important;
+        background: rgba(52, 152, 219, 0.15);
+        border-left: 3px solid #3498db;
+        font-weight: 500;
+        position: relative;
+    }
+    
+    .submenu-sidebar-link.active::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+        border-radius: 0 2px 2px 0;
+    }
+    
+    .submenu-sidebar-link i {
+        width: 20px;
+        margin-right: 10px;
+        text-align: center;
+    }
+    
+    .submenu-sidebar-link .menu-text {
+        flex: 1;
+    }
+    
+    /* 서브메뉴가 열렸을 때 메인 콘텐츠 조정 */
+    .main-content.submenu-open {
+        margin-left: 530px;
+    }
+    
+    /* 메뉴 토글 아이콘 스타일 */
+    .menu-toggle {
+        position: relative;
+    }
+    
+    .toggle-icon {
+        margin-left: auto;
+        transition: transform 0.3s ease;
+    }
+    
+    .menu-toggle.active .toggle-icon {
+        transform: rotate(90deg);
+    }
 </style>
 {% endblock %}
 
@@ -434,105 +636,72 @@
     </div>
     
     <div class="sidebar-menu">
-        <div class="menu-item">
-            <a href="#" class="nav-link menu-toggle" data-target="basic-data">
-                <i class="fas fa-database"></i>
-                <span class="menu-text">기초자료</span>
-                <i class="fas fa-chevron-down toggle-icon"></i>
-            </a>
-            <div class="submenu" id="basic-data">
-                <a href="/stations-manage/business-registration/" class="nav-link submenu-link active">
-                    <i class="fas fa-circle"></i>
-                    <span class="menu-text">주유소 사업자 등록</span>
-                </a>
-                <a href="#" class="nav-link submenu-link">
-                    <i class="fas fa-circle"></i>
-                    <span class="menu-text">유종 및 유외상품 등록</span>
-                </a>
-                <a href="#" class="nav-link submenu-link">
-                    <i class="fas fa-circle"></i>
-                    <span class="menu-text">탱크 정보 등록</span>
-                </a>
-                <a href="#" class="nav-link submenu-link">
-                    <i class="fas fa-circle"></i>
-                    <span class="menu-text">주유기 노즐 정보 등록</span>
-                </a>
-                <a href="#" class="nav-link submenu-link">
-                    <i class="fas fa-circle"></i>
-                    <span class="menu-text">홈로리 차량 등록</span>
-                </a>
-                <a href="#" class="nav-link submenu-link">
-                    <i class="fas fa-circle"></i>
-                    <span class="menu-text">결제 형태 등록</span>
-                </a>
-                <a href="#" class="nav-link submenu-link">
-                    <i class="fas fa-circle"></i>
-                    <span class="menu-text">기초 자료(값) 등록</span>
-                </a>
-            </div>
-        </div>
+        <a href="javascript:void(0)" class="nav-link" onclick="openBasicDataMenu()">
+            <i class="fas fa-database"></i>
+            <span class="menu-text">기초자료</span>
+        </a>
         
-        <a href="#" class="nav-link">
+        <a href="/stations-manage/business-registration/" class="nav-link">
             <i class="fas fa-building"></i>
             <span class="menu-text">거래처관리</span>
         </a>
         
-        <a href="#" class="nav-link">
+        <a href="/stations-manage/" class="nav-link">
             <i class="fas fa-tags"></i>
             <span class="menu-text">단가관리</span>
         </a>
         
-        <a href="#" class="nav-link">
+        <a href="/stations-manage/" class="nav-link">
             <i class="fas fa-cash-register"></i>
             <span class="menu-text">매출등록</span>
         </a>
         
-        <a href="#" class="nav-link">
+        <a href="/stations-manage/" class="nav-link">
             <i class="fas fa-shopping-cart"></i>
             <span class="menu-text">매입등록</span>
         </a>
         
-        <a href="#" class="nav-link">
+        <a href="/stations-manage/" class="nav-link">
             <i class="fas fa-money-bill-wave"></i>
             <span class="menu-text">입금등록</span>
         </a>
         
-        <a href="#" class="nav-link">
+        <a href="/stations-manage/" class="nav-link">
             <i class="fas fa-warehouse"></i>
             <span class="menu-text">재고관리</span>
         </a>
         
-        <a href="#" class="nav-link">
-            <i class="fas fa-file-contract"></i>
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-receipt"></i>
             <span class="menu-text">보관증관리</span>
         </a>
         
-        <a href="#" class="nav-link">
-            <i class="fas fa-credit-card"></i>
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-handshake"></i>
             <span class="menu-text">외상관리</span>
         </a>
         
-        <a href="#" class="nav-link">
+        <a href="/stations-manage/" class="nav-link">
             <i class="fas fa-percentage"></i>
             <span class="menu-text">면세판매관리</span>
         </a>
         
-        <a href="#" class="nav-link">
-            <i class="fas fa-chart-bar"></i>
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-file-alt"></i>
             <span class="menu-text">석유관리원보고자료</span>
         </a>
         
-        <a href="#" class="nav-link">
-            <i class="fas fa-search"></i>
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-list-alt"></i>
             <span class="menu-text">자료조회</span>
         </a>
         
-        <a href="#" class="nav-link">
+        <a href="/stations-manage/" class="nav-link">
             <i class="fas fa-book"></i>
             <span class="menu-text">매출원장관리</span>
         </a>
         
-        <a href="#" class="nav-link">
+        <a href="/stations-manage/" class="nav-link">
             <i class="fas fa-folder"></i>
             <span class="menu-text">00자료</span>
         </a>
@@ -553,8 +722,24 @@
     </div>
 </div>
 
+<!-- 두 번째 사이드바 (서브메뉴용) -->
+<div class="submenu-sidebar" id="submenuSidebar">
+    <div class="submenu-sidebar-header">
+        <div class="submenu-sidebar-title">
+            <span id="submenuTitle">기초자료</span>
+            <button class="submenu-close-btn" id="submenuCloseBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="submenu-sidebar-menu" id="submenuContent">
+        <!-- 동적으로 내용이 채워집니다 -->
+    </div>
+</div>
+
 <!-- 메인 콘텐츠 영역 -->
-<div class="main-content">
+<div class="main-content" id="mainContent">
     <!-- 주유소 사업자 등록 폼 -->
     <div class="registration-form">
         <div class="form-header">
@@ -699,51 +884,129 @@
                 sidebarOverlay.classList.remove('show');
             }
         });
-    });
-    
-    // 메뉴 토글 이벤트
-    document.querySelectorAll('.menu-toggle').forEach(toggle => {
-        toggle.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const targetId = this.getAttribute('data-target');
-            const submenu = document.getElementById(targetId);
-            
-            // 다른 서브메뉴들 닫기
-            document.querySelectorAll('.submenu').forEach(menu => {
-                if (menu.id !== targetId) {
-                    menu.classList.remove('show');
-                }
-            });
-            
-            document.querySelectorAll('.menu-toggle').forEach(t => {
-                if (t !== this) {
-                    t.classList.remove('active');
-                }
-            });
-            
-            // 현재 서브메뉴 토글
-            submenu.classList.toggle('show');
-            this.classList.toggle('active');
+        
+        // 서브메뉴 기능 초기화
+        initializeSubmenu();
+        
+        // 초기화면에서는 기초자료 메뉴의 active 클래스 제거
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
         });
     });
     
-    // 서브메뉴 아이템 클릭 이벤트 (href가 없는 경우만)
-    document.querySelectorAll('.submenu-link[href="#"]').forEach(item => {
-        item.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // 서브메뉴 활성 상태 표시
-            document.querySelectorAll('.submenu-link').forEach(link => {
-                link.classList.remove('active');
-            });
-            this.classList.add('active');
-            
-            console.log('서브메뉴 클릭:', this.querySelector('.menu-text').textContent);
+    // 서브메뉴 데이터 정의
+    const submenuData = {
+        'basic-data': {
+            title: '기초자료',
+            items: [
+                {
+                    text: '주유소 사업자 등록',
+                    icon: 'fas fa-building',
+                    href: '/stations-manage/business-registration/'
+                },
+                {
+                    text: '유종 및 유외상품 등록',
+                    icon: 'fas fa-gas-pump',
+                    href: '/stations-manage/product-registration/'
+                },
+                {
+                    text: '탱크 정보 등록',
+                    icon: 'fas fa-cube',
+                    href: '#'
+                },
+                {
+                    text: '주유기 노즐 정보 등록',
+                    icon: 'fas fa-tint',
+                    href: '#'
+                },
+                {
+                    text: '홈로리 차량 등록',
+                    icon: 'fas fa-truck',
+                    href: '#'
+                },
+                {
+                    text: '결제 형태 등록',
+                    icon: 'fas fa-money-check-alt',
+                    href: '#'
+                },
+                {
+                    text: '기초 자료(값) 등록',
+                    icon: 'fas fa-database',
+                    href: '#'
+                }
+            ]
+        }
+    };
+    
+    // 기초자료 메뉴 열기 함수
+    function openBasicDataMenu() {
+        openSubmenuSidebar('basic-data', '기초자료');
+    }
+    
+    // 서브메뉴 초기화 함수
+    function initializeSubmenu() {
+        // 서브메뉴 닫기 버튼 이벤트
+        document.getElementById('submenuCloseBtn').addEventListener('click', function() {
+            closeSubmenuSidebar();
         });
-    });
+    }
+    
+    // 서브메뉴 사이드바 열기 함수
+    function openSubmenuSidebar(menuType, title) {
+        const submenuSidebar = document.getElementById('submenuSidebar');
+        const submenuTitle = document.getElementById('submenuTitle');
+        const submenuContent = document.getElementById('submenuContent');
+        const mainContent = document.getElementById('mainContent');
+        
+        // 제목 설정
+        submenuTitle.textContent = title;
+        
+        // 메뉴 아이템 생성
+        const menuItems = submenuData[menuType].items;
+        submenuContent.innerHTML = '';
+        
+        menuItems.forEach(item => {
+            const link = document.createElement('a');
+            link.href = item.href;
+            link.className = 'submenu-sidebar-link';
+            
+            // 현재 페이지인 경우 active 클래스 추가
+            if (item.href === '/stations-manage/business-registration/') {
+                link.classList.add('active');
+            }
+            
+            link.innerHTML = `
+                <i class="${item.icon}"></i>
+                <span class="menu-text">${item.text}</span>
+            `;
+            
+            // 클릭 이벤트
+            link.addEventListener('click', function(e) {
+                if (item.href === '#') {
+                    e.preventDefault();
+                    console.log('메뉴 클릭:', item.text);
+                } else {
+                    console.log('페이지 이동:', item.href);
+                    // 실제 링크인 경우 기본 동작 허용
+                }
+            });
+            
+            submenuContent.appendChild(link);
+        });
+        
+        // 사이드바 열기
+        submenuSidebar.classList.add('show');
+        mainContent.classList.add('submenu-open');
+    }
+    
+    // 서브메뉴 사이드바 닫기 함수
+    function closeSubmenuSidebar() {
+        const submenuSidebar = document.getElementById('submenuSidebar');
+        const mainContent = document.getElementById('mainContent');
+        
+        submenuSidebar.classList.remove('show');
+        mainContent.classList.remove('submenu-open');
+    }
     
     // 폼 제출 이벤트
     document.getElementById('businessRegistrationForm').addEventListener('submit', function(e) {
@@ -768,14 +1031,20 @@
         }
     }
     
-    // 페이지 로드 시 기초자료 서브메뉴 열기
+    // 페이지 로드 시 초기화
     document.addEventListener('DOMContentLoaded', function() {
-        const basicDataToggle = document.querySelector('.menu-toggle[data-target="basic-data"]');
-        const basicDataSubmenu = document.getElementById('basic-data');
-        if (basicDataToggle && basicDataSubmenu) {
-            basicDataSubmenu.classList.add('show');
-            basicDataToggle.classList.add('active');
+        // URL에 #이 있다면 제거
+        if (window.location.hash) {
+            window.history.replaceState(null, null, window.location.pathname);
         }
+        
+        // 현재 페이지 메뉴 활성화
+        const currentPageLink = document.querySelector('.nav-link[href="#"]');
+        if (currentPageLink) {
+            currentPageLink.classList.add('active');
+        }
+        
+        console.log('주유소 사업자 등록 페이지 로드됨');
     });
 </script>
 {% endblock %} 

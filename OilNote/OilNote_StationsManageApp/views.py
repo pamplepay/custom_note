@@ -19,3 +19,12 @@ def business_registration(request):
         'subtitle': 'Gas Station Business Registration'
     }
     return render(request, 'OilNote_StationsManageApp/business_registration.html', context)
+
+@login_required
+def product_registration(request):
+    """유종 및 유외상품 등록 페이지"""
+    context = {
+        'page_title': '유종 및 유외상품 등록',
+        'subtitle': 'Product and External Product Registration'
+    }
+    return render(request, 'OilNote_StationsManageApp/product_registration.html', context)
