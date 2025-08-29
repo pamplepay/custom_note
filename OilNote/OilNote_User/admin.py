@@ -137,6 +137,8 @@ class CustomUserAdmin(UserAdmin):
         'email', 
         'user_type', 
         'backup_password_display',
+        'stations_manage_display',
+        'stations_crm_display',
         'is_active', 
         'date_joined',
         'reset_password_button'
@@ -150,6 +152,11 @@ class CustomUserAdmin(UserAdmin):
         (None, {'fields': ('username', 'password')}),
         ('개인정보', {'fields': ('first_name', 'last_name', 'email')}),
         ('사용자 타입', {'fields': ('user_type',)}),
+        ('주유소 시스템 설정', {
+            'fields': ('stations_manage', 'stations_crm'),
+            'classes': ('collapse',),
+            'description': '주유소 사용자의 경우 시스템 접근 권한을 설정할 수 있습니다.'
+        }),
         ('백업 정보', {'fields': ('pw_back',)}),
         ('중요한 날짜', {'fields': ('last_login', 'date_joined')}),
         ('권한', {
@@ -181,6 +188,26 @@ class CustomUserAdmin(UserAdmin):
             return "●●●●"  # 백업 있음을 표시
         return "없음"
     backup_password_display.short_description = "백업 PW"
+    
+    def stations_manage_display(self, obj):
+        """주유소 관리 시스템 사용 여부 표시"""
+        if obj.user_type == 'STATION':
+            if obj.stations_manage:
+                return format_html('<span style="color: #28a745; font-weight: bold;">✓ 사용</span>')
+            else:
+                return format_html('<span style="color: #6c757d;">✗ 미사용</span>')
+        return '-'
+    stations_manage_display.short_description = "관리 시스템"
+    
+    def stations_crm_display(self, obj):
+        """주유소 CRM 시스템 사용 여부 표시"""
+        if obj.user_type == 'STATION':
+            if obj.stations_crm:
+                return format_html('<span style="color: #28a745; font-weight: bold;">✓ 사용</span>')
+            else:
+                return format_html('<span style="color: #6c757d;">✗ 미사용</span>')
+        return '-'
+    stations_crm_display.short_description = "CRM 시스템"
     
     def reset_password(self, request, queryset):
         for user in queryset:

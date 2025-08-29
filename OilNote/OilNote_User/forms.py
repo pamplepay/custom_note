@@ -43,6 +43,11 @@ class StationSignUpForm(CustomUserCreationForm):
         label='주유소 관리 시스템 사용',
         help_text='주유소 판매관리 시스템을 사용하시겠습니까?'
     )
+    stations_crm = forms.BooleanField(
+        required=False, 
+        label='주유소 CRM 시스템 사용',
+        help_text='주유소 CRM 시스템을 사용하시겠습니까?'
+    )
     
     class Meta(CustomUserCreationForm.Meta):
         fields = CustomUserCreationForm.Meta.fields + ('user_type',)
@@ -86,6 +91,8 @@ class StationSignUpForm(CustomUserCreationForm):
         user = super().save(commit=False)
         # stations_manage 값 설정
         user.stations_manage = self.cleaned_data.get('stations_manage', False)
+        # stations_crm 값 설정
+        user.stations_crm = self.cleaned_data.get('stations_crm', False)
         
         if commit:
             user.save()
