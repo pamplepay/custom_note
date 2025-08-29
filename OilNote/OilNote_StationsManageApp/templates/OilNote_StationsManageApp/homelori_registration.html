@@ -259,8 +259,8 @@
         }
     }
     
-    /* 유종 및 유외상품 등록 폼 스타일 */
-    .product-registration-container {
+    /* 홈로리 차량 등록 폼 스타일 */
+    .homelori-registration-container {
         display: flex;
         gap: 2rem;
         height: calc(100vh - 8rem);
@@ -440,7 +440,7 @@
     
     /* 반응형 웹 */
     @media (max-width: 1200px) {
-        .product-registration-container {
+        .homelori-registration-container {
             flex-direction: column;
             height: auto;
         }
@@ -596,45 +596,42 @@
 
 <!-- 메인 콘텐츠 영역 -->
 <div class="main-content" id="mainContent">
-    <!-- 유종 및 유외상품 등록 컨테이너 -->
-    <div class="product-registration-container">
+    <!-- 홈로리 차량 등록 컨테이너 -->
+    <div class="homelori-registration-container">
         <!-- 좌측: 입력 폼 패널 -->
         <div class="form-panel">
             <div class="form-header">
-                <h3 class="form-title">유종 및 유외상품 등록</h3>
+                <h3 class="form-title">홈로리 차량 정보 입력</h3>
                 <button class="close-btn" onclick="window.close()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             
             <div class="form-body">
-                <form id="productRegistrationForm">
+                <form id="homeloriForm">
                     <div class="form-group">
-                        <label for="productCode" class="form-label">품목 코드</label>
-                        <input type="text" class="form-control" id="productCode" name="productCode" value="100001" required>
+                        <label for="vehicleCode" class="form-label">홈로리 차량 코드</label>
+                        <input type="text" class="form-control" id="vehicleCode" name="vehicleCode" value="750001" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="productName" class="form-label">품목명</label>
-                        <input type="text" class="form-control" id="productName" name="productName" value="고급휘발유" required>
+                        <label for="vehicleNumber" class="form-label">차량 번호</label>
+                        <input type="text" class="form-control" id="vehicleNumber" name="vehicleNumber" value="경기11가1234" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="productCategory" class="form-label">상품 분류</label>
-                        <select class="form-select" id="productCategory" name="productCategory" required>
-                            <option value="일반유">일반유</option>
-                            <option value="윤활유">윤활유</option>
-                            <option value="TBA">TBA</option>
-                            <option value="세차">세차</option>
+                        <label for="fuelType" class="form-label">사용 유종</label>
+                        <select class="form-select" id="fuelType" name="fuelType" required>
+                            <option value="휘발유" selected>휘발유</option>
+                            <option value="경유">경유</option>
+                            <option value="등유">등유</option>
+                            <option value="LPG">LPG</option>
                         </select>
                     </div>
                     
                     <div class="form-group">
-                        <label for="inventoryManagement" class="form-label">재고관리여부</label>
-                        <select class="form-select" id="inventoryManagement" name="inventoryManagement" required>
-                            <option value="예">예</option>
-                            <option value="아니오">아니오</option>
-                        </select>
+                        <label for="permittedCapacity" class="form-label">허가 용량</label>
+                        <input type="text" class="form-control" id="permittedCapacity" name="permittedCapacity" value="3,000" required>
                     </div>
                     
                     <!-- 액션 버튼 -->
@@ -643,7 +640,7 @@
                             <i class="fas fa-save"></i>
                             저장
                         </button>
-                        <button type="button" class="btn btn-danger" onclick="deleteProduct()">
+                        <button type="button" class="btn btn-danger" onclick="deleteVehicle()">
                             <i class="fas fa-trash"></i>
                             삭제
                         </button>
@@ -655,37 +652,49 @@
         <!-- 우측: 테이블 패널 -->
         <div class="table-panel">
             <div class="table-header">
-                <h4 class="table-title">등록된 상품 목록</h4>
+                <h4 class="table-title">등록된 홈로리 차량 목록</h4>
             </div>
             
             <div class="table-container">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>품목코드</th>
-                            <th>품목명</th>
-                            <th>상품분류</th>
-                            <th>재고관리</th>
+                            <th>홈로리차량코드</th>
+                            <th>차량번호</th>
+                            <th>사용유종</th>
+                            <th>허가용량</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="vehicleTableBody">
                         <tr>
-                            <td>100001</td>
-                            <td>고급휘발유</td>
-                            <td>일반유</td>
-                            <td>예</td>
+                            <td>750001</td>
+                            <td>경기11가1234</td>
+                            <td>경유</td>
+                            <td>3,000</td>
                         </tr>
                         <tr>
-                            <td>200001</td>
-                            <td>불스원샷</td>
-                            <td>TBA</td>
-                            <td>예</td>
+                            <td>750002</td>
+                            <td>경기22나2222</td>
+                            <td>등유</td>
+                            <td>1,500</td>
                         </tr>
                         <tr>
-                            <td>500001</td>
-                            <td>터널세차</td>
-                            <td>세차</td>
-                            <td>아니오</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
                         </tr>
                         <tr>
                             <td></td>
@@ -826,7 +835,7 @@
             link.classList.remove('active');
         });
         
-        console.log('유종 및 유외상품 등록 페이지 로드됨');
+        console.log('홈로리 차량 등록 페이지 로드됨');
     });
     
     // 기초자료 메뉴 열기 함수
@@ -837,13 +846,13 @@
     // 메뉴 토글 이벤트 (두 번째 사이드바 열기) - 중복 방지
     function initializeMenuEvents() {
         // 기존 이벤트 리스너 제거
-        document.querySelectorAll('.menu-toggle').forEach(toggle => {
-            toggle.removeEventListener('click', menuToggleHandler);
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.removeEventListener('click', menuToggleHandler);
         });
         
         // 새로운 이벤트 리스너 등록
-        document.querySelectorAll('.menu-toggle').forEach(toggle => {
-            toggle.addEventListener('click', menuToggleHandler);
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', menuToggleHandler);
         });
     }
     
@@ -887,7 +896,7 @@
             const link = document.createElement('a');
             link.href = item.href;
             link.className = 'submenu-sidebar-link';
-            if (item.href === '/stations-manage/product-registration/') {
+            if (item.href === '/stations-manage/homelori-registration/') {
                 link.classList.add('active');
             }
             link.innerHTML = `
@@ -925,7 +934,7 @@
     });
     
     // 폼 제출 이벤트
-    document.getElementById('productRegistrationForm').addEventListener('submit', function(e) {
+    document.getElementById('homeloriForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
         // 폼 데이터 수집
@@ -935,18 +944,18 @@
         console.log('저장할 데이터:', data);
         
         // 여기에 실제 저장 로직을 구현할 수 있습니다
-        alert('유종 및 유외상품 정보가 저장되었습니다.');
+        alert('홈로리 차량 정보가 저장되었습니다.');
     });
     
     // 삭제 함수
-    function deleteProduct() {
-        if (confirm('정말로 유종 및 유외상품 정보를 삭제하시겠습니까?')) {
+    function deleteVehicle() {
+        if (confirm('정말로 홈로리 차량 정보를 삭제하시겠습니까?')) {
             console.log('삭제 실행');
-            alert('유종 및 유외상품 정보가 삭제되었습니다.');
+            alert('홈로리 차량 정보가 삭제되었습니다.');
             // 여기에 실제 삭제 로직을 구현할 수 있습니다
         }
     }
     
 
 </script>
-{% endblock %} 
+{% endblock %}

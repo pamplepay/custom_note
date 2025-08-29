@@ -912,22 +912,22 @@
                 {
                     text: '탱크 정보 등록',
                     icon: 'fas fa-cube',
-                    href: '#'
+                    href: '/stations-manage/tank-registration/'
                 },
                 {
                     text: '주유기 노즐 정보 등록',
                     icon: 'fas fa-tint',
-                    href: '#'
+                    href: '/stations-manage/nozzle-registration/'
                 },
                 {
                     text: '홈로리 차량 등록',
                     icon: 'fas fa-truck',
-                    href: '#'
+                    href: '/stations-manage/homelori-registration/'
                 },
                 {
                     text: '결제 형태 등록',
-                    icon: 'fas fa-money-check-alt',
-                    href: '#'
+                    icon: 'fas fa-credit-card',
+                    href: '/stations-manage/payment-registration/'
                 },
                 {
                     text: '기초 자료(값) 등록',
@@ -987,7 +987,8 @@
                     console.log('메뉴 클릭:', item.text);
                 } else {
                     console.log('페이지 이동:', item.href);
-                    // 실제 링크인 경우 기본 동작 허용
+                    // 실제 링크인 경우 서브메뉴 닫기
+                    closeSubmenuSidebar();
                 }
             });
             
