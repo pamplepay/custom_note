@@ -1,0 +1,311 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .header-section {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 10px 0;
+    }
+    
+    .system-title {
+        color: #dc3545;
+        font-weight: bold;
+        font-size: 1.2rem;
+        margin: 0;
+    }
+    
+    .header-buttons {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .header-btn {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 5px 15px;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    
+    .header-btn:hover {
+        background-color: #0056b3;
+    }
+    
+    .main-menu-bar {
+        background-color: #1e3a8a;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .menu-container {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        min-height: 50px;
+    }
+    
+    .menu-item {
+        color: white;
+        padding: 15px 20px;
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: background-color 0.3s;
+        border-right: 1px solid #3b5998;
+        white-space: nowrap;
+    }
+    
+    .menu-item:hover {
+        background-color: #2563eb;
+        color: white;
+        text-decoration: none;
+    }
+    
+    .menu-item:last-child {
+        border-right: none;
+    }
+    
+    .yellow-line {
+        height: 3px;
+        background-color: #fbbf24;
+        width: 100%;
+    }
+    
+    .dashboard-content {
+        padding: 30px;
+        background-color: #f8f9fa;
+        min-height: calc(100vh - 200px);
+    }
+    
+    .welcome-section {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+    
+    .welcome-title {
+        color: #1e3a8a;
+        font-size: 1.8rem;
+        margin-bottom: 10px;
+    }
+    
+    .welcome-subtitle {
+        color: #6c757d;
+        font-size: 1.1rem;
+        margin-bottom: 20px;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 30px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+        transition: transform 0.3s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .stat-icon {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #1e3a8a;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .icon-sales { color: #28a745; }
+    .icon-inventory { color: #ffc107; }
+    .icon-customers { color: #17a2b8; }
+    .icon-reports { color: #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header Section -->
+<div class="header-section">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="system-title">{{ page_title }} | {{ subtitle }}</h1>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="header-buttons">
+                    <button class="header-btn">전체메뉴 닫기</button>
+                    <button class="header-btn">종료</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Menu Bar -->
+<div class="main-menu-bar">
+    <div class="container-fluid">
+        <div class="menu-container">
+            <a href="#" class="menu-item">기초자료 (Basic Data)</a>
+            <a href="#" class="menu-item">거래처관리 (Customer Management)</a>
+            <a href="#" class="menu-item">단가관리 (Unit Price Management)</a>
+            <a href="#" class="menu-item">매출등록 (Sales Registration)</a>
+            <a href="#" class="menu-item">매입등록 (Purchase Registration)</a>
+            <a href="#" class="menu-item">입금등록 (Deposit Registration)</a>
+            <a href="#" class="menu-item">재고관리 (Inventory Management)</a>
+            <a href="#" class="menu-item">보관증관리 (Storage Receipt Management)</a>
+            <a href="#" class="menu-item">외상관리 (Credit Management)</a>
+            <a href="#" class="menu-item">면세판매관리 (Tax-Exempt Sales Management)</a>
+            <a href="#" class="menu-item">석유관리원보고자료 (Petroleum Management Agency Report Data)</a>
+            <a href="#" class="menu-item">자료조회 (Data Inquiry)</a>
+            <a href="#" class="menu-item">매출원장관리 (Sales Ledger Management)</a>
+            <a href="#" class="menu-item">00자료 (00 Data)</a>
+        </div>
+    </div>
+    <div class="yellow-line"></div>
+</div>
+
+<!-- Dashboard Content -->
+<div class="dashboard-content">
+    <div class="container-fluid">
+        <!-- Welcome Section -->
+        <div class="welcome-section">
+            <h2 class="welcome-title">주유소 판매관리 시스템에 오신 것을 환영합니다</h2>
+            <p class="welcome-subtitle">효율적인 주유소 운영을 위한 종합 관리 시스템입니다.</p>
+            
+            <!-- Statistics Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon icon-sales">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="stat-number">₩12,450,000</div>
+                    <div class="stat-label">오늘 매출</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon icon-inventory">
+                        <i class="fas fa-gas-pump"></i>
+                    </div>
+                    <div class="stat-number">85,420L</div>
+                    <div class="stat-label">재고량</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon icon-customers">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-number">156</div>
+                    <div class="stat-label">오늘 고객 수</div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon icon-reports">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="stat-number">24</div>
+                    <div class="stat-label">미처리 보고서</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">빠른 작업</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-primary">매출 등록</button>
+                            <button class="btn btn-success">재고 확인</button>
+                            <button class="btn btn-info">거래처 관리</button>
+                            <button class="btn btn-warning">보고서 생성</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">최근 활동</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <small class="text-muted">10:30</small>
+                                <span class="ms-2">매출 등록 완료 - ₩450,000</span>
+                            </li>
+                            <li class="mb-2">
+                                <small class="text-muted">09:15</small>
+                                <span class="ms-2">재고 입고 - 휘발유 5,000L</span>
+                            </li>
+                            <li class="mb-2">
+                                <small class="text-muted">08:45</small>
+                                <span class="ms-2">새 거래처 등록 - ABC 주유소</span>
+                            </li>
+                            <li class="mb-2">
+                                <small class="text-muted">08:00</small>
+                                <span class="ms-2">일일 보고서 생성</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 메뉴 아이템 클릭 이벤트
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            // 여기에 각 메뉴별 기능을 추가할 수 있습니다
+            console.log('메뉴 클릭:', this.textContent);
+        });
+    });
+    
+    // 헤더 버튼 이벤트
+    document.querySelectorAll('.header-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (this.textContent === '종료') {
+                if (confirm('정말 종료하시겠습니까?')) {
+                    window.close();
+                }
+            } else if (this.textContent === '전체메뉴 닫기') {
+                // 메뉴 토글 기능
+                console.log('메뉴 토글');
+            }
+        });
+    });
+</script>
+{% endblock %} 

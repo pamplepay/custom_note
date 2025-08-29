@@ -10,15 +10,15 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Remove fields
-        migrations.RemoveField(
-            model_name='autocoupontemplate',
-            name='template_name',
-        ),
-        migrations.RemoveField(
-            model_name='autocoupontemplate',
-            name='priority',
-        ),
+        # Remove fields - 주석 처리 (필드가 존재하지 않음)
+        # migrations.RemoveField(
+        #     model_name='autocoupontemplate',
+        #     name='template_name',
+        # ),
+        # migrations.RemoveField(
+        #     model_name='autocoupontemplate',
+        #     name='priority',
+        # ),
         # Update benefit_type choices
         migrations.AlterField(
             model_name='autocoupontemplate',

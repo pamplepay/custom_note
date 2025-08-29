@@ -24,7 +24,7 @@ class Group(models.Model):
         verbose_name_plural = '0. 고객 그룹 목록'
         ordering = ['-created_at']
         unique_together = ['name', 'station']  # 같은 주유소 내에서 그룹명 중복 방지
-        db_table = 'Cust_StationApp_group'
+        db_table = 'OilNote_StationApp_group'
 
     def __str__(self):
         return f"{self.station.username} - {self.name}"
@@ -48,7 +48,7 @@ class PointCard(models.Model):
         verbose_name = "멤버십 카드"
         verbose_name_plural = "1. 멤버십 카드 목록"
         ordering = ['-created_at']
-        db_table = 'Cust_StationApp_pointcard'
+        db_table = 'OilNote_StationApp_pointcard'
 
     def __str__(self):
         return f"카드번호: {self.full_number} (사용{'중' if self.is_used else '가능'})"
@@ -130,7 +130,7 @@ class StationCardMapping(models.Model):
         verbose_name = '주유소-카드 매핑'
         verbose_name_plural = '7. 주유소-카드 매핑'
         ordering = ['-registered_at']
-        db_table = 'Cust_StationApp_stationcardmapping'
+        db_table = 'OilNote_StationApp_stationcardmapping'
 
     def __str__(self):
         return f"카드 {self.card.number} (TID: {self.tid or '미설정'})"
@@ -242,7 +242,7 @@ class PhoneCardMapping(models.Model):
             models.Index(fields=['membership_card']),
             models.Index(fields=['is_used']),
         ]
-        db_table = 'Cust_StationApp_phonecardmapping'
+        db_table = 'OilNote_StationApp_phonecardmapping'
 
     def __str__(self):
         status = "연동됨" if self.is_used else "미연동"
@@ -432,7 +432,7 @@ class ExcelSalesData(models.Model):
         verbose_name = '엑셀 매출 데이터'
         verbose_name_plural = '4. 엑셀 매출 데이터 목록'
         ordering = ['-sale_date', '-sale_time']
-        db_table = 'Cust_StationApp_excelsalesdata'
+        db_table = 'OilNote_StationApp_excelsalesdata'
 
     def __str__(self):
         return f"{self.sale_date} - {self.product_pack} - {self.total_amount}원"
@@ -455,7 +455,7 @@ class SalesStatistics(models.Model):
         verbose_name_plural = '3. 매출 통계 목록'
         ordering = ['-sale_date', '-created_at']
         unique_together = ['tid', 'sale_date']
-        db_table = 'Cust_StationApp_salesstatistics'
+        db_table = 'OilNote_StationApp_salesstatistics'
 
     def __str__(self):
         return f"{self.tid} - {self.sale_date} ({self.total_transactions}건, {self.total_amount:,.0f}원)"
@@ -485,7 +485,7 @@ class MonthlySalesStatistics(models.Model):
         verbose_name_plural = '5. 월별 매출 통계 목록'
         ordering = ['-year_month']
         unique_together = ['tid', 'year_month']
-        db_table = 'Cust_StationApp_monthlysalesstatistics'
+        db_table = 'OilNote_StationApp_monthlysalesstatistics'
 
     def __str__(self):
         return f"{self.tid} - {self.year_month} ({self.total_transactions}건, {self.total_amount:,.0f}원)"
@@ -533,7 +533,7 @@ class CouponType(models.Model):
         verbose_name_plural = '8. 쿠폰 유형 목록'
         ordering = ['is_default', '-created_at']
         unique_together = ['station', 'type_code']
-        db_table = 'Cust_StationApp_coupontype'
+        db_table = 'OilNote_StationApp_coupontype'
     
     def __str__(self):
         return f"{self.station.username} - {self.type_name}"
@@ -620,7 +620,7 @@ class CouponTemplate(models.Model):
         verbose_name = '쿠폰 템플릿'
         verbose_name_plural = '9. 쿠폰 템플릿 목록'
         ordering = ['-created_at']
-        db_table = 'Cust_StationApp_coupontemplate'
+        db_table = 'OilNote_StationApp_coupontemplate'
     
     def __str__(self):
         return f"{self.station.username} - {self.coupon_name}"
@@ -710,7 +710,7 @@ class CustomerCoupon(models.Model):
             models.Index(fields=['coupon_template']),
             models.Index(fields=['auto_coupon_template']),
         ]
-        db_table = 'Cust_StationApp_customercoupon'
+        db_table = 'OilNote_StationApp_customercoupon'
     
     def __str__(self):
         template = self.auto_coupon_template or self.coupon_template
@@ -785,7 +785,7 @@ class StationCouponQuota(models.Model):
         verbose_name = '주유소 쿠폰 수량'
         verbose_name_plural = '11. 주유소 쿠폰 수량 관리'
         ordering = ['-updated_at']
-        db_table = 'Cust_StationApp_stationcouponquota'
+        db_table = 'OilNote_StationApp_stationcouponquota'
     
     def __str__(self):
         return f"{self.station.username} - 총:{self.total_quota} 사용:{self.used_quota} 잔여:{self.remaining_quota}"
@@ -851,7 +851,7 @@ class CumulativeSalesTracker(models.Model):
         verbose_name_plural = '12. 누적매출 추적 목록'
         ordering = ['-updated_at']
         unique_together = ['customer', 'station']
-        db_table = 'Cust_StationApp_cumulativesalestracker'
+        db_table = 'OilNote_StationApp_cumulativesalestracker'
     
     def __str__(self):
         return f"{self.customer.username}@{self.station.username} - 누적:{self.cumulative_amount:,.0f}원"
@@ -944,7 +944,7 @@ class CouponPurchaseRequest(models.Model):
         verbose_name = '쿠폰 구매 요청'
         verbose_name_plural = '13. 쿠폰 구매 요청 목록'
         ordering = ['-requested_at']
-        db_table = 'Cust_StationApp_couponpurchaserequest'
+        db_table = 'OilNote_StationApp_couponpurchaserequest'
     
     def __str__(self):
         return f"{self.station.username} - {self.requested_quantity}개 ({self.get_status_display()})"
@@ -1371,7 +1371,7 @@ class AutoCouponTemplate(models.Model):
         indexes = [
             models.Index(fields=['station', 'coupon_type', 'is_active']),
         ]
-        db_table = 'Cust_StationApp_autocoupontemplate'
+        db_table = 'OilNote_StationApp_autocoupontemplate'
     
     def __str__(self):
         status = "활성" if self.is_active else "비활성"
@@ -1515,7 +1515,7 @@ class AutoCouponCondition(models.Model):
         verbose_name = '자동 쿠폰 조건'
         verbose_name_plural = '16. 자동 쿠폰 조건 목록'
         ordering = ['condition_type', 'created_at']
-        db_table = 'Cust_StationApp_autocouponcondition'
+        db_table = 'OilNote_StationApp_autocouponcondition'
     
     def __str__(self):
         return f"{self.template.template_name} - {self.get_condition_type_display()}"

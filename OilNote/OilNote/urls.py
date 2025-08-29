@@ -32,7 +32,11 @@ def home(request):
         elif request.user.user_type == 'CUSTOMER':
             return redirect('customer:main')
         elif request.user.user_type == 'STATION':
-            return redirect('station:main')
+            # stations_manage가 선택된 경우 새로운 사이트로 이동
+            if request.user.stations_manage:
+                return redirect('stations_manage:dashboard')
+            else:
+                return redirect('station:main')
     
     return render(request, 'home.html')
 
@@ -44,6 +48,7 @@ urlpatterns = [
     path('customer/', include('OilNote_UserApp.urls')),
     path('admin-panel/', include('OilNote_AdminApp.urls')),
     path('ftp/', include('ftp_data_loader.urls')),
+    path('stations-manage/', include('OilNote_StationsManageApp.urls')),
     
     # Favicon
     path('favicon.ico', serve, {

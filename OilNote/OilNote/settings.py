@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "OilNote_UserApp",
     "OilNote_StationApp",
     "OilNote_AdminApp",
+    "OilNote_StationsManageApp.apps.OilNoteStationsManageAppConfig",
     'excel_sample.apps.ExcelSampleConfig',  # 엑셀 샘플 앱 추가
     'ftp_data_loader',  # FTP 데이터 로더 앱 추가
     'rest_framework',
@@ -285,6 +286,10 @@ CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
 CSRF_COOKIE_HTTPONLY = False
 CSRF_USE_SESSIONS = False
 
+# logs 디렉토리가 없으면 생성
+if not os.path.exists(os.path.join(BASE_DIR, 'logs')):
+    os.makedirs(os.path.join(BASE_DIR, 'logs'))
+
 # 로깅 설정 추가
 LOGGING = {
     'version': 1,
@@ -307,7 +312,7 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': 'logs/debug.log',
+            'filename': os.path.join(BASE_DIR, 'logs', 'debug.log'),
             'formatter': 'verbose',
             'level': 'DEBUG',
         },
@@ -335,7 +340,3 @@ LOGGING = {
         },
     },
 }
-
-# logs 디렉토리가 없으면 생성
-if not os.path.exists(os.path.join(BASE_DIR, 'logs')):
-    os.makedirs(os.path.join(BASE_DIR, 'logs'))
