@@ -10,7 +10,6 @@
     <meta name="description" content="주유소와 고객을 위한 스마트한 관리 시스템">
     
     <!-- CSRF 토큰 -->
-    <meta name="csrf-token" content="{% csrf_token %}">
     {% csrf_token %}
     
     <!-- 파비콘 -->
@@ -96,6 +95,13 @@
         }
         .navbar-toggler:focus {
             box-shadow: none;
+        }
+        
+        /* 데스크톱에서 네브바 토글 버튼 숨김 */
+        @media (min-width: 992px) {
+            .navbar-toggler {
+                display: none !important;
+            }
         }
         /* 모바일 메뉴 스타일 */
         @media (max-width: 991px) {
