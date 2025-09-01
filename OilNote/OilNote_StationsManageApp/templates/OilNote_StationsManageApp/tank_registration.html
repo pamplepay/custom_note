@@ -597,6 +597,18 @@
 <!-- 메인 콘텐츠 영역 -->
 <div class="main-content" id="mainContent">
     <!-- 탱크정보 등록 컨테이너 -->
+    <!-- Django 메시지 표시 -->
+    {% if messages %}
+    <div class="messages-container" style="margin-bottom: 1rem;">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
     <div class="tank-registration-container">
         <!-- 좌측: 입력 폼 패널 -->
         <div class="form-panel">
@@ -608,32 +620,41 @@
             </div>
             
             <div class="form-body">
-                <form id="tankRegistrationForm">
+                <form id="tankRegistrationForm" method="POST">
+                    {% csrf_token %}
                     <div class="form-group">
-                        <label for="tankCode" class="form-label">탱크 코드</label>
-                        <input type="text" class="form-control" id="tankCode" name="tankCode" value="600001" required>
+                        <label for="tank_code" class="form-label">탱크 코드</label>
+                        <input type="text" class="form-control" id="tank_code" name="tank_code" 
+                               value="{% if form_data.tank_code %}{{ form_data.tank_code }}{% endif %}" 
+                               placeholder="예: 600001" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="tankNumber" class="form-label">탱크번호</label>
-                        <input type="text" class="form-control" id="tankNumber" name="tankNumber" value="1" required>
+                        <label for="tank_number" class="form-label">탱크번호</label>
+                        <input type="text" class="form-control" id="tank_number" name="tank_number" 
+                               value="{% if form_data.tank_number %}{{ form_data.tank_number }}{% endif %}" 
+                               placeholder="예: 1" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="fuelType" class="form-label">품목(유종)명</label>
-                        <select class="form-select" id="fuelType" name="fuelType" required>
-                            <option value="휘발유" selected>휘발유</option>
-                            <option value="고급휘발유">고급휘발유</option>
-                            <option value="경유">경유</option>
-                            <option value="등유">등유</option>
-                            <option value="LPG">LPG</option>
-                            <option value="요소수">요소수</option>
+                        <label for="fuel_type" class="form-label">품목(유종)명</label>
+                        <select class="form-select" id="fuel_type" name="fuel_type" required>
+                            <option value="">품목(유종)명을 선택하세요</option>
+                            <option value="고급휘발유" {% if form_data.fuel_type == '고급휘발유' %}selected{% endif %}>고급휘발유</option>
+                            <option value="휘발유" {% if form_data.fuel_type == '휘발유' %}selected{% endif %}>휘발유</option>
+                            <option value="경유" {% if form_data.fuel_type == '경유' %}selected{% endif %}>경유</option>
+                            <option value="등유" {% if form_data.fuel_type == '등유' %}selected{% endif %}>등유</option>
+                            <option value="요소수" {% if form_data.fuel_type == '요소수' %}selected{% endif %}>요소수</option>
+                            <option value="LPG" {% if form_data.fuel_type == 'LPG' %}selected{% endif %}>LPG</option>
+                            <option value="기타" {% if form_data.fuel_type == '기타' %}selected{% endif %}>기타</option>
                         </select>
                     </div>
                     
                     <div class="form-group">
-                        <label for="capacity" class="form-label">허가 용량(Ltr)</label>
-                        <input type="number" class="form-control" id="capacity" name="capacity" value="50000" required>
+                        <label for="permitted_capacity" class="form-label">허가 용량(Ltr)</label>
+                        <input type="text" class="form-control" id="permitted_capacity" name="permitted_capacity" 
+                               value="{% if form_data.permitted_capacity %}{{ form_data.permitted_capacity }}{% endif %}" 
+                               placeholder="예: 50,000" required>
                     </div>
                     
                     <!-- 액션 버튼 -->
@@ -641,10 +662,6 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i>
                             저장
-                        </button>
-                        <button type="button" class="btn btn-danger" onclick="deleteTank()">
-                            <i class="fas fa-trash"></i>
-                            삭제
                         </button>
                     </div>
                 </form>
@@ -665,69 +682,30 @@
                             <th>탱크번호</th>
                             <th>품목(유종)명</th>
                             <th>허가용량</th>
+                            <th>작업</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>600001</td>
-                            <td>1</td>
-                            <td>고급휘발유</td>
-                            <td>50,000</td>
-                        </tr>
-                        <tr>
-                            <td>600002</td>
-                            <td>2</td>
-                            <td>휘발유</td>
-                            <td>40,000</td>
-                        </tr>
-                        <tr>
-                            <td>600003</td>
-                            <td>3</td>
-                            <td>경유</td>
-                            <td>50,000</td>
-                        </tr>
-                        <tr>
-                            <td>600004</td>
-                            <td>4</td>
-                            <td>등유</td>
-                            <td>20,000</td>
-                        </tr>
-                        <tr>
-                            <td>600005</td>
-                            <td>5</td>
-                            <td>요소수</td>
-                            <td>2,500</td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
+                        {% if tanks %}
+                            {% for tank in tanks %}
+                            <tr>
+                                <td>{{ tank.tank_code }}</td>
+                                <td>{{ tank.tank_number }}</td>
+                                <td>{{ tank.fuel_type }}</td>
+                                <td>{{ tank.permitted_capacity|floatformat:0 }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-danger" 
+                                            onclick="deleteTank({{ tank.id }}, '{{ tank.tank_code }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">등록된 탱크가 없습니다.</td>
+                            </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>

@@ -402,6 +402,17 @@
         transition: margin-left 0.3s ease;
     }
     
+    /* Placeholder 스타일 */
+    .form-control::placeholder {
+        color: #6c757d;
+        opacity: 0.7;
+        font-style: italic;
+    }
+    
+    .form-control:focus::placeholder {
+        opacity: 0.5;
+    }
+    
     /* 반응형 웹 */
     @media (max-width: 1200px) {
         .main-content {
@@ -740,6 +751,18 @@
 
 <!-- 메인 콘텐츠 영역 -->
 <div class="main-content" id="mainContent">
+    <!-- Django 메시지 표시 -->
+    {% if messages %}
+    <div class="messages-container" style="margin-bottom: 1rem;">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
     <!-- 주유소 사업자 등록 폼 -->
     <div class="registration-form">
         <div class="form-header">
@@ -750,53 +773,70 @@
         </div>
         
         <div class="form-body">
-            <form id="businessRegistrationForm">
+            <form id="businessRegistrationForm" method="POST">
+                {% csrf_token %}
                 <!-- 기본 정보 섹션 -->
                 <div class="form-section">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="stationName" class="form-label">주유소명</label>
-                            <input type="text" class="form-control" id="stationName" name="stationName" value="개나리주유소" required>
+                            <label for="station_name" class="form-label">주유소명</label>
+                            <input type="text" class="form-control" id="station_name" name="station_name" 
+                                   value="{% if business_info %}{{ business_info.station_name }}{% elif form_data.station_name %}{{ form_data.station_name }}{% else %}{% comment %}개나리주유소{% endcomment %}{% endif %}" 
+                                   placeholder="예: 개나리주유소" required>
                         </div>
                         <div class="form-group">
-                            <label for="representativeName" class="form-label">대표자명</label>
-                            <input type="text" class="form-control" id="representativeName" name="representativeName" value="홍길동" required>
+                            <label for="representative_name" class="form-label">대표자명</label>
+                            <input type="text" class="form-control" id="representative_name" name="representative_name" 
+                                   value="{% if business_info %}{{ business_info.representative_name }}{% elif form_data.representative_name %}{{ form_data.representative_name }}{% else %}{% comment %}홍길동{% endcomment %}{% endif %}" 
+                                   placeholder="예: 홍길동" required>
                         </div>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="businessNumber" class="form-label">사업자등록번호</label>
-                            <input type="text" class="form-control" id="businessNumber" name="businessNumber" value="123-81-12345" required>
+                            <label for="business_registration_number" class="form-label">사업자등록번호</label>
+                            <input type="text" class="form-control" id="business_registration_number" name="business_registration_number" 
+                                   value="{% if business_info %}{{ business_info.business_registration_number }}{% elif form_data.business_registration_number %}{{ form_data.business_registration_number }}{% else %}{% comment %}123-81-12345{% endcomment %}{% endif %}" 
+                                   placeholder="예: 123-81-12345" required>
                         </div>
                         <div class="form-group">
-                            <label for="subBusinessNumber" class="form-label">종사업자 번호</label>
-                            <input type="text" class="form-control" id="subBusinessNumber" name="subBusinessNumber" value="002" required>
+                            <label for="sub_business_number" class="form-label">종사업자 번호</label>
+                            <input type="text" class="form-control" id="sub_business_number" name="sub_business_number" 
+                                   value="{% if business_info %}{{ business_info.sub_business_number }}{% elif form_data.sub_business_number %}{{ form_data.sub_business_number }}{% else %}{% comment %}002{% endcomment %}{% endif %}" 
+                                   placeholder="예: 002" required>
                         </div>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group full-width">
-                            <label for="businessAddress" class="form-label">사업장 주소</label>
-                            <input type="text" class="form-control" id="businessAddress" name="businessAddress" value="경기도 수원시 영통구 대학4로17 에이스 광교타워 1차 422호" required>
+                            <label for="business_address" class="form-label">사업장 주소</label>
+                            <input type="text" class="form-control" id="business_address" name="business_address" 
+                                   value="{% if business_info %}{{ business_info.business_address }}{% elif form_data.business_address %}{{ form_data.business_address }}{% else %}{% comment %}경기도 수원시 영통구 대학4로17 에이스 광교타워 1차 422호{% endcomment %}{% endif %}" 
+                                   placeholder="예: 경기도 수원시 영통구 대학4로17 에이스 광교타워 1차 422호" required>
                         </div>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="businessType" class="form-label">업태</label>
-                            <input type="text" class="form-control" id="businessType" name="businessType" value="도매 및 소매업" required>
+                            <label for="business_type" class="form-label">업태</label>
+                            <input type="text" class="form-control" id="business_type" name="business_type" 
+                                   value="{% if business_info %}{{ business_info.business_type }}{% elif form_data.business_type %}{{ form_data.business_type }}{% else %}{% comment %}도매 및 소매업{% endcomment %}{% endif %}" 
+                                   placeholder="예: 도매 및 소매업" required>
                         </div>
                         <div class="form-group">
-                            <label for="businessCategory" class="form-label">종목</label>
-                            <input type="text" class="form-control" id="businessCategory" name="businessCategory" value="주유소, 세차영업" required>
+                            <label for="business_category" class="form-label">종목</label>
+                            <input type="text" class="form-control" id="business_category" name="business_category" 
+                                   value="{% if business_info %}{{ business_info.business_category }}{% elif form_data.business_category %}{{ form_data.business_category }}{% else %}{% comment %}주유소, 세차영업{% endcomment %}{% endif %}" 
+                                   placeholder="예: 주유소, 세차영업" required>
                         </div>
                     </div>
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="phoneNumber" class="form-label">전화번호</label>
-                            <input type="tel" class="form-control" id="phoneNumber" name="phoneNumber" value="070-8829-5577" required>
+                            <label for="phone_number" class="form-label">전화번호</label>
+                            <input type="tel" class="form-control" id="phone_number" name="phone_number" 
+                                   value="{% if business_info %}{{ business_info.phone_number }}{% elif form_data.phone_number %}{{ form_data.phone_number }}{% else %}{% comment %}070-8829-5577{% endcomment %}{% endif %}" 
+                                   placeholder="예: 070-8829-5577" required>
                         </div>
                     </div>
                 </div>
@@ -805,12 +845,13 @@
                 <div class="form-section">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="oilCompany" class="form-label">정유사</label>
-                            <select class="form-select" id="oilCompany" name="oilCompany" required>
-                                <option value="s-oil" selected>에쓰오일</option>
-                                <option value="sk-energy">SK에너지</option>
-                                <option value="gs-caltex">GS칼텍스</option>
-                                <option value="hyundai-oilbank">현대오일뱅크</option>
+                            <label for="refinery_company" class="form-label">정유사</label>
+                            <select class="form-select" id="refinery_company" name="refinery_company" required>
+                                <option value="">정유사를 선택하세요</option>
+                                <option value="에쓰오일" {% if business_info.refinery_company == '에쓰오일' %}{% comment %} or not business_info{% endcomment %}selected{% endif %}>에쓰오일</option>
+                                <option value="SK에너지" {% if business_info.refinery_company == 'SK에너지' %}selected{% endif %}>SK에너지</option>
+                                <option value="GS칼텍스" {% if business_info.refinery_company == 'GS칼텍스' %}selected{% endif %}>GS칼텍스</option>
+                                <option value="현대오일뱅크" {% if business_info.refinery_company == '현대오일뱅크' %}selected{% endif %}>현대오일뱅크</option>
                             </select>
                         </div>
                     </div>
@@ -820,17 +861,20 @@
                 <div class="form-section">
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="petroleumCode" class="form-label">석유관리원 코드</label>
-                            <input type="text" class="form-control" id="petroleumCode" name="petroleumCode" value="C1234" required>
+                            <label for="petroleum_management_code" class="form-label">석유관리원 코드</label>
+                            <input type="text" class="form-control" id="petroleum_management_code" name="petroleum_management_code" 
+                                   value="{% if business_info %}{{ business_info.petroleum_management_code }}{% elif form_data.petroleum_management_code %}{{ form_data.petroleum_management_code }}{% else %}{% comment %}C1234{% endcomment %}{% endif %}" 
+                                   placeholder="예: C1234" required>
                         </div>
                         <div class="form-group">
-                            <label for="locationCode" class="form-label">유개코드</label>
-                            <select class="form-select" id="locationCode" name="locationCode" required>
-                                <option value="gyeonggi-hanam" selected>경기 하남시</option>
-                                <option value="gyeonggi-suwon">경기 수원시</option>
-                                <option value="gyeonggi-yongin">경기 용인시</option>
-                                <option value="seoul-gangnam">서울 강남구</option>
-                                <option value="seoul-seocho">서울 서초구</option>
+                            <label for="oil_code" class="form-label">유개코드</label>
+                            <select class="form-select" id="oil_code" name="oil_code" required>
+                                <option value="">유개코드를 선택하세요</option>
+                                <option value="경기 하남시" {% if business_info.oil_code == '경기 하남시' %}{% comment %} or not business_info{% endcomment %}selected{% endif %}>경기 하남시</option>
+                                <option value="경기 수원시" {% if business_info.oil_code == '경기 수원시' %}selected{% endif %}>경기 수원시</option>
+                                <option value="경기 용인시" {% if business_info.oil_code == '경기 용인시' %}selected{% endif %}>경기 용인시</option>
+                                <option value="서울 강남구" {% if business_info.oil_code == '서울 강남구' %}selected{% endif %}>서울 강남구</option>
+                                <option value="서울 서초구" {% if business_info.oil_code == '서울 서초구' %}selected{% endif %}>서울 서초구</option>
                             </select>
                         </div>
                     </div>
@@ -840,12 +884,14 @@
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i>
-                        저장
+                        {% if business_info %}수정{% else %}저장{% endif %}
                     </button>
+                    {% if business_info %}
                     <button type="button" class="btn btn-danger" onclick="deleteRegistration()">
                         <i class="fas fa-trash"></i>
                         삭제
                     </button>
+                    {% endif %}
                 </div>
             </form>
         </div>
@@ -1009,26 +1055,35 @@
         mainContent.classList.remove('submenu-open');
     }
     
-    // 폼 제출 이벤트
+    // 폼 제출 이벤트 - 실제 POST 요청 처리
     document.getElementById('businessRegistrationForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // 폼 데이터 수집
-        const formData = new FormData(this);
-        const data = Object.fromEntries(formData);
-        
-        console.log('저장할 데이터:', data);
-        
-        // 여기에 실제 저장 로직을 구현할 수 있습니다
-        alert('주유소 사업자 정보가 저장되었습니다.');
+        // 폼이 실제로 서버로 제출되도록 기본 동작 허용
+        // Django의 POST 처리 로직이 실행됩니다
     });
     
     // 삭제 함수
     function deleteRegistration() {
         if (confirm('정말로 주유소 사업자 정보를 삭제하시겠습니까?')) {
-            console.log('삭제 실행');
-            alert('주유소 사업자 정보가 삭제되었습니다.');
-            // 여기에 실제 삭제 로직을 구현할 수 있습니다
+            fetch('{% url "stations_manage:delete_business_info" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('주유소 사업자 정보가 삭제되었습니다.');
+                    location.reload();
+                } else {
+                    alert('삭제 실패: ' + (data.error || '알 수 없는 오류가 발생했습니다.'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('삭제 중 오류가 발생했습니다.');
+            });
         }
     }
     

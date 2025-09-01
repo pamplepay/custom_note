@@ -438,6 +438,17 @@
         background-color: #fafbfc;
     }
     
+    /* Placeholder 스타일 */
+    .form-control::placeholder {
+        color: #6c757d;
+        opacity: 0.7;
+        font-style: italic;
+    }
+    
+    .form-control:focus::placeholder {
+        opacity: 0.5;
+    }
+    
     /* 반응형 웹 */
     @media (max-width: 1200px) {
         .product-registration-container {
@@ -597,6 +608,18 @@
 <!-- 메인 콘텐츠 영역 -->
 <div class="main-content" id="mainContent">
     <!-- 유종 및 유외상품 등록 컨테이너 -->
+    <!-- Django 메시지 표시 -->
+    {% if messages %}
+    <div class="messages-container" style="margin-bottom: 1rem;">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
     <div class="product-registration-container">
         <!-- 좌측: 입력 폼 패널 -->
         <div class="form-panel">
@@ -608,32 +631,38 @@
             </div>
             
             <div class="form-body">
-                <form id="productRegistrationForm">
+                <form id="productRegistrationForm" method="POST">
+                    {% csrf_token %}
                     <div class="form-group">
-                        <label for="productCode" class="form-label">품목 코드</label>
-                        <input type="text" class="form-control" id="productCode" name="productCode" value="100001" required>
+                        <label for="item_code" class="form-label">품목 코드</label>
+                        <input type="text" class="form-control" id="item_code" name="item_code" 
+                               value="{% if form_data.item_code %}{{ form_data.item_code }}{% endif %}" 
+                               placeholder="예: 100001" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="productName" class="form-label">품목명</label>
-                        <input type="text" class="form-control" id="productName" name="productName" value="고급휘발유" required>
+                        <label for="item_name" class="form-label">품목명</label>
+                        <input type="text" class="form-control" id="item_name" name="item_name" 
+                               value="{% if form_data.item_name %}{{ form_data.item_name }}{% endif %}" 
+                               placeholder="예: 고급휘발유" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="productCategory" class="form-label">상품 분류</label>
-                        <select class="form-select" id="productCategory" name="productCategory" required>
-                            <option value="일반유">일반유</option>
-                            <option value="윤활유">윤활유</option>
-                            <option value="TBA">TBA</option>
-                            <option value="세차">세차</option>
+                        <label for="product_category" class="form-label">상품 분류</label>
+                        <select class="form-select" id="product_category" name="product_category" required>
+                            <option value="">상품 분류를 선택하세요</option>
+                            <option value="일반유" {% if form_data.product_category == '일반유' %}selected{% endif %}>일반유</option>
+                            <option value="TBA" {% if form_data.product_category == 'TBA' %}selected{% endif %}>TBA</option>
+                            <option value="세차" {% if form_data.product_category == '세차' %}selected{% endif %}>세차</option>
+                            <option value="기타" {% if form_data.product_category == '기타' %}selected{% endif %}>기타</option>
                         </select>
                     </div>
                     
                     <div class="form-group">
-                        <label for="inventoryManagement" class="form-label">재고관리여부</label>
-                        <select class="form-select" id="inventoryManagement" name="inventoryManagement" required>
-                            <option value="예">예</option>
-                            <option value="아니오">아니오</option>
+                        <label for="inventory_management" class="form-label">재고관리여부</label>
+                        <select class="form-select" id="inventory_management" name="inventory_management" required>
+                            <option value="예" {% if form_data.inventory_management == '예' or not form_data.inventory_management %}selected{% endif %}>예</option>
+                            <option value="아니오" {% if form_data.inventory_management == '아니오' %}selected{% endif %}>아니오</option>
                         </select>
                     </div>
                     
@@ -642,10 +671,6 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i>
                             저장
-                        </button>
-                        <button type="button" class="btn btn-danger" onclick="deleteProduct()">
-                            <i class="fas fa-trash"></i>
-                            삭제
                         </button>
                     </div>
                 </form>
@@ -666,69 +691,30 @@
                             <th>품목명</th>
                             <th>상품분류</th>
                             <th>재고관리</th>
+                            <th>작업</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>100001</td>
-                            <td>고급휘발유</td>
-                            <td>일반유</td>
-                            <td>예</td>
-                        </tr>
-                        <tr>
-                            <td>200001</td>
-                            <td>불스원샷</td>
-                            <td>TBA</td>
-                            <td>예</td>
-                        </tr>
-                        <tr>
-                            <td>500001</td>
-                            <td>터널세차</td>
-                            <td>세차</td>
-                            <td>아니오</td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
+                        {% if products %}
+                            {% for product in products %}
+                            <tr>
+                                <td>{{ product.item_code }}</td>
+                                <td>{{ product.item_name }}</td>
+                                <td>{{ product.product_category }}</td>
+                                <td>{{ product.inventory_management }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-danger" 
+                                            onclick="deleteProduct('{{ product.id }}', '{{ product.item_name|escapejs }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">등록된 상품이 없습니다.</td>
+                            </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
@@ -924,26 +910,36 @@
         mainContent.classList.remove('submenu-open');
     });
     
-    // 폼 제출 이벤트
+    // 폼 제출 이벤트 - 실제 POST 요청 처리
     document.getElementById('productRegistrationForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // 폼 데이터 수집
-        const formData = new FormData(this);
-        const data = Object.fromEntries(formData);
-        
-        console.log('저장할 데이터:', data);
-        
-        // 여기에 실제 저장 로직을 구현할 수 있습니다
-        alert('유종 및 유외상품 정보가 저장되었습니다.');
+        // 폼이 실제로 서버로 제출되도록 기본 동작 허용
+        // Django의 POST 처리 로직이 실행됩니다
     });
     
     // 삭제 함수
-    function deleteProduct() {
-        if (confirm('정말로 유종 및 유외상품 정보를 삭제하시겠습니까?')) {
-            console.log('삭제 실행');
-            alert('유종 및 유외상품 정보가 삭제되었습니다.');
-            // 여기에 실제 삭제 로직을 구현할 수 있습니다
+    function deleteProduct(productId, productName) {
+        if (confirm(`정말로 상품 "${productName}"을(를) 삭제하시겠습니까?`)) {
+            fetch('{% url "stations_manage:delete_product" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `product_id=${parseInt(productId)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('상품이 삭제되었습니다.');
+                    location.reload();
+                } else {
+                    alert('삭제 실패: ' + (data.error || '알 수 없는 오류가 발생했습니다.'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('삭제 중 오류가 발생했습니다.');
+            });
         }
     }
     
