@@ -105,38 +105,46 @@
     }
     
     /* 두 번째 사이드바 (서브메뉴용) */
-    .submenu-sidebar {
+    .submenu-popup {
         position: fixed;
-        top: 4.5rem;
-        left: 280px;
-        height: calc(100vh - 4.5rem);
-        width: 260px;
-        background: #2c3e50;
+        top: 5rem;
+        left: 300px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000;
+        max-height: 80vh;
         overflow-y: auto;
-        z-index: 999;
-        transition: transform 0.3s ease;
+        min-width: 280px;
         transform: translateX(-100%);
-        border-left: 1px solid #34495e;
+        opacity: 0;
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
     }
     
-    .submenu-sidebar.show {
+    .submenu-popup.show {
         transform: translateX(0);
+        opacity: 1;
     }
     
-    .submenu-sidebar-header {
-        padding: 1.5rem 1rem;
-        border-bottom: 1px solid #34495e;
-        background: #34495e;
+    .submenu-popup-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        background: #2c3e50;
+        color: white;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     
-    .submenu-sidebar-title {
+    .submenu-popup-title {
         color: white;
         font-size: 1rem;
         font-weight: 600;
-        margin: 0;
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        gap: 0.5rem;
     }
     
     .submenu-close-btn {
@@ -153,12 +161,12 @@
         color: white;
     }
     
-    .submenu-sidebar-menu {
-        padding: 1rem 0;
+    .submenu-popup-menu {
+        padding: 0.5rem 0;
     }
     
-    .submenu-sidebar-link {
-        color: #bdc3c7;
+    .submenu-popup-link {
+        color: #2c3e50;
         padding: 0.75rem 1.5rem;
         border: none;
         background: transparent;
@@ -168,25 +176,25 @@
         text-decoration: none;
         font-weight: 500;
         width: 100%;
-        text-align: left;
+        border-bottom: 1px solid #f8f9fa;
     }
     
-    .submenu-sidebar-link:hover {
-        color: #ffffff;
-        background: #34495e;
+    .submenu-popup-link:hover {
+        color: #3498db;
+        background: #f8f9fa;
         transform: translateX(5px);
         font-weight: 600;
     }
     
-    .submenu-sidebar-link.active {
-        color: #ffffff;
-        background: rgba(52, 152, 219, 0.15);
+    .submenu-popup-link.active {
+        color: #3498db;
+        background: rgba(52, 152, 219, 0.1);
         border-left: 3px solid #3498db;
         font-weight: 500;
         position: relative;
     }
     
-    .submenu-sidebar-link.active::before {
+    .submenu-popup-link.active::before {
         content: '';
         position: absolute;
         left: 0;
@@ -197,11 +205,19 @@
         border-radius: 0 2px 2px 0;
     }
     
-    .submenu-sidebar-link i {
+    .submenu-popup-link i {
         width: 20px;
         margin-right: 10px;
         text-align: center;
-        font-size: 0.8rem;
+        color: #7f8c8d;
+    }
+    
+    .submenu-popup-link:hover i {
+        color: #3498db;
+    }
+    
+    .submenu-popup-link .menu-text {
+        flex: 1;
     }
     
     /* 메인 콘텐츠 영역 조정 */
@@ -214,7 +230,7 @@
     }
     
     .main-content.submenu-open {
-        margin-left: 540px;
+        margin-left: 280px;
     }
     
     /* 모바일 반응형 */
@@ -262,8 +278,8 @@
     /* 탱크정보 등록 폼 스타일 */
     .tank-registration-container {
         display: flex;
-        gap: 2rem;
-        height: calc(100vh - 8rem);
+        gap: 1rem;
+        height: calc(100vh - 6rem);
     }
     
     .form-panel {
@@ -277,7 +293,7 @@
     .form-header {
         background: #2c3e50;
         color: white;
-        padding: 1rem 1.5rem;
+        padding: 0.75rem 1rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -286,7 +302,7 @@
     .form-title {
         background: #e74c3c;
         color: white;
-        padding: 0.5rem 1rem;
+        padding: 0.75rem 1rem;
         border-radius: 4px;
         font-weight: 600;
         margin: 0;
@@ -308,11 +324,11 @@
     }
     
     .form-body {
-        padding: 1.5rem;
+        padding: 0.75rem;
     }
     
     .form-group {
-        margin-bottom: 1.5rem;
+        margin-bottom: 0.75rem;
     }
     
     .form-label {
@@ -340,9 +356,9 @@
     
     .form-actions {
         display: flex;
-        gap: 1rem;
+        gap: 0.5rem;
         justify-content: center;
-        padding-top: 1.5rem;
+        padding-top: 0.75rem;
         border-top: 1px solid #e9ecef;
     }
     
@@ -390,7 +406,7 @@
     
     .table-header {
         background: #f8f9fa;
-        padding: 1rem 1.5rem;
+        padding: 0.75rem 1rem;
         border-bottom: 1px solid #e9ecef;
     }
     
@@ -497,7 +513,7 @@
             <span class="menu-text">기초자료</span>
         </a>
         
-        <a href="/stations-manage/business-registration/" class="nav-link">
+        <a href="javascript:void(0)" class="nav-link" onclick="openCustomerManagementMenu()">
             <i class="fas fa-building"></i>
             <span class="menu-text">거래처관리</span>
         </a>
@@ -578,10 +594,10 @@
     </div>
 </div>
 
-<!-- 두 번째 사이드바 (서브메뉴용) -->
-<div class="submenu-sidebar" id="submenuSidebar">
-    <div class="submenu-sidebar-header">
-        <div class="submenu-sidebar-title">
+<!-- 서브메뉴 플로팅 팝업 -->
+<div class="submenu-popup" id="submenuPopup">
+    <div class="submenu-popup-header">
+        <div class="submenu-popup-title">
             <span id="submenuTitle">기초자료</span>
             <button class="submenu-close-btn" id="submenuCloseBtn">
                 <i class="fas fa-times"></i>
@@ -589,7 +605,7 @@
         </div>
     </div>
     
-    <div class="submenu-sidebar-menu" id="submenuContent">
+    <div class="submenu-popup-menu" id="submenuContent">
         <!-- 동적으로 내용이 채워집니다 -->
     </div>
 </div>
@@ -754,7 +770,44 @@
                 {
                     text: '기초 자료(값) 등록',
                     icon: 'fas fa-database',
-                    href: '#'
+                    href: '#',
+                    submenu: [
+                        {
+                            text: '탱크 기초재고',
+                            icon: 'fas fa-cube',
+                            href: '/stations-manage/tank-inventory/'
+                        },
+                        {
+                            text: '주유기 기초 계기자료',
+                            icon: 'fas fa-tachometer-alt',
+                            href: '/stations-manage/dispenser-meter/'
+                        },
+                        {
+                            text: '유외상품 기초재고',
+                            icon: 'fas fa-boxes',
+                            href: '/stations-manage/product-inventory/'
+                        },
+                        {
+                            text: '외상채권 기초잔액',
+                            icon: 'fas fa-hand-holding-usd',
+                            href: '/stations-manage/receivables/'
+                        }
+                    ]
+                }
+            ]
+        },
+        'customer-management': {
+            title: '거래처관리',
+            items: [
+                {
+                    text: '거래처 등록 및 수정',
+                    icon: 'fas fa-user-edit',
+                    href: '/stations-manage/customer-registration/'
+                },
+                {
+                    text: '차량 / 외상카드 등록',
+                    icon: 'fas fa-credit-card',
+                    href: '/stations-manage/vehicle-credit-registration/'
                 }
             ]
         }
@@ -808,7 +861,12 @@
     
     // 기초자료 메뉴 열기 함수
     function openBasicDataMenu() {
-        openSubmenuSidebar('basic-data', '기초자료');
+        openSubmenuPopup('basic-data', '기초자료');
+    }
+    
+    // 거래처관리 메뉴 열기 함수
+    function openCustomerManagementMenu() {
+        openSubmenuPopup('customer-management', '거래처관리');
     }
     
     // 메뉴 토글 이벤트 (두 번째 사이드바 열기) - 중복 방지
@@ -832,7 +890,7 @@
         const menuTitle = this.getAttribute('data-title');
         
         if (submenuData[menuType]) {
-            openSubmenuSidebar(menuType, menuTitle);
+            openSubmenuPopup(menuType, menuTitle);
         }
         
         // URL에 #이 붙지 않도록 history 상태 업데이트
@@ -846,9 +904,9 @@
         }
     }
     
-    // 두 번째 사이드바 열기 함수
-    function openSubmenuSidebar(menuType, title) {
-        const submenuSidebar = document.getElementById('submenuSidebar');
+    // 서브메뉴 플로팅 팝업 열기 함수
+    function openSubmenuPopup(menuType, title) {
+        const submenuPopup = document.getElementById('submenuPopup');
         const submenuTitle = document.getElementById('submenuTitle');
         const submenuContent = document.getElementById('submenuContent');
         const mainContent = document.getElementById('mainContent');
@@ -863,7 +921,7 @@
         menuItems.forEach(item => {
             const link = document.createElement('a');
             link.href = item.href;
-            link.className = 'submenu-sidebar-link';
+            link.className = 'submenu-popup-link';
             if (item.href === '/stations-manage/tank-registration/') {
                 link.classList.add('active');
             }
@@ -877,29 +935,136 @@
                 if (item.href === '#') {
                     e.preventDefault();
                     console.log('메뉴 클릭:', item.text);
+                    
+                    // 서브메뉴가 있는 경우 처리
+                    if (item.submenu) {
+                        showSubSubmenu(item.submenu, item.text);
+                    }
                 } else {
                     console.log('페이지 이동:', item.href);
                     // 실제 링크인 경우 서브메뉴 닫기
-                    closeSubmenuSidebar();
+                    closeSubmenuPopup();
                 }
             });
             
             submenuContent.appendChild(link);
         });
         
-        // 사이드바 열기
-        submenuSidebar.classList.add('show');
+        // 팝업 열기
+        submenuPopup.classList.add('show');
         mainContent.classList.add('submenu-open');
     }
     
-    // 두 번째 사이드바 닫기
+    // 서브메뉴 플로팅 팝업 닫기
     document.getElementById('submenuCloseBtn').addEventListener('click', function() {
-        const submenuSidebar = document.getElementById('submenuSidebar');
+        const submenuPopup = document.getElementById('submenuPopup');
         const mainContent = document.getElementById('mainContent');
         
-        submenuSidebar.classList.remove('show');
+        submenuPopup.classList.remove('show');
         mainContent.classList.remove('submenu-open');
     });
+    
+    // 서브서브메뉴 표시 함수
+    function showSubSubmenu(submenuItems, parentTitle) {
+        const submenuPopup = document.getElementById('submenuPopup');
+        const submenuTitle = document.getElementById('submenuTitle');
+        const submenuContent = document.getElementById('submenuContent');
+        
+        // 제목 설정 (부모 메뉴명 + 서브메뉴)
+        submenuTitle.innerHTML = `
+            <i class="fas fa-arrow-left me-2" style="cursor: pointer;" onclick="showMainSubmenu()"></i>
+            ${parentTitle}
+        `;
+        
+        // 서브서브메뉴 아이템 생성
+        submenuContent.innerHTML = '';
+        
+        submenuItems.forEach(item => {
+            const link = document.createElement('a');
+            link.href = item.href;
+            link.className = 'submenu-popup-link';
+            link.innerHTML = `
+                <i class="${item.icon}"></i>
+                <span class="menu-text">${item.text}</span>
+            `;
+            
+            // 클릭 이벤트
+            link.addEventListener('click', function(e) {
+                if (item.href === '#') {
+                    e.preventDefault();
+                    console.log('서브메뉴 클릭:', item.text);
+                } else {
+                    console.log('페이지 이동:', item.href);
+                    // 실제 링크인 경우 서브메뉴 닫기
+                    closeSubmenuPopup();
+                }
+            });
+            
+            submenuContent.appendChild(link);
+        });
+        
+        // 팝업 표시
+        submenuPopup.classList.add('show');
+    }
+    
+    // 메인 서브메뉴로 돌아가기 함수
+    function showMainSubmenu() {
+        const submenuPopup = document.getElementById('submenuPopup');
+        const submenuTitle = document.getElementById('submenuTitle');
+        const submenuContent = document.getElementById('submenuContent');
+        
+        // 제목을 원래대로 복원
+        submenuTitle.innerHTML = `
+            기초자료
+            <button class="submenu-close-btn" id="submenuCloseBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        // 기존 서브메뉴 아이템들 다시 생성
+        const menuItems = submenuData['basic-data'].items;
+        submenuContent.innerHTML = '';
+        
+        menuItems.forEach(item => {
+            const link = document.createElement('a');
+            link.href = item.href;
+            link.className = 'submenu-popup-link';
+            
+            // 현재 페이지인 경우 active 클래스 추가
+            if (item.href === '/stations-manage/tank-registration/') {
+                link.classList.add('active');
+            }
+            
+            link.innerHTML = `
+                <i class="${item.icon}"></i>
+                <span class="menu-text">${item.text}</span>
+            `;
+            
+            // 클릭 이벤트
+            link.addEventListener('click', function(e) {
+                if (item.href === '#') {
+                    e.preventDefault();
+                    console.log('메뉴 클릭:', item.text);
+                    
+                    // 서브메뉴가 있는 경우 처리
+                    if (item.submenu) {
+                        showSubSubmenu(item.submenu, item.text);
+                    }
+                } else {
+                    console.log('페이지 이동:', item.href);
+                    // 실제 링크인 경우 서브메뉴 닫기
+                    closeSubmenuPopup();
+                }
+            });
+            
+            submenuContent.appendChild(link);
+        });
+        
+        // 닫기 버튼 이벤트 다시 등록
+        document.getElementById('submenuCloseBtn').addEventListener('click', function() {
+            closeSubmenuPopup();
+        });
+    }
     
     // 폼 제출 이벤트
     document.getElementById('tankRegistrationForm').addEventListener('submit', function(e) {

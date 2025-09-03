@@ -105,38 +105,46 @@
     }
     
     /* 두 번째 사이드바 (서브메뉴용) */
-    .submenu-sidebar {
+    .submenu-popup {
         position: fixed;
-        top: 4.5rem;
-        left: 280px;
-        height: calc(100vh - 4.5rem);
-        width: 260px;
-        background: #2c3e50;
+        top: 5rem;
+        left: 300px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000;
+        max-height: 80vh;
         overflow-y: auto;
-        z-index: 999;
-        transition: transform 0.3s ease;
+        min-width: 280px;
         transform: translateX(-100%);
-        border-left: 1px solid #34495e;
+        opacity: 0;
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
     }
     
-    .submenu-sidebar.show {
+    .submenu-popup.show {
         transform: translateX(0);
+        opacity: 1;
     }
     
-    .submenu-sidebar-header {
-        padding: 1.5rem 1rem;
-        border-bottom: 1px solid #34495e;
-        background: #34495e;
+    .submenu-popup-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        background: #2c3e50;
+        color: white;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     
-    .submenu-sidebar-title {
+    .submenu-popup-title {
         color: white;
         font-size: 1rem;
         font-weight: 600;
-        margin: 0;
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        gap: 0.5rem;
     }
     
     .submenu-close-btn {
@@ -145,20 +153,21 @@
         color: #bdc3c7;
         font-size: 1.2rem;
         cursor: pointer;
-        padding: 0;
-        transition: color 0.3s ease;
+        padding: 0.25rem;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
     }
     
     .submenu-close-btn:hover {
-        color: white;
+        background: rgba(255, 255, 255, 0.1);
     }
     
-    .submenu-sidebar-menu {
-        padding: 1rem 0;
+    .submenu-popup-menu {
+        padding: 0.5rem 0;
     }
     
-    .submenu-sidebar-link {
-        color: #bdc3c7;
+    .submenu-popup-link {
+        color: #2c3e50;
         padding: 0.75rem 1.5rem;
         border: none;
         background: transparent;
@@ -168,25 +177,25 @@
         text-decoration: none;
         font-weight: 500;
         width: 100%;
-        text-align: left;
+        border-bottom: 1px solid #f8f9fa;
     }
     
-    .submenu-sidebar-link:hover {
-        color: #ffffff;
-        background: #34495e;
+    .submenu-popup-link:hover {
+        color: #3498db;
+        background: #f8f9fa;
         transform: translateX(5px);
         font-weight: 600;
     }
     
-    .submenu-sidebar-link.active {
-        color: #ffffff;
-        background: rgba(52, 152, 219, 0.15);
+    .submenu-popup-link.active {
+        color: #3498db;
+        background: rgba(52, 152, 219, 0.1);
         border-left: 3px solid #3498db;
         font-weight: 500;
         position: relative;
     }
     
-    .submenu-sidebar-link.active::before {
+    .submenu-popup-link.active::before {
         content: '';
         position: absolute;
         left: 0;
@@ -197,24 +206,32 @@
         border-radius: 0 2px 2px 0;
     }
     
-    .submenu-sidebar-link i {
+    .submenu-popup-link i {
         width: 20px;
         margin-right: 10px;
         text-align: center;
-        font-size: 0.8rem;
+        color: #7f8c8d;
+    }
+    
+    .submenu-popup-link:hover i {
+        color: #3498db;
+    }
+    
+    .submenu-popup-link .menu-text {
+        flex: 1;
     }
     
     /* 메인 콘텐츠 영역 조정 */
     .main-content {
         margin-left: 280px;
-        padding: 2rem;
+        padding: 0.5rem;
         min-height: calc(100vh - 4.5rem);
         background: #f8f9fa;
         transition: margin-left 0.3s ease;
     }
     
     .main-content.submenu-open {
-        margin-left: 540px;
+        margin-left: 280px;
     }
     
     /* 모바일 반응형 */
@@ -262,8 +279,8 @@
     /* 주유기 노즐정보 등록 폼 스타일 */
     .nozzle-registration-container {
         display: flex;
-        gap: 2rem;
-        height: calc(100vh - 8rem);
+        gap: 1rem;
+        height: calc(100vh - 6rem);
     }
     
     .form-panel {
@@ -277,7 +294,7 @@
     .form-header {
         background: #2c3e50;
         color: white;
-        padding: 1rem 1.5rem;
+        padding: 0.75rem 1rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -286,7 +303,7 @@
     .form-title {
         background: #e74c3c;
         color: white;
-        padding: 0.5rem 1rem;
+        padding: 0.75rem 1rem;
         border-radius: 4px;
         font-weight: 600;
         margin: 0;
@@ -308,11 +325,11 @@
     }
     
     .form-body {
-        padding: 1.5rem;
+        padding: 0.75rem;
     }
     
     .form-group {
-        margin-bottom: 1.5rem;
+        margin-bottom: 0.75rem;
     }
     
     .form-label {
@@ -340,9 +357,9 @@
     
     .form-actions {
         display: flex;
-        gap: 1rem;
+        gap: 0.5rem;
         justify-content: center;
-        padding-top: 1.5rem;
+        padding-top: 0.75rem;
         border-top: 1px solid #e9ecef;
     }
     
@@ -390,7 +407,7 @@
     
     .table-header {
         background: #f8f9fa;
-        padding: 1rem 1.5rem;
+        padding: 0.75rem 1rem;
         border-bottom: 1px solid #e9ecef;
     }
     
@@ -456,7 +473,7 @@
         }
         
         .form-body {
-            padding: 1rem;
+            padding: 0.75rem;
         }
         
         .form-actions {
@@ -497,7 +514,7 @@
             <span class="menu-text">기초자료</span>
         </a>
         
-        <a href="/stations-manage/business-registration/" class="nav-link">
+        <a href="javascript:void(0)" class="nav-link" onclick="openCustomerManagementMenu()">
             <i class="fas fa-building"></i>
             <span class="menu-text">거래처관리</span>
         </a>
@@ -578,10 +595,10 @@
     </div>
 </div>
 
-<!-- 두 번째 사이드바 (서브메뉴용) -->
-<div class="submenu-sidebar" id="submenuSidebar">
-    <div class="submenu-sidebar-header">
-        <div class="submenu-sidebar-title">
+<!-- 서브메뉴 플로팅 팝업 -->
+<div class="submenu-popup" id="submenuPopup">
+    <div class="submenu-popup-header">
+        <div class="submenu-popup-title">
             <span id="submenuTitle">기초자료</span>
             <button class="submenu-close-btn" id="submenuCloseBtn">
                 <i class="fas fa-times"></i>
@@ -589,13 +606,25 @@
         </div>
     </div>
     
-    <div class="submenu-sidebar-menu" id="submenuContent">
+    <div class="submenu-popup-menu" id="submenuContent">
         <!-- 동적으로 내용이 채워집니다 -->
     </div>
 </div>
 
 <!-- 메인 콘텐츠 영역 -->
 <div class="main-content" id="mainContent">
+    <!-- Django 메시지 표시 -->
+    {% if messages %}
+    <div class="messages-container" style="margin-bottom: 1rem;">
+        {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
     <!-- 주유기 노즐정보 등록 컨테이너 -->
     <div class="nozzle-registration-container">
         <!-- 좌측: 입력 폼 패널 -->
@@ -608,31 +637,40 @@
             </div>
             
             <div class="form-body">
-                <form id="nozzleRegistrationForm">
+                <form id="nozzleRegistrationForm" method="POST">
+                    {% csrf_token %}
                     <div class="form-group">
-                        <label for="nozzleCode" class="form-label">노즐 코드</label>
-                        <input type="text" class="form-control" id="nozzleCode" name="nozzleCode" value="700001" required>
+                        <label for="nozzle_code" class="form-label">노즐 코드</label>
+                        <input type="text" class="form-control" id="nozzle_code" name="nozzle_code" 
+                               value="{% if form_data.nozzle_code %}{{ form_data.nozzle_code }}{% else %}700001{% endif %}" 
+                               placeholder="예: 700001" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="nozzleNumber" class="form-label">노즐번호</label>
-                        <input type="text" class="form-control" id="nozzleNumber" name="nozzleNumber" value="1" required>
+                        <label for="nozzle_number" class="form-label">노즐번호</label>
+                        <input type="text" class="form-control" id="nozzle_number" name="nozzle_number" 
+                               value="{% if form_data.nozzle_number %}{{ form_data.nozzle_number }}{% else %}1{% endif %}" 
+                               placeholder="예: 1" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="connectedTankNumber" class="form-label">연결탱크번호</label>
-                        <select class="form-select" id="connectedTankNumber" name="connectedTankNumber" required>
-                            <option value="1" selected>1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
+                        <label for="connected_tank" class="form-label">연결탱크번호</label>
+                        <select class="form-select" id="connected_tank" name="connected_tank" required>
+                            <option value="">연결할 탱크를 선택하세요</option>
+                            {% for tank in tanks %}
+                            <option value="{{ tank.id }}" 
+                                    {% if form_data.connected_tank == tank.id|stringformat:"s" %}selected{% endif %}>
+                                {{ tank.tank_number }} ({{ tank.fuel_type }})
+                            </option>
+                            {% endfor %}
                         </select>
                     </div>
                     
                     <div class="form-group">
-                        <label for="fuelType" class="form-label">품목(유종)명</label>
-                        <input type="text" class="form-control" id="fuelType" name="fuelType" value="휘발유" required>
+                        <label for="fuel_type" class="form-label">품목(유종)명</label>
+                        <input type="text" class="form-control" id="fuel_type" name="fuel_type" 
+                               value="{% if form_data.fuel_type %}{{ form_data.fuel_type }}{% else %}휘발유{% endif %}" 
+                               placeholder="예: 휘발유" required>
                     </div>
                     
                     <!-- 액션 버튼 -->
@@ -640,10 +678,6 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i>
                             저장
-                        </button>
-                        <button type="button" class="btn btn-danger" onclick="deleteNozzle()">
-                            <i class="fas fa-trash"></i>
-                            삭제
                         </button>
                     </div>
                 </form>
@@ -664,111 +698,30 @@
                             <th>노즐번호</th>
                             <th>연결탱크번호</th>
                             <th>품목(유종)명</th>
+                            <th>작업</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>700001</td>
-                            <td>1</td>
-                            <td>2</td>
-                            <td>고급휘발유</td>
-                        </tr>
-                        <tr>
-                            <td>700002</td>
-                            <td>2</td>
-                            <td>4</td>
-                            <td>경유</td>
-                        </tr>
-                        <tr>
-                            <td>700003</td>
-                            <td>3</td>
-                            <td>1</td>
-                            <td>휘발유</td>
-                        </tr>
-                        <tr>
-                            <td>700004</td>
-                            <td>4</td>
-                            <td>3</td>
-                            <td>경유</td>
-                        </tr>
-                        <tr>
-                            <td>700005</td>
-                            <td>5</td>
-                            <td>3</td>
-                            <td>휘발유</td>
-                        </tr>
-                        <tr>
-                            <td>700006</td>
-                            <td>6</td>
-                            <td>5</td>
-                            <td>요소수</td>
-                        </tr>
-                        <tr>
-                            <td>700007</td>
-                            <td>7</td>
-                            <td>1</td>
-                            <td>고급휘발유</td>
-                        </tr>
-                        <tr>
-                            <td>700008</td>
-                            <td>8</td>
-                            <td>4</td>
-                            <td>경유</td>
-                        </tr>
-                        <tr>
-                            <td>700009</td>
-                            <td>9</td>
-                            <td>3</td>
-                            <td>등유</td>
-                        </tr>
-                        <tr>
-                            <td>700010</td>
-                            <td>10</td>
-                            <td>2</td>
-                            <td>휘발유</td>
-                        </tr>
-                        <tr>
-                            <td>700011</td>
-                            <td>11</td>
-                            <td>5</td>
-                            <td>요소수</td>
-                        </tr>
-                        <tr>
-                            <td>700012</td>
-                            <td>12</td>
-                            <td>1</td>
-                            <td>고급휘발유</td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                        </tr>
+                        {% if nozzles %}
+                            {% for nozzle in nozzles %}
+                            <tr>
+                                <td>{{ nozzle.nozzle_code }}</td>
+                                <td>{{ nozzle.nozzle_number }}</td>
+                                <td>{{ nozzle.connected_tank.tank_number }}</td>
+                                <td>{{ nozzle.fuel_type }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-danger" 
+                                            onclick="deleteNozzle('{{ nozzle.id }}', '{{ nozzle.nozzle_code|escapejs }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">등록된 노즐이 없습니다.</td>
+                            </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
@@ -817,7 +770,29 @@
                 {
                     text: '기초 자료(값) 등록',
                     icon: 'fas fa-database',
-                    href: '#'
+                    href: '#',
+                    submenu: [
+                        {
+                            text: '탱크 기초재고',
+                            icon: 'fas fa-cube',
+                            href: '/stations-manage/tank-inventory/'
+                        },
+                        {
+                            text: '주유기 기초 계기자료',
+                            icon: 'fas fa-tachometer-alt',
+                            href: '/stations-manage/dispenser-meter/'
+                        },
+                        {
+                            text: '유외상품 기초재고',
+                            icon: 'fas fa-boxes',
+                            href: '/stations-manage/product-inventory/'
+                        },
+                        {
+                            text: '외상채권 기초잔액',
+                            icon: 'fas fa-hand-holding-usd',
+                            href: '/stations-manage/receivables/'
+                        }
+                    ]
                 }
             ]
         }
@@ -871,7 +846,7 @@
     
     // 기초자료 메뉴 열기 함수
     function openBasicDataMenu() {
-        openSubmenuSidebar('basic-data', '기초자료');
+        openSubmenuPopup('basic-data', '기초자료');
     }
     
     // 메뉴 토글 이벤트 (두 번째 사이드바 열기) - 중복 방지
@@ -895,7 +870,7 @@
         const menuTitle = this.getAttribute('data-title');
         
         if (submenuData[menuType]) {
-            openSubmenuSidebar(menuType, menuTitle);
+            openSubmenuPopup(menuType, menuTitle);
         }
         
         // URL에 #이 붙지 않도록 history 상태 업데이트
@@ -909,9 +884,9 @@
         }
     }
     
-    // 두 번째 사이드바 열기 함수
-    function openSubmenuSidebar(menuType, title) {
-        const submenuSidebar = document.getElementById('submenuSidebar');
+    // 서브메뉴 플로팅 팝업 열기 함수
+    function openSubmenuPopup(menuType, title) {
+        const submenuPopup = document.getElementById('submenuPopup');
         const submenuTitle = document.getElementById('submenuTitle');
         const submenuContent = document.getElementById('submenuContent');
         const mainContent = document.getElementById('mainContent');
@@ -926,7 +901,7 @@
         menuItems.forEach(item => {
             const link = document.createElement('a');
             link.href = item.href;
-            link.className = 'submenu-sidebar-link';
+            link.className = 'submenu-popup-link';
             if (item.href === '/stations-manage/nozzle-registration/') {
                 link.classList.add('active');
             }
@@ -940,50 +915,167 @@
                 if (item.href === '#') {
                     e.preventDefault();
                     console.log('메뉴 클릭:', item.text);
+                    
+                    // 서브메뉴가 있는 경우 처리
+                    if (item.submenu) {
+                        showSubSubmenu(item.submenu, item.text);
+                    }
                 } else {
                     console.log('페이지 이동:', item.href);
                     // 실제 링크인 경우 서브메뉴 닫기
-                    closeSubmenuSidebar();
+                    closeSubmenuPopup();
                 }
             });
             
             submenuContent.appendChild(link);
         });
         
-        // 사이드바 열기
-        submenuSidebar.classList.add('show');
+        // 팝업 열기
+        submenuPopup.classList.add('show');
         mainContent.classList.add('submenu-open');
     }
     
-    // 두 번째 사이드바 닫기
+    // 서브메뉴 플로팅 팝업 닫기
     document.getElementById('submenuCloseBtn').addEventListener('click', function() {
-        const submenuSidebar = document.getElementById('submenuSidebar');
+        const submenuPopup = document.getElementById('submenuPopup');
         const mainContent = document.getElementById('mainContent');
         
-        submenuSidebar.classList.remove('show');
+        submenuPopup.classList.remove('show');
         mainContent.classList.remove('submenu-open');
     });
     
-    // 폼 제출 이벤트
+    // 서브서브메뉴 표시 함수
+    function showSubSubmenu(submenuItems, parentTitle) {
+        const submenuPopup = document.getElementById('submenuPopup');
+        const submenuTitle = document.getElementById('submenuTitle');
+        const submenuContent = document.getElementById('submenuContent');
+        
+        // 제목 설정 (부모 메뉴명 + 서브메뉴)
+        submenuTitle.innerHTML = `
+            <i class="fas fa-arrow-left me-2" style="cursor: pointer;" onclick="showMainSubmenu()"></i>
+            ${parentTitle}
+        `;
+        
+        // 서브서브메뉴 아이템 생성
+        submenuContent.innerHTML = '';
+        
+        submenuItems.forEach(item => {
+            const link = document.createElement('a');
+            link.href = item.href;
+            link.className = 'submenu-popup-link';
+            link.innerHTML = `
+                <i class="${item.icon}"></i>
+                <span class="menu-text">${item.text}</span>
+            `;
+            
+            // 클릭 이벤트
+            link.addEventListener('click', function(e) {
+                if (item.href === '#') {
+                    e.preventDefault();
+                    console.log('서브메뉴 클릭:', item.text);
+                } else {
+                    console.log('페이지 이동:', item.href);
+                    // 실제 링크인 경우 서브메뉴 닫기
+                    closeSubmenuPopup();
+                }
+            });
+            
+            submenuContent.appendChild(link);
+        });
+        
+        // 팝업 표시
+        submenuPopup.classList.add('show');
+    }
+    
+    // 메인 서브메뉴로 돌아가기 함수
+    function showMainSubmenu() {
+        const submenuPopup = document.getElementById('submenuPopup');
+        const submenuTitle = document.getElementById('submenuTitle');
+        const submenuContent = document.getElementById('submenuContent');
+        
+        // 제목을 원래대로 복원
+        submenuTitle.innerHTML = `
+            기초자료
+            <button class="submenu-close-btn" id="submenuCloseBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        // 기존 서브메뉴 아이템들 다시 생성
+        const menuItems = submenuData['basic-data'].items;
+        submenuContent.innerHTML = '';
+        
+        menuItems.forEach(item => {
+            const link = document.createElement('a');
+            link.href = item.href;
+            link.className = 'submenu-popup-link';
+            
+            // 현재 페이지인 경우 active 클래스 추가
+            if (item.href === '/stations-manage/nozzle-registration/') {
+                link.classList.add('active');
+            }
+            
+            link.innerHTML = `
+                <i class="${item.icon}"></i>
+                <span class="menu-text">${item.text}</span>
+            `;
+            
+            // 클릭 이벤트
+            link.addEventListener('click', function(e) {
+                if (item.href === '#') {
+                    e.preventDefault();
+                    console.log('메뉴 클릭:', item.text);
+                    
+                    // 서브메뉴가 있는 경우 처리
+                    if (item.submenu) {
+                        showSubSubmenu(item.submenu, item.text);
+                    }
+                } else {
+                    console.log('페이지 이동:', item.href);
+                    // 실제 링크인 경우 서브메뉴 닫기
+                    closeSubmenuPopup();
+                }
+            });
+            
+            submenuContent.appendChild(link);
+        });
+        
+        // 닫기 버튼 이벤트 다시 등록
+        document.getElementById('submenuCloseBtn').addEventListener('click', function() {
+            closeSubmenuPopup();
+        });
+    }
+    
+    // 폼 제출 이벤트 - 실제 POST 요청 처리
     document.getElementById('nozzleRegistrationForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // 폼 데이터 수집
-        const formData = new FormData(this);
-        const data = Object.fromEntries(formData);
-        
-        console.log('저장할 데이터:', data);
-        
-        // 여기에 실제 저장 로직을 구현할 수 있습니다
-        alert('노즐 정보가 저장되었습니다.');
+        // 폼이 실제로 서버로 제출되도록 기본 동작 허용
+        // Django의 POST 처리 로직이 실행됩니다
     });
     
     // 삭제 함수
-    function deleteNozzle() {
-        if (confirm('정말로 노즐 정보를 삭제하시겠습니까?')) {
-            console.log('삭제 실행');
-            alert('노즐 정보가 삭제되었습니다.');
-            // 여기에 실제 삭제 로직을 구현할 수 있습니다
+    function deleteNozzle(nozzleId, nozzleCode) {
+        if (confirm(`정말로 노즐 "${nozzleCode}"을(를) 삭제하시겠습니까?`)) {
+            fetch('{% url "stations_manage:delete_nozzle" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `nozzle_id=${nozzleId}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('노즐이 삭제되었습니다.');
+                    location.reload();
+                } else {
+                    alert('삭제 실패: ' + (data.error || '알 수 없는 오류가 발생했습니다.'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('삭제 중 오류가 발생했습니다.');
+            });
         }
     }
     

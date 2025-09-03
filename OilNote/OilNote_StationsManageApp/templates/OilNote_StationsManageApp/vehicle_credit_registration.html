@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
 
-{% block title %}{{ page_title }}{% endblock %}
+{% block title %}차량 / 외상카드 등록{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -67,15 +67,15 @@
         font-weight: 600;
     }
     
-    .sidebar-menu .nav-link.active:not(.menu-toggle) {
-        color: #ffffff;
+    .sidebar-menu .nav-link.active {
+        color: #ffffff !important;
         background: rgba(52, 152, 219, 0.15);
         border-left: 3px solid #3498db;
         font-weight: 500;
         position: relative;
     }
     
-    .sidebar-menu .nav-link.active:not(.menu-toggle)::before {
+    .sidebar-menu .nav-link.active::before {
         content: '';
         position: absolute;
         left: 0;
@@ -94,148 +94,6 @@
     
     .sidebar-menu .nav-link .menu-text {
         flex: 1;
-    }
-    
-    .sidebar-menu .nav-link .badge {
-        background: #e74c3c;
-        color: white;
-        font-size: 0.7rem;
-        padding: 0.2rem 0.5rem;
-        border-radius: 10px;
-    }
-    
-    /* 사이드바 토글 버튼 (모바일용) */
-    .sidebar-toggle {
-        display: none;
-        position: fixed;
-        top: 5rem;
-        left: 1rem;
-        z-index: 1001;
-        background: #3498db;
-        color: white;
-        border: none;
-        padding: 0.5rem;
-        border-radius: 4px;
-        cursor: pointer;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        transition: all 0.3s ease;
-    }
-    
-    /* 모바일에서만 토글 버튼 표시 */
-    @media (max-width: 768px) {
-        .sidebar-toggle {
-            display: block !important;
-        }
-    }
-    
-    /* 서브메뉴 스타일 */
-    .menu-item {
-        position: relative;
-    }
-    
-    .menu-toggle {
-        position: relative;
-        transition: all 0.3s ease;
-    }
-    
-    .menu-toggle:hover {
-        background: #5a6f8a !important;
-        transform: translateX(5px);
-    }
-    
-    .toggle-icon {
-        position: absolute;
-        right: 1rem;
-        transition: transform 0.3s ease;
-        font-size: 0.8rem;
-    }
-    
-    .menu-toggle.active .toggle-icon {
-        transform: rotate(180deg);
-    }
-    
-    .menu-toggle.active {
-        background: transparent !important;
-        color: #ffffff !important;
-        border-left: none;
-        font-weight: 500;
-        position: relative;
-    }
-    
-    .menu-toggle.active::before {
-        display: none;
-    }
-    
-    .submenu {
-        display: none;
-        background: #2c3e50;
-        border-left: 3px solid #3498db;
-        overflow: hidden;
-        transition: all 0.3s ease;
-        max-height: 0;
-    }
-    
-    .submenu.show {
-        display: block;
-        max-height: 500px;
-        animation: slideDown 0.3s ease;
-    }
-    
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .submenu-link {
-        padding: 0.6rem 1.5rem 0.6rem 3.5rem !important;
-        font-size: 0.85rem;
-        color: #bdc3c7 !important;
-        border-left: none !important;
-        transition: all 0.2s ease;
-        position: relative;
-    }
-    
-    .submenu-link:hover {
-        color: #ffffff !important;
-        background: #34495e !important;
-        transform: translateX(5px) !important;
-        padding-left: 4rem !important;
-    }
-    
-    .submenu-link.active {
-        color: #ffffff !important;
-        background: rgba(41, 128, 185, 0.15) !important;
-        border-left: 3px solid #3498db !important;
-        font-weight: 500;
-        position: relative;
-    }
-    
-    .submenu-link.active::before {
-        content: '';
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        width: 3px;
-        background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
-        border-radius: 0 2px 2px 0;
-    }
-    
-    .submenu-link i {
-        font-size: 0.6rem;
-        width: 12px;
-        margin-right: 8px;
-        opacity: 0.7;
-    }
-    
-    .submenu-link:hover i {
-        opacity: 1;
     }
     
     /* 메뉴 구분선 스타일 */
@@ -363,12 +221,12 @@
         flex: 1;
     }
     
-    /* 메인 콘텐츠 영역 조정 */
+    /* 기본 스타일 */
     .main-content {
         margin-left: 280px;
-        padding: 2rem;
-        min-height: calc(100vh - 4.5rem);
+        padding: 1rem;
         background: #f8f9fa;
+        min-height: calc(100vh - 4.5rem);
         transition: margin-left 0.3s ease;
     }
     
@@ -376,170 +234,230 @@
         margin-left: 280px;
     }
     
-    /* 모바일 반응형 */
-    @media (max-width: 768px) {
-        .sidebar {
-            transform: translateX(-100%);
-            width: 250px;
-        }
-        
-        .sidebar.show {
-            transform: translateX(0);
-        }
-        
-        .submenu-sidebar {
-            left: 250px;
-            width: 240px;
-        }
-        
-        .main-content {
-            margin-left: 0;
-            padding: 1rem;
-        }
-        
-        .main-content.submenu-open {
-            margin-left: 0;
-        }
-        
-        /* 사이드바가 열려있을 때 배경 오버레이 */
-        .sidebar-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 999;
-        }
-        
-        .sidebar-overlay.show {
-            display: block;
-        }
+    /* 헤더 스타일 */
+    .page-header {
+        background: #2c3e50;
+        color: white;
+        padding: 1rem;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0;
     }
     
-    .sidebar-toggle {
-        display: none;
-        position: fixed;
-        top: 5rem;
-        left: 1rem;
-        z-index: 1001;
-        background: #3498db;
-        color: white;
+    .page-title {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+    
+    .close-btn {
+        background: none;
         border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
         padding: 0.5rem;
         border-radius: 4px;
-        cursor: pointer;
+        transition: background-color 0.3s ease;
     }
     
-
+    .close-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
     
-    /* 대시보드 카드 스타일 */
-    .dashboard-card {
+    /* 메인 컨테이너 */
+    .vehicle-credit-container {
         background: white;
-        border-radius: 10px;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    /* 폼 섹션 */
+    .form-section {
         padding: 1.5rem;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        margin-bottom: 1.5rem;
-        transition: transform 0.3s ease;
+        border-bottom: 2px solid #e9ecef;
     }
     
-    .dashboard-card:hover {
-        transform: translateY(-5px);
-    }
-    
-    .stat-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 15px;
-        padding: 2rem;
-        text-align: center;
-        margin-bottom: 1.5rem;
-    }
-    
-    .stat-number {
-        font-size: 2.5rem;
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-    }
-    
-    .stat-label {
-        font-size: 1rem;
-        opacity: 0.9;
-    }
-    
-    /* 기존 스타일 유지 */
-    .header-section {
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-        padding: 10px 0;
-    }
-    
-    .system-title {
-        color: #dc3545;
-        font-weight: bold;
-        font-size: 1.2rem;
-        margin: 0;
-    }
-    
-    .header-buttons {
+    .form-grid {
         display: flex;
-        gap: 10px;
+        flex-direction: column;
+        gap: 1.5rem;
     }
     
-    .header-btn {
-        background-color: #007bff;
-        color: white;
-        border: none;
-        padding: 5px 15px;
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 1rem;
+        align-items: end;
+    }
+    
+    .form-row:last-child {
+        grid-template-columns: repeat(4, 1fr);
+    }
+    
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 0.9rem;
+    }
+    
+    .form-control, .form-select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ced4da;
         border-radius: 4px;
         font-size: 0.9rem;
-        cursor: pointer;
-        transition: background-color 0.3s;
+        background-color: white;
+        transition: border-color 0.3s ease;
     }
     
-    .header-btn:hover {
-        background-color: #0056b3;
+    .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
     }
     
-    .main-menu-bar {
-        background-color: #1e3a8a;
-        padding: 0;
-        margin: 0;
-    }
-    
-    .menu-container {
+    /* 액션 버튼 */
+    .action-buttons {
         display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        min-height: 50px;
+        gap: 1rem;
+        justify-content: center;
+        padding: 1.5rem;
+        border-bottom: 2px solid #e9ecef;
     }
     
-    .menu-item {
-        color: white;
-        padding: 15px 20px;
-        text-decoration: none;
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 4px;
         font-size: 0.9rem;
-        font-weight: 500;
-        transition: background-color 0.3s;
-        border-right: 1px solid #3b5998;
-        white-space: nowrap;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
     }
     
-    .menu-item:hover {
-        background-color: #2563eb;
+    .btn-secondary {
+        background-color: #6c757d;
         color: white;
-        text-decoration: none;
     }
     
-    .menu-item:last-child {
-        border-right: none;
+    .btn-secondary:hover {
+        background-color: #5a6268;
     }
     
-    .yellow-line {
-        height: 3px;
-        background-color: #fbbf24;
+    .btn-primary {
+        background-color: #3498db;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #2980b9;
+    }
+    
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .btn-success:hover {
+        background-color: #218838;
+    }
+    
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background-color: #c82333;
+    }
+    
+    /* 데이터 그리드 */
+    .data-grid-section {
+        padding: 1.5rem;
+    }
+    
+    .grid-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+    }
+    
+    .data-table-container {
+        overflow-x: auto;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+    }
+    
+    .data-table {
         width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+        min-width: 800px;
+    }
+    
+    .data-table th {
+        background: #f8f9fa;
+        padding: 0.75rem 0.5rem;
+        text-align: center;
+        font-weight: 600;
+        color: #2c3e50;
+        border: 1px solid #e9ecef;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .data-table td {
+        padding: 0.5rem;
+        border: 1px solid #e9ecef;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .data-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .data-table tbody tr:nth-child(even) {
+        background-color: #fafbfc;
+    }
+    
+    /* 반응형 웹 */
+    @media (max-width: 1200px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+            padding: 0.5rem;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
     }
 </style>
 {% endblock %}
@@ -570,7 +488,7 @@
             <span class="menu-text">기초자료</span>
         </a>
         
-        <a href="javascript:void(0)" class="nav-link" onclick="openCustomerManagementMenu()">
+        <a href="javascript:void(0)" class="nav-link active" onclick="openCustomerManagementMenu()">
             <i class="fas fa-building"></i>
             <span class="menu-text">거래처관리</span>
         </a>
@@ -655,7 +573,7 @@
 <div class="submenu-popup" id="submenuPopup">
     <div class="submenu-popup-header">
         <div class="submenu-popup-title">
-            <span id="submenuTitle">기초자료</span>
+            <span id="submenuTitle">거래처관리</span>
             <button class="submenu-close-btn" id="submenuCloseBtn">
                 <i class="fas fa-times"></i>
             </button>
@@ -669,144 +587,179 @@
 
 <!-- 메인 콘텐츠 영역 -->
 <div class="main-content" id="mainContent">
-    <!-- Header Section 
-    <div class="header-section">
-        <div class="container-fluid">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <h1 class="system-title">주유소 관리 시스템 | Service Station Management System</h1>
-                </div>
-                <div class="col-md-6 text-end">
-                    <div class="header-buttons">
-                        <button class="header-btn">전체메뉴 닫기</button>
-                        <button class="header-btn">종료</button>
+    <!-- 페이지 헤더 -->
+    <div class="page-header">
+        <h1 class="page-title">차량 / 외상카드 등록</h1>
+        <button class="close-btn" onclick="window.close()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <!-- 메인 컨테이너 -->
+    <div class="vehicle-credit-container">
+        <!-- 폼 섹션 -->
+        <div class="form-section">
+            <div class="form-grid">
+                <!-- 첫 번째 행: 차량 정보 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="customer_selection" class="form-label">거래처 선택</label>
+                        <select class="form-select" id="customer_selection">
+                            <option value="">거래처를 선택하세요</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vehicle_number" class="form-label">차량번호</label>
+                        <input type="text" class="form-control" id="vehicle_number" value="경기11가1111">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="fuel_type" class="form-label">유종</label>
+                        <select class="form-select" id="fuel_type">
+                            <option value="휘발유" selected>휘발유</option>
+                            <option value="경유">경유</option>
+                            <option value="등유">등유</option>
+                            <option value="요소수">요소수</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="vehicle_category" class="form-label">차량구분</label>
+                        <select class="form-select" id="vehicle_category">
+                            <option value="승용차" selected>승용차</option>
+                            <option value="화물차">화물차</option>
+                            <option value="버스">버스</option>
+                            <option value="특수차량">특수차량</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="validity_period" class="form-label">유효기간</label>
+                        <input type="date" class="form-control" id="validity_period" value="2025-12-31">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="status" class="form-label">상태</label>
+                        <select class="form-select" id="status">
+                            <option value="정상, 정지" selected>정상, 정지</option>
+                            <option value="정상">정상</option>
+                            <option value="정지">정지</option>
+                            <option value="만료">만료</option>
+                        </select>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main Menu Bar 
-    <div class="main-menu-bar">
-        <div class="container-fluid">
-            <div class="menu-container">
-                <a href="#" class="menu-item">기초자료 (Basic Data)</a>
-                <a href="#" class="menu-item">거래처관리 (Customer Management)</a>
-                <a href="#" class="menu-item">단가관리 (Unit Price Management)</a>
-                <a href="#" class="menu-item">매출등록 (Sales Registration)</a>
-                <a href="#" class="menu-item">매입등록 (Purchase Registration)</a>
-                <a href="#" class="menu-item">입금등록 (Deposit Registration)</a>
-                <a href="#" class="menu-item">재고관리 (Inventory Management)</a>
-                <a href="#" class="menu-item">보관증관리 (Storage Receipt Management)</a>
-                <a href="#" class="menu-item">외상관리 (Credit Management)</a>
-                <a href="#" class="menu-item">면세판매관리 (Tax-Exempt Sales Management)</a>
-                <a href="#" class="menu-item">석유관리원보고자료 (Petroleum Management Agency Report Data)</a>
-                <a href="#" class="menu-item">자료조회 (Data Inquiry)</a>
-                <a href="#" class="menu-item">매출원장관리 (Sales Ledger Management)</a>
-                <a href="#" class="menu-item">00자료 (00 Data)</a>
-            </div>
-        </div>
-        <div class="yellow-line"></div>
-    </div>
-    -->
-
-    <!-- Dashboard Content -->
-    <div class="container-fluid mt-4">
-        <!-- Welcome Section -->
-        <div class="dashboard-card">
-            <h2 class="mb-3">
-                <i class="fas fa-tachometer-alt me-2"></i>
-                주유소 관리 시스템 대시보드
-            </h2>
-            <p class="text-muted">왼쪽 메뉴에서 원하는 기능을 선택하세요.</p>
-            <hr>
-            <div class="row mt-3">
-                <div class="col-md-6">
-                    <h6><i class="fas fa-info-circle me-2"></i>시스템 안내</h6>
-                    <ul class="list-unstyled small">
-                        <li><i class="fas fa-check text-success me-2"></i>기초자료: 주유소 기본 정보 및 설정</li>
-                        <li><i class="fas fa-check text-success me-2"></i>거래처관리: 거래처 정보 관리</li>
-                        <li><i class="fas fa-check text-success me-2"></i>매출/매입: 일일 매출 및 매입 등록</li>
-                        <li><i class="fas fa-check text-success me-2"></i>재고관리: 유류 재고 현황 관리</li>
-                    </ul>
-                </div>
-                <div class="col-md-6">
-                    <h6><i class="fas fa-clock me-2"></i>시스템 상태</h6>
-                    <div class="alert alert-success small">
-                        <i class="fas fa-check-circle me-2"></i>
-                        시스템이 정상적으로 실행 중입니다.
+                
+                <!-- 두 번째 행: 외상카드 정보 -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="credit_card_number" class="form-label">외상카드번호</label>
+                        <input type="text" class="form-control" id="credit_card_number" value="1111-2222-3333-4444">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="customer_name" class="form-label">고객명</label>
+                        <input type="text" class="form-control" id="customer_name" value="빈살만">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="contact" class="form-label">연락처</label>
+                        <input type="text" class="form-control" id="contact" value="010-3333-5555">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="memo" class="form-label">메모</label>
+                        <input type="text" class="form-control" id="memo" value="지게차, 새벽주유">
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Statistics Grid -->
-        <div class="row">
-            <div class="col-md-3">
-                <div class="stat-card">
-                    <div class="stat-number">₩12,450,000</div>
-                    <div class="stat-label">오늘 매출</div>
-                </div>
-            </div>
-            
-            <div class="col-md-3">
-                <div class="stat-card">
-                    <div class="stat-number">85,420L</div>
-                    <div class="stat-label">재고량</div>
-                </div>
-            </div>
-            
-            <div class="col-md-3">
-                <div class="stat-card">
-                    <div class="stat-number">156</div>
-                    <div class="stat-label">오늘 고객 수</div>
-                </div>
-            </div>
-            
-            <div class="col-md-3">
-                <div class="stat-card">
-                    <div class="stat-number">24</div>
-                    <div class="stat-label">미처리 보고서</div>
-                </div>
-            </div>
+        <!-- 액션 버튼 -->
+        <div class="action-buttons">
+            <button class="btn btn-success" onclick="newRecord()">
+                <i class="fas fa-user-plus"></i>
+                신규
+            </button>
+            <button class="btn btn-primary" onclick="saveRecord()">
+                <i class="fas fa-save"></i>
+                저장
+            </button>
+            <button class="btn btn-danger" onclick="deleteRecord()">
+                <i class="fas fa-trash"></i>
+                삭제
+            </button>
         </div>
         
-        <!-- Quick Actions -->
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <div class="dashboard-card">
-                    <h5 class="card-title mb-3">빠른 작업</h5>
-                    <div class="d-grid gap-2">
-                        <button class="btn btn-primary">매출 등록</button>
-                        <button class="btn btn-success">재고 확인</button>
-                        <button class="btn btn-info">거래처 관리</button>
-                        <button class="btn btn-warning">보고서 생성</button>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-6">
-                <div class="dashboard-card">
-                    <h5 class="card-title mb-3">최근 활동</h5>
-                    <ul class="list-unstyled">
-                        <li class="mb-2">
-                            <small class="text-muted">10:30</small>
-                            <span class="ms-2">매출 등록 완료 - ₩450,000</span>
-                        </li>
-                        <li class="mb-2">
-                            <small class="text-muted">09:15</small>
-                            <span class="ms-2">재고 입고 - 휘발유 5,000L</span>
-                        </li>
-                        <li class="mb-2">
-                            <small class="text-muted">08:45</small>
-                            <span class="ms-2">새 거래처 등록 - ABC 주유소</span>
-                        </li>
-                        <li class="mb-2">
-                            <small class="text-muted">08:00</small>
-                            <span class="ms-2">일일 보고서 생성</span>
-                        </li>
-                    </ul>
-                </div>
+        <!-- 데이터 그리드 -->
+        <div class="data-grid-section">
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>차량번호</th>
+                            <th>유종</th>
+                            <th>차량종류</th>
+                            <th>유효기간</th>
+                            <th>상태</th>
+                            <th>주유카드번호</th>
+                            <th>운전자명</th>
+                            <th>운전자연락처</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>경기11가1111</td>
+                            <td>휘발유</td>
+                            <td>승용차</td>
+                            <td>2025-12-31</td>
+                            <td>사용</td>
+                            <td>1111-2222-3333-4444</td>
+                            <td>빈살만</td>
+                            <td>010-3333-5555</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -815,52 +768,6 @@
 
 {% block extra_js %}
 <script>
-    // 모바일 사이드바 토글 기능
-    document.addEventListener('DOMContentLoaded', function() {
-        const sidebarToggle = document.getElementById('sidebarToggle');
-        const sidebar = document.getElementById('sidebar');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
-        
-        // URL에 #이 있다면 제거
-        if (window.location.hash) {
-            window.history.replaceState(null, null, window.location.pathname);
-        }
-        
-        // 토글 버튼 클릭 이벤트
-        if (sidebarToggle) {
-            sidebarToggle.addEventListener('click', function() {
-                sidebar.classList.toggle('show');
-                sidebarOverlay.classList.toggle('show');
-            });
-        }
-        
-        // 오버레이 클릭 시 사이드바 닫기
-        if (sidebarOverlay) {
-            sidebarOverlay.addEventListener('click', function() {
-                sidebar.classList.remove('show');
-                sidebarOverlay.classList.remove('show');
-            });
-        }
-        
-        // 화면 크기 변경 시 사이드바 상태 조정
-        window.addEventListener('resize', function() {
-            if (window.innerWidth > 768) {
-                sidebar.classList.remove('show');
-                sidebarOverlay.classList.remove('show');
-            }
-        });
-        
-        // 메뉴 이벤트 초기화
-        initializeMenuEvents();
-        
-        // 초기화면에서는 기초자료 메뉴의 active 클래스 제거
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('active');
-        });
-        
-        console.log('주유소 관리 시스템 대시보드 로드됨');
-    });
-    
     // 서브메뉴 데이터 정의
     const submenuData = {
         'basic-data': {
@@ -942,6 +849,58 @@
         }
     };
     
+    // 모바일 사이드바 토글 기능
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        
+        // URL에 #이 있다면 제거
+        if (window.location.hash) {
+            window.history.replaceState(null, null, window.location.pathname);
+        }
+        
+        // 토글 버튼 클릭 이벤트
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function() {
+                sidebar.classList.toggle('show');
+                sidebarOverlay.classList.toggle('show');
+            });
+        }
+        
+        // 오버레이 클릭 시 사이드바 닫기
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', function() {
+                sidebar.classList.remove('show');
+                sidebarOverlay.classList.remove('show');
+            });
+        }
+        
+        // 화면 크기 변경 시 사이드바 상태 조정
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('show');
+                sidebarOverlay.classList.remove('show');
+            }
+        });
+        
+        // 메뉴 이벤트 초기화
+        initializeMenuEvents();
+        
+        // 데이터 그리드 행 클릭 이벤트
+        document.querySelectorAll('.data-table tbody tr').forEach(row => {
+            row.addEventListener('click', function() {
+                // 행 선택 시 폼에 데이터 로드
+                const cells = this.cells;
+                if (cells.length > 0 && cells[0].textContent.trim() !== '') {
+                    loadRecordToForm(cells);
+                }
+            });
+        });
+        
+        console.log('차량 / 외상카드 등록 페이지 로드됨');
+    });
+    
     // 기초자료 메뉴 열기 함수
     function openBasicDataMenu() {
         openSubmenuPopup('basic-data', '기초자료');
@@ -1005,6 +964,9 @@
             const link = document.createElement('a');
             link.href = item.href;
             link.className = 'submenu-popup-link';
+            if (item.href === '/stations-manage/vehicle-credit-registration/') {
+                link.classList.add('active');
+            }
             link.innerHTML = `
                 <i class="${item.icon}"></i>
                 <span class="menu-text">${item.text}</span>
@@ -1035,18 +997,13 @@
         mainContent.classList.add('submenu-open');
     }
     
-    // 서브메뉴 플로팅 팝업 닫기 함수
-    function closeSubmenuPopup() {
+    // 서브메뉴 플로팅 팝업 닫기
+    document.getElementById('submenuCloseBtn').addEventListener('click', function() {
         const submenuPopup = document.getElementById('submenuPopup');
         const mainContent = document.getElementById('mainContent');
         
         submenuPopup.classList.remove('show');
         mainContent.classList.remove('submenu-open');
-    }
-    
-    // 서브메뉴 플로팅 팝업 닫기 이벤트
-    document.getElementById('submenuCloseBtn').addEventListener('click', function() {
-        closeSubmenuPopup();
     });
     
     // 서브서브메뉴 표시 함수
@@ -1100,20 +1057,26 @@
         
         // 제목을 원래대로 복원
         submenuTitle.innerHTML = `
-            기초자료
+            거래처관리
             <button class="submenu-close-btn" id="submenuCloseBtn">
                 <i class="fas fa-times"></i>
             </button>
         `;
         
         // 기존 서브메뉴 아이템들 다시 생성
-        const menuItems = submenuData['basic-data'].items;
+        const menuItems = submenuData['customer-management'].items;
         submenuContent.innerHTML = '';
         
         menuItems.forEach(item => {
             const link = document.createElement('a');
             link.href = item.href;
             link.className = 'submenu-popup-link';
+            
+            // 현재 페이지인 경우 active 클래스 추가
+            if (item.href === '/stations-manage/vehicle-credit-registration/') {
+                link.classList.add('active');
+            }
+            
             link.innerHTML = `
                 <i class="${item.icon}"></i>
                 <span class="menu-text">${item.text}</span>
@@ -1145,60 +1108,128 @@
         });
     }
     
-    // 일반 메뉴 아이템 클릭 이벤트
-    document.querySelectorAll('.sidebar-menu .nav-link:not(.menu-toggle)').forEach(item => {
-        item.addEventListener('click', function(e) {
-            e.preventDefault();
+    // 신규 등록 함수
+    function newRecord() {
+        if (confirm('새로운 차량/외상카드를 등록하시겠습니까?')) {
+            // 폼 초기화
+            document.getElementById('customer_selection').value = '';
+            document.getElementById('vehicle_number').value = '';
+            document.getElementById('fuel_type').value = '휘발유';
+            document.getElementById('vehicle_category').value = '승용차';
+            document.getElementById('validity_period').value = '';
+            document.getElementById('status').value = '정상, 정지';
+            document.getElementById('credit_card_number').value = '';
+            document.getElementById('customer_name').value = '';
+            document.getElementById('contact').value = '';
+            document.getElementById('memo').value = '';
             
-            // 활성 메뉴 표시
-            document.querySelectorAll('.sidebar-menu .nav-link').forEach(link => {
-                link.classList.remove('active');
-            });
-            this.classList.add('active');
-            
-            console.log('메뉴 클릭:', this.querySelector('.menu-text').textContent);
-        });
-    });
+            alert('새로운 등록을 위해 폼이 준비되었습니다.');
+        }
+    }
     
-    // 서브메뉴 아이템 클릭 이벤트
-    document.querySelectorAll('.submenu-link').forEach(item => {
-        item.addEventListener('click', function(e) {
-            const href = this.getAttribute('href');
-            
-            // href가 있고 '#'이 아닌 경우 페이지 이동
-            if (href && href !== '#') {
-                console.log('페이지 이동:', href);
-                window.location.href = href;
-                return;
-            }
-            
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // 서브메뉴 활성 상태 표시
-            document.querySelectorAll('.submenu-link').forEach(link => {
-                link.classList.remove('active');
-            });
-            this.classList.add('active');
-            
-            console.log('서브메뉴 클릭:', this.querySelector('.menu-text').textContent);
-        });
-    });
+    // 저장 함수
+    function saveRecord() {
+        const vehicleNumber = document.getElementById('vehicle_number').value;
+        const customerName = document.getElementById('customer_name').value;
+        const creditCardNumber = document.getElementById('credit_card_number').value;
+        
+        if (!vehicleNumber || !customerName || !creditCardNumber) {
+            alert('차량번호, 고객명, 외상카드번호는 필수 입력 항목입니다.');
+            return;
+        }
+        
+        // 여기에 실제 저장 로직을 구현할 수 있습니다
+        alert('차량/외상카드 정보가 저장되었습니다.');
+        
+        // 데이터 그리드에 새 행 추가
+        addRecordToGrid();
+    }
     
-    // 헤더 버튼 이벤트
-    document.querySelectorAll('.header-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            if (this.textContent === '종료') {
-                if (confirm('정말 종료하시겠습니까?')) {
-                    window.close();
+    // 삭제 함수
+    function deleteRecord() {
+        if (confirm('정말로 이 기록을 삭제하시겠습니까?')) {
+            alert('기록이 삭제되었습니다.');
+        }
+    }
+    
+    // 데이터 그리드에 기록 추가 함수
+    function addRecordToGrid() {
+        const tbody = document.querySelector('.data-table tbody');
+        const newRow = document.createElement('tr');
+        
+        const vehicleNumber = document.getElementById('vehicle_number').value;
+        const fuelType = document.getElementById('fuel_type').value;
+        const vehicleCategory = document.getElementById('vehicle_category').value;
+        const validityPeriod = document.getElementById('validity_period').value;
+        const status = document.getElementById('status').value;
+        const creditCardNumber = document.getElementById('credit_card_number').value;
+        const customerName = document.getElementById('customer_name').value;
+        const contact = document.getElementById('contact').value;
+        
+        newRow.innerHTML = `
+            <td>${vehicleNumber}</td>
+            <td>${fuelType}</td>
+            <td>${vehicleCategory}</td>
+            <td>${validityPeriod}</td>
+            <td>사용</td>
+            <td>${creditCardNumber}</td>
+            <td>${customerName}</td>
+            <td>${contact}</td>
+        `;
+        
+        // 첫 번째 빈 행을 새 데이터로 교체
+        const firstEmptyRow = tbody.querySelector('tr:nth-child(2)');
+        if (firstEmptyRow) {
+            tbody.replaceChild(newRow, firstEmptyRow);
+        } else {
+            tbody.appendChild(newRow);
+        }
+    }
+    
+    // 데이터 그리드에서 폼으로 데이터 로드 함수
+    function loadRecordToForm(cells) {
+        document.getElementById('vehicle_number').value = cells[0].textContent;
+        document.getElementById('fuel_type').value = cells[1].textContent;
+        document.getElementById('vehicle_category').value = cells[2].textContent;
+        document.getElementById('validity_period').value = cells[3].textContent;
+        document.getElementById('status').value = cells[4].textContent;
+        document.getElementById('credit_card_number').value = cells[5].textContent;
+        document.getElementById('customer_name').value = cells[6].textContent;
+        document.getElementById('contact').value = cells[7].textContent;
+        
+        alert('선택된 차량/외상카드 정보가 폼에 로드되었습니다.');
+    }
+    
+    // 페이지 로드 시 초기화
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('차량 / 외상카드 등록 페이지 로드됨');
+        
+        // 데이터 그리드 행 클릭 이벤트
+        document.querySelectorAll('.data-table tbody tr').forEach(row => {
+            row.addEventListener('click', function() {
+                // 행 선택 시 폼에 데이터 로드
+                const cells = this.cells;
+                if (cells.length > 0 && cells[0].textContent.trim() !== '') {
+                    loadRecordToForm(cells);
                 }
-            } else if (this.textContent === '전체메뉴 닫기') {
-                // 메뉴 토글 기능
-                console.log('메뉴 토글');
-            }
+            });
         });
     });
     
-
+    // 데이터 그리드에서 폼으로 데이터 로드 함수
+    function loadRecordToForm(cells) {
+        document.getElementById('vehicle_code').value = cells[0].textContent;
+        document.getElementById('vehicle_number').value = cells[1].textContent;
+        document.getElementById('vehicle_type').value = cells[2].textContent;
+        document.getElementById('driver_name').value = cells[3].textContent;
+        document.getElementById('driver_phone').value = cells[4].textContent;
+        document.getElementById('card_code').value = cells[5].textContent;
+        document.getElementById('card_type').value = cells[6].textContent;
+        document.getElementById('card_limit').value = cells[7].textContent;
+        document.getElementById('card_status').value = cells[8].textContent;
+        document.getElementById('expiry_date').value = cells[9].textContent;
+        
+        alert('선택된 기록이 폼에 로드되었습니다.');
+    }
 </script>
 {% endblock %} 

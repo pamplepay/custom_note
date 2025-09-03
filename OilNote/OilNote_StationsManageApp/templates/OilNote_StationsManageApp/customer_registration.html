@@ -1,0 +1,1499 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}거래처/거래단가 등록{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 사이드바 스타일 */
+    .sidebar {
+        position: fixed;
+        top: 4.5rem;
+        left: 0;
+        height: calc(100vh - 4.5rem);
+        width: 280px;
+        background: #34495e;
+        overflow-y: auto;
+        z-index: 1000;
+        transition: transform 0.3s ease;
+    }
+    
+    .sidebar-header {
+        padding: 1.5rem 1rem;
+        border-bottom: 1px solid #4a5f7a;
+        background: #4a5f7a;
+    }
+    
+    .sidebar-title {
+        color: white;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .sidebar-title-link {
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        transition: all 0.3s ease;
+    }
+    
+    .sidebar-title-link:hover {
+        color: #3498db;
+        transform: translateX(5px);
+    }
+    
+    .sidebar-menu {
+        padding: 1rem 0;
+    }
+    
+    .sidebar-menu .nav-link {
+        color: #ffffff !important;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        background: transparent;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    
+    .sidebar-menu .nav-link:hover {
+        color: #ffffff;
+        background: #5a6f8a;
+        transform: translateX(5px);
+        font-weight: 600;
+    }
+    
+    .sidebar-menu .nav-link.active {
+        color: #ffffff !important;
+        background: rgba(52, 152, 219, 0.15);
+        border-left: 3px solid #3498db;
+        font-weight: 500;
+        position: relative;
+    }
+    
+    .sidebar-menu .nav-link.active::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+        border-radius: 0 2px 2px 0;
+    }
+    
+    .sidebar-menu .nav-link i {
+        width: 20px;
+        margin-right: 10px;
+        text-align: center;
+    }
+    
+    .sidebar-menu .nav-link .menu-text {
+        flex: 1;
+    }
+    
+    /* 메뉴 구분선 스타일 */
+    .menu-divider {
+        height: 1px;
+        background: #4a5f7a;
+        margin: 1rem 1.5rem;
+        opacity: 0.5;
+    }
+    
+    /* 서브메뉴 플로팅 팝업 스타일 */
+    .submenu-popup {
+        position: fixed;
+        top: 5rem;
+        left: 300px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000;
+        max-height: 80vh;
+        overflow-y: auto;
+        min-width: 280px;
+        transform: translateX(-100%);
+        opacity: 0;
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
+    }
+    
+    .submenu-popup.show {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    
+    .submenu-popup-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        background: #2c3e50;
+        color: white;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .submenu-popup-title {
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .submenu-close-btn {
+        background: none;
+        border: none;
+        color: #bdc3c7;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+    }
+    
+    .submenu-close-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .submenu-popup-menu {
+        padding: 0.5rem 0;
+    }
+    
+    .submenu-popup-link {
+        color: #2c3e50;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        background: transparent;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        font-weight: 500;
+        width: 100%;
+        border-bottom: 1px solid #f8f9fa;
+    }
+    
+    .submenu-popup-link:hover {
+        color: #3498db;
+        background: #f8f9fa;
+        transform: translateX(5px);
+        font-weight: 600;
+    }
+    
+    .submenu-popup-link.active {
+        color: #3498db;
+        background: rgba(52, 152, 219, 0.1);
+        border-left: 3px solid #3498db;
+        font-weight: 500;
+        position: relative;
+    }
+    
+    .submenu-popup-link.active::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+        border-radius: 0 2px 2px 0;
+    }
+    
+    .submenu-popup-link i {
+        width: 20px;
+        margin-right: 10px;
+        text-align: center;
+        color: #7f8c8d;
+    }
+    
+    .submenu-popup-link:hover i {
+        color: #3498db;
+    }
+    
+    .submenu-popup-link .menu-text {
+        flex: 1;
+    }
+    
+    /* 기본 스타일 */
+    .main-content {
+        margin-left: 280px;
+        padding: 1rem;
+        background: #f8f9fa;
+        min-height: calc(100vh - 4.5rem);
+        transition: margin-left 0.3s ease;
+    }
+    
+    .main-content.submenu-open {
+        margin-left: 280px;
+    }
+    
+    /* 헤더 스타일 */
+    .page-header {
+        background: #2c3e50;
+        color: white;
+        padding: 1rem;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0;
+    }
+    
+    .page-title {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+    
+    .close-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+    }
+    
+    .close-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    /* 메인 컨테이너 */
+    .customer-container {
+        background: white;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    /* 폼 섹션 */
+    .form-section {
+        padding: 1.5rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 0.9rem;
+    }
+    
+    .form-control, .form-select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        background-color: white;
+        transition: border-color 0.3s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+    
+    /* 단가 적용 기준 테이블 */
+    .price-table-container {
+        background: #fff5f5;
+        border: 2px solid #fed7d7;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .price-table-title {
+        font-weight: 600;
+        color: #c53030;
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+    }
+    
+    .price-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    
+    .price-table th {
+        background: #fed7d7;
+        padding: 0.75rem;
+        text-align: center;
+        font-weight: 600;
+        color: #c53030;
+        border: 1px solid #fed7d7;
+    }
+    
+    .price-table td {
+        padding: 0.75rem;
+        border: 1px solid #fed7d7;
+        text-align: center;
+    }
+    
+    .price-table select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #fed7d7;
+        border-radius: 4px;
+        background: white;
+    }
+    
+    .price-table input[type="radio"] {
+        margin: 0 0.5rem;
+    }
+    
+    .price-table input[type="number"] {
+        width: 80px;
+        padding: 0.5rem;
+        border: 1px solid #fed7d7;
+        border-radius: 4px;
+        text-align: center;
+    }
+    
+    /* 액션 버튼 */
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        padding: 1.5rem;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-secondary {
+        background-color: #6c757d;
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        background-color: #5a6268;
+    }
+    
+    .btn-primary {
+        background-color: #3498db;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #2980b9;
+    }
+    
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .btn-success:hover {
+        background-color: #218838;
+    }
+    
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background-color: #c82333;
+    }
+    
+    /* 데이터 그리드 */
+    .data-grid-section {
+        padding: 1.5rem;
+    }
+    
+    .grid-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+    }
+    
+    .data-table-container {
+        overflow-x: auto;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+        min-width: 1200px;
+    }
+    
+    .data-table th {
+        background: #f8f9fa;
+        padding: 0.75rem 0.5rem;
+        text-align: center;
+        font-weight: 600;
+        color: #2c3e50;
+        border: 1px solid #e9ecef;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .data-table td {
+        padding: 0.5rem;
+        border: 1px solid #e9ecef;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .data-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .data-table tbody tr:nth-child(even) {
+        background-color: #fafbfc;
+    }
+    
+    /* 반응형 웹 */
+    @media (max-width: 1200px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .price-table-container {
+            overflow-x: auto;
+        }
+        
+        .price-table {
+            min-width: 600px;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+            padding: 0.5rem;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 모바일 사이드바 토글 버튼 -->
+<button class="sidebar-toggle" id="sidebarToggle" style="display: none;">
+    <i class="fas fa-bars"></i>
+</button>
+
+<!-- 사이드바 오버레이 -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- 왼쪽 사이드바 -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <a href="/stations-manage/" class="sidebar-title-link">
+            <h5 class="sidebar-title">
+                <i class="fas fa-gas-pump me-2"></i>
+                주유소 관리 시스템
+            </h5>
+        </a>
+    </div>
+    
+    <div class="sidebar-menu">
+        <a href="javascript:void(0)" class="nav-link" onclick="openBasicDataMenu()">
+            <i class="fas fa-database"></i>
+            <span class="menu-text">기초자료</span>
+        </a>
+        
+        <a href="javascript:void(0)" class="nav-link active" onclick="openCustomerManagementMenu()">
+            <i class="fas fa-building"></i>
+            <span class="menu-text">거래처관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-tags"></i>
+            <span class="menu-text">단가관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-cash-register"></i>
+            <span class="menu-text">매출등록</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-shopping-cart"></i>
+            <span class="menu-text">매입등록</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-money-bill-wave"></i>
+            <span class="menu-text">입금등록</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-warehouse"></i>
+            <span class="menu-text">재고관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-receipt"></i>
+            <span class="menu-text">보관증관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-handshake"></i>
+            <span class="menu-text">외상관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-percentage"></i>
+            <span class="menu-text">면세판매관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-file-alt"></i>
+            <span class="menu-text">석유관리원보고자료</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-list-alt"></i>
+            <span class="menu-text">자료조회</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-book"></i>
+            <span class="menu-text">매출원장관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-folder"></i>
+            <span class="menu-text">00자료</span>
+        </a>
+        
+        <!-- 구분선 -->
+        <div class="menu-divider"></div>
+        
+        <!-- 운영노트 관련 메뉴 -->
+        <a href="#" class="nav-link" onclick="window.location.href='/station/membership-cards/'">
+            <i class="fas fa-credit-card"></i>
+            <span class="menu-text">멤버십카드 관리</span>
+        </a>
+        
+        <a href="#" class="nav-link" onclick="window.location.href='/station/customer-groups/'">
+            <i class="fas fa-users"></i>
+            <span class="menu-text">고객 그룹 관리</span>
+        </a>
+    </div>
+</div>
+
+<!-- 서브메뉴 플로팅 팝업 -->
+<div class="submenu-popup" id="submenuPopup">
+    <div class="submenu-popup-header">
+        <div class="submenu-popup-title">
+            <span id="submenuTitle">거래처관리</span>
+            <button class="submenu-close-btn" id="submenuCloseBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="submenu-popup-menu" id="submenuContent">
+        <!-- 동적으로 내용이 채워집니다 -->
+    </div>
+</div>
+
+<!-- 메인 콘텐츠 영역 -->
+<div class="main-content" id="mainContent">
+    <!-- 페이지 헤더 -->
+    <div class="page-header">
+        <h1 class="page-title">거래처/거래단가 등록</h1>
+        <button class="close-btn" onclick="window.close()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <!-- 메인 컨테이너 -->
+    <div class="customer-container">
+        <!-- 폼 섹션 -->
+        <div class="form-section">
+            <div class="form-grid">
+                <!-- 좌측: 거래처 정보 -->
+                <div class="left-form">
+                    <div class="form-group">
+                        <label for="code" class="form-label">코드</label>
+                        <input type="text" class="form-control" id="code" value="300001" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="type_classification" class="form-label">형태구분</label>
+                        <select class="form-select" id="type_classification">
+                            <option value="일반, 매입" selected>일반, 매입</option>
+                            <option value="일반, 매출">일반, 매출</option>
+                            <option value="특별, 매입">특별, 매입</option>
+                            <option value="특별, 매출">특별, 매출</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="customer_name" class="form-label">거래처명</label>
+                        <input type="text" class="form-control" id="customer_name" value="오렌지상사">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="representative" class="form-label">대표자</label>
+                        <input type="text" class="form-control" id="representative" value="김치국">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="business_number" class="form-label">사업자 번호</label>
+                        <input type="text" class="form-control" id="business_number" value="123-81-12345">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sub_business" class="form-label">종사업자</label>
+                        <input type="text" class="form-control" id="sub_business" value="002">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="business_address" class="form-label">사업장 주소</label>
+                        <input type="text" class="form-control" id="business_address" value="경기도 수원시 영통구 대학4로17 에이스 광교타워 1차 422호">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="business_type" class="form-label">업태</label>
+                        <input type="text" class="form-control" id="business_type" value="도매 및 소매업">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="business_category" class="form-label">종목</label>
+                        <input type="text" class="form-control" id="business_category" value="주유소, 세차영업">
+                    </div>
+                </div>
+                
+                <!-- 우측: 연락처 및 기타 정보 -->
+                <div class="right-form">
+                    <div class="form-group">
+                        <label for="phone" class="form-label">Tel</label>
+                        <input type="text" class="form-control" id="phone" value="031-123-5678">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="fax" class="form-label">Fax</label>
+                        <input type="text" class="form-control" id="fax" value="031-123-5678">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="mobile" class="form-label">C.P (Mobile Phone)</label>
+                        <input type="text" class="form-control" id="mobile" value="010-1234-5678">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email" class="form-label">이메일주소</label>
+                        <input type="email" class="form-control" id="email" value="abcd1234@naver.com">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">부가세 적용</label>
+                        <div style="margin-top: 0.5rem;">
+                            <label style="margin-right: 1rem;">
+                                <input type="radio" name="vat_application" value="건별기준"> 건별기준
+                            </label>
+                            <label>
+                                <input type="radio" name="vat_application" value="총합계 기준" checked> 총합계 기준
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="business_status" class="form-label">영업구분</label>
+                        <select class="form-select" id="business_status">
+                            <option value="영업중, 거래중지" selected>영업중, 거래중지</option>
+                            <option value="영업중">영업중</option>
+                            <option value="거래중지">거래중지</option>
+                            <option value="폐업">폐업</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 단가 적용 기준 테이블 -->
+            <div class="price-table-container">
+                <div class="price-table-title">단가 적용 기준</div>
+                <table class="price-table">
+                    <thead>
+                        <tr>
+                            <th>유종명</th>
+                            <th>단가적용기준</th>
+                            <th>구분</th>
+                            <th>조정폭</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <select>
+                                    <option value="휘발유" selected>휘발유</option>
+                                    <option value="경유">경유</option>
+                                    <option value="등유">등유</option>
+                                    <option value="요소수">요소수</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select>
+                                    <option value="공장도가" selected>공장도가</option>
+                                    <option value="게시가">게시가</option>
+                                    <option value="시장가">시장가</option>
+                                </select>
+                            </td>
+                            <td>
+                                <label style="margin-right: 1rem;">
+                                    <input type="radio" name="adjustment_type_1" value="할인"> 할인
+                                </label>
+                                <label>
+                                    <input type="radio" name="adjustment_type_1" value="할증" checked> 할증
+                                </label>
+                            </td>
+                            <td>
+                                <input type="number" value="20" min="0">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <select>
+                                    <option value="휘발유">휘발유</option>
+                                    <option value="경유" selected>경유</option>
+                                    <option value="등유">등유</option>
+                                    <option value="요소수">요소수</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select>
+                                    <option value="공장도가">공장도가</option>
+                                    <option value="게시가" selected>게시가</option>
+                                    <option value="시장가">시장가</option>
+                                </select>
+                            </td>
+                            <td>
+                                <label style="margin-right: 1rem;">
+                                    <input type="radio" name="adjustment_type_2" value="할인"> 할인
+                                </label>
+                                <label>
+                                    <input type="radio" name="adjustment_type_2" value="할증" checked> 할증
+                                </label>
+                            </td>
+                            <td>
+                                <input type="number" value="15" min="0">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <select>
+                                    <option value="휘발유">휘발유</option>
+                                    <option value="경유">경유</option>
+                                    <option value="등유" selected>등유</option>
+                                    <option value="요소수">요소수</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select>
+                                    <option value="공장도가" selected>공장도가</option>
+                                    <option value="게시가">게시가</option>
+                                    <option value="시장가">시장가</option>
+                                </select>
+                            </td>
+                            <td>
+                                <label style="margin-right: 1rem;">
+                                    <input type="radio" name="adjustment_type_3" value="할인"> 할인
+                                </label>
+                                <label>
+                                    <input type="radio" name="adjustment_type_3" value="할증" checked> 할증
+                                </label>
+                            </td>
+                            <td>
+                                <input type="number" value="35" min="0">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <select>
+                                    <option value="휘발유">휘발유</option>
+                                    <option value="경유">경유</option>
+                                    <option value="등유">등유</option>
+                                    <option value="요소수" selected>요소수</option>
+                                </select>
+                            </td>
+                            <td>
+                                <select>
+                                    <option value="공장도가" selected>공장도가</option>
+                                    <option value="게시가">게시가</option>
+                                    <option value="시장가">시장가</option>
+                                </select>
+                            </td>
+                            <td>
+                                <label style="margin-right: 1rem;">
+                                    <input type="radio" name="adjustment_type_4" value="할인"> 할인
+                                </label>
+                                <label>
+                                    <input type="radio" name="adjustment_type_4" value="할증" checked> 할증
+                                </label>
+                            </td>
+                            <td>
+                                <input type="number" value="25" min="0">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 액션 버튼 -->
+        <div class="action-buttons">
+            <button class="btn btn-secondary" onclick="initializeForm()">
+                <i class="fas fa-sync-alt"></i>
+                초기화
+            </button>
+            <button class="btn btn-success" onclick="newCustomer()">
+                <i class="fas fa-user-plus"></i>
+                신규
+            </button>
+            <button class="btn btn-primary" onclick="saveCustomer()">
+                <i class="fas fa-save"></i>
+                저장
+            </button>
+            <button class="btn btn-danger" onclick="deleteCustomer()">
+                <i class="fas fa-trash"></i>
+                삭제
+            </button>
+        </div>
+        
+        <!-- 데이터 그리드 -->
+        <div class="data-grid-section">
+            <h3 class="grid-title">등록된 거래처 목록</h3>
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>코드</th>
+                            <th>형태구분</th>
+                            <th>거래처명</th>
+                            <th>대표자</th>
+                            <th>대표자C.P</th>
+                            <th>사업자번호</th>
+                            <th>종사업자</th>
+                            <th>사업장주소</th>
+                            <th>업태</th>
+                            <th>종목</th>
+                            <th>전화번호</th>
+                            <th>팩스번호</th>
+                            <th>이메일주소</th>
+                            <th>영업구분</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>300001</td>
+                            <td>일반 매입</td>
+                            <td>오렌지상사</td>
+                            <td>김치국</td>
+                            <td>010-1234-5678</td>
+                            <td>23-81-1234</td>
+                            <td>002</td>
+                            <td>경기도 수원시 영통구 대학4로17 에이스 광교타워 1차 422호</td>
+                            <td>도매 및 소매업</td>
+                            <td>주유소, 세차</td>
+                            <td>031-123-5</td>
+                            <td>031-123-5</td>
+                            <td>abcd1234@naver.com</td>
+                            <td>영업중 거래중지</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 서브메뉴 데이터 정의
+    const submenuData = {
+        'basic-data': {
+            title: '기초자료',
+            items: [
+                {
+                    text: '주유소 사업자 등록',
+                    icon: 'fas fa-building',
+                    href: '/stations-manage/business-registration/'
+                },
+                {
+                    text: '유종 및 유외상품 등록',
+                    icon: 'fas fa-gas-pump',
+                    href: '/stations-manage/product-registration/'
+                },
+                {
+                    text: '탱크 정보 등록',
+                    icon: 'fas fa-cube',
+                    href: '/stations-manage/tank-registration/'
+                },
+                {
+                    text: '주유기 노즐 정보 등록',
+                    icon: 'fas fa-tint',
+                    href: '/stations-manage/nozzle-registration/'
+                },
+                {
+                    text: '홈로리 차량 등록',
+                    icon: 'fas fa-truck',
+                    href: '/stations-manage/homelori-registration/'
+                },
+                {
+                    text: '결제 형태 등록',
+                    icon: 'fas fa-credit-card',
+                    href: '/stations-manage/payment-registration/'
+                },
+                {
+                    text: '기초 자료(값) 등록',
+                    icon: 'fas fa-database',
+                    href: '#',
+                    submenu: [
+                        {
+                            text: '탱크 기초재고',
+                            icon: 'fas fa-cube',
+                            href: '/stations-manage/tank-inventory/'
+                        },
+                        {
+                            text: '주유기 기초 계기자료',
+                            icon: 'fas fa-tachometer-alt',
+                            href: '/stations-manage/dispenser-meter/'
+                        },
+                        {
+                            text: '유외상품 기초재고',
+                            icon: 'fas fa-boxes',
+                            href: '/stations-manage/product-inventory/'
+                        },
+                        {
+                            text: '외상채권 기초잔액',
+                            icon: 'fas fa-hand-holding-usd',
+                            href: '/stations-manage/receivables/'
+                        }
+                    ]
+                }
+            ]
+        },
+        'customer-management': {
+            title: '거래처관리',
+            items: [
+                {
+                    text: '거래처 등록 및 수정',
+                    icon: 'fas fa-user-edit',
+                    href: '/stations-manage/customer-registration/'
+                },
+                {
+                    text: '차량 / 외상카드 등록',
+                    icon: 'fas fa-credit-card',
+                    href: '/stations-manage/vehicle-credit-registration/'
+                }
+            ]
+        }
+    };
+    
+    // 모바일 사이드바 토글 기능
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        
+        // URL에 #이 있다면 제거
+        if (window.location.hash) {
+            window.history.replaceState(null, null, window.location.pathname);
+        }
+        
+        // 토글 버튼 클릭 이벤트
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function() {
+                sidebar.classList.toggle('show');
+                sidebarOverlay.classList.toggle('show');
+            });
+        }
+        
+        // 오버레이 클릭 시 사이드바 닫기
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', function() {
+                sidebar.classList.remove('show');
+                sidebarOverlay.classList.remove('show');
+            });
+        }
+        
+        // 화면 크기 변경 시 사이드바 상태 조정
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('show');
+                sidebarOverlay.classList.remove('show');
+            }
+        });
+        
+        // 메뉴 이벤트 초기화
+        initializeMenuEvents();
+        
+        console.log('거래처/거래단가 등록 페이지 로드됨');
+    });
+    
+    // 기초자료 메뉴 열기 함수
+    function openBasicDataMenu() {
+        openSubmenuPopup('basic-data', '기초자료');
+    }
+    
+    // 거래처관리 메뉴 열기 함수
+    function openCustomerManagementMenu() {
+        openSubmenuPopup('customer-management', '거래처관리');
+    }
+    
+    // 메뉴 토글 이벤트 (두 번째 사이드바 열기) - 중복 방지
+    function initializeMenuEvents() {
+        // 기존 이벤트 리스너 제거
+        document.querySelectorAll('.menu-toggle').forEach(toggle => {
+            toggle.removeEventListener('click', menuToggleHandler);
+        });
+        
+        // 새로운 이벤트 리스너 등록
+        document.querySelectorAll('.menu-toggle').forEach(toggle => {
+            toggle.addEventListener('click', menuToggleHandler);
+        });
+    }
+    
+    function menuToggleHandler(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const menuType = this.getAttribute('data-menu');
+        const menuTitle = this.getAttribute('data-title');
+        
+        if (submenuData[menuType]) {
+            openSubmenuPopup(menuType, menuTitle);
+        }
+        
+        // URL에 #이 붙지 않도록 history 상태 업데이트
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, null, window.location.pathname);
+        }
+        
+        // 추가적으로 URL에서 # 제거
+        if (window.location.hash) {
+            window.location.hash = '';
+        }
+    }
+    
+    // 서브메뉴 플로팅 팝업 열기 함수
+    function openSubmenuPopup(menuType, title) {
+        const submenuPopup = document.getElementById('submenuPopup');
+        const submenuTitle = document.getElementById('submenuTitle');
+        const submenuContent = document.getElementById('submenuContent');
+        const mainContent = document.getElementById('mainContent');
+        
+        // 제목 설정
+        submenuTitle.textContent = title;
+        
+        // 메뉴 아이템 생성
+        const menuItems = submenuData[menuType].items;
+        submenuContent.innerHTML = '';
+        
+        menuItems.forEach(item => {
+            const link = document.createElement('a');
+            link.href = item.href;
+            link.className = 'submenu-popup-link';
+            if (item.href === '/stations-manage/customer-registration/') {
+                link.classList.add('active');
+            }
+            link.innerHTML = `
+                <i class="${item.icon}"></i>
+                <span class="menu-text">${item.text}</span>
+            `;
+            
+            // 클릭 이벤트
+            link.addEventListener('click', function(e) {
+                if (item.href === '#') {
+                    e.preventDefault();
+                    console.log('메뉴 클릭:', item.text);
+                    
+                    // 서브메뉴가 있는 경우 처리
+                    if (item.submenu) {
+                        showSubSubmenu(item.submenu, item.text);
+                    }
+                } else {
+                    console.log('페이지 이동:', item.href);
+                    // 실제 링크인 경우 서브메뉴 닫기
+                    closeSubmenuPopup();
+                }
+            });
+            
+            submenuContent.appendChild(link);
+        });
+        
+        // 팝업 열기
+        submenuPopup.classList.add('show');
+        mainContent.classList.add('submenu-open');
+    }
+    
+    // 서브메뉴 플로팅 팝업 닫기
+    document.getElementById('submenuCloseBtn').addEventListener('click', function() {
+        const submenuPopup = document.getElementById('submenuPopup');
+        const mainContent = document.getElementById('mainContent');
+        
+        submenuPopup.classList.remove('show');
+        mainContent.classList.remove('submenu-open');
+    });
+    
+    // 서브서브메뉴 표시 함수
+    function showSubSubmenu(submenuItems, parentTitle) {
+        const submenuPopup = document.getElementById('submenuPopup');
+        const submenuTitle = document.getElementById('submenuTitle');
+        const submenuContent = document.getElementById('submenuContent');
+        
+        // 제목 설정 (부모 메뉴명 + 서브메뉴)
+        submenuTitle.innerHTML = `
+            <i class="fas fa-arrow-left me-2" style="cursor: pointer;" onclick="showMainSubmenu()"></i>
+            ${parentTitle}
+        `;
+        
+        // 서브서브메뉴 아이템 생성
+        submenuContent.innerHTML = '';
+        
+        submenuItems.forEach(item => {
+            const link = document.createElement('a');
+            link.href = item.href;
+            link.className = 'submenu-popup-link';
+            link.innerHTML = `
+                <i class="${item.icon}"></i>
+                <span class="menu-text">${item.text}</span>
+            `;
+            
+            // 클릭 이벤트
+            link.addEventListener('click', function(e) {
+                if (item.href === '#') {
+                    e.preventDefault();
+                    console.log('서브메뉴 클릭:', item.text);
+                } else {
+                    console.log('페이지 이동:', item.href);
+                    // 실제 링크인 경우 서브메뉴 닫기
+                    closeSubmenuPopup();
+                }
+            });
+            
+            submenuContent.appendChild(link);
+        });
+        
+        // 팝업 표시
+        submenuPopup.classList.add('show');
+    }
+    
+    // 메인 서브메뉴로 돌아가기 함수
+    function showMainSubmenu() {
+        const submenuPopup = document.getElementById('submenuPopup');
+        const submenuTitle = document.getElementById('submenuTitle');
+        const submenuContent = document.getElementById('submenuContent');
+        
+        // 제목을 원래대로 복원
+        submenuTitle.innerHTML = `
+            거래처관리
+            <button class="submenu-close-btn" id="submenuCloseBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        
+        // 기존 서브메뉴 아이템들 다시 생성
+        const menuItems = submenuData['customer-management'].items;
+        submenuContent.innerHTML = '';
+        
+        menuItems.forEach(item => {
+            const link = document.createElement('a');
+            link.href = item.href;
+            link.className = 'submenu-popup-link';
+            
+            // 현재 페이지인 경우 active 클래스 추가
+            if (item.href === '/stations-manage/customer-registration/') {
+                link.classList.add('active');
+            }
+            
+            link.innerHTML = `
+                <i class="${item.icon}"></i>
+                <span class="menu-text">${item.text}</span>
+            `;
+            
+            // 클릭 이벤트
+            link.addEventListener('click', function(e) {
+                if (item.href === '#') {
+                    e.preventDefault();
+                    console.log('메뉴 클릭:', item.text);
+                    
+                    // 서브메뉴가 있는 경우 처리
+                    if (item.submenu) {
+                        showSubSubmenu(item.submenu, item.text);
+                    }
+                } else {
+                    console.log('페이지 이동:', item.href);
+                    // 실제 링크인 경우 서브메뉴 닫기
+                    closeSubmenuPopup();
+                }
+            });
+            
+            submenuContent.appendChild(link);
+        });
+        
+        // 닫기 버튼 이벤트 다시 등록
+        document.getElementById('submenuCloseBtn').addEventListener('click', function() {
+            closeSubmenuPopup();
+        });
+    }
+    
+    // 폼 초기화 함수
+    function initializeForm() {
+        if (confirm('폼을 초기화하시겠습니까?')) {
+            document.getElementById('customer_name').value = '';
+            document.getElementById('representative').value = '';
+            document.getElementById('business_number').value = '';
+            document.getElementById('sub_business').value = '';
+            document.getElementById('business_address').value = '';
+            document.getElementById('business_type').value = '';
+            document.getElementById('business_category').value = '';
+            document.getElementById('phone').value = '';
+            document.getElementById('fax').value = '';
+            document.getElementById('mobile').value = '';
+            document.getElementById('email').value = '';
+            
+            // 라디오 버튼 초기화
+            document.querySelectorAll('input[name="vat_application"]').forEach(radio => {
+                radio.checked = false;
+            });
+            document.querySelector('input[value="총합계 기준"]').checked = true;
+            
+            // 단가 테이블 초기화
+            document.querySelectorAll('.price-table input[type="number"]').forEach(input => {
+                input.value = '0';
+            });
+            
+            alert('폼이 초기화되었습니다.');
+        }
+    }
+    
+    // 신규 거래처 함수
+    function newCustomer() {
+        if (confirm('새로운 거래처를 등록하시겠습니까?')) {
+            // 코드 자동 생성 (간단한 예시)
+            const newCode = Math.floor(Math.random() * 900000) + 100000;
+            document.getElementById('code').value = newCode;
+            
+            // 폼 초기화
+            initializeForm();
+            
+            alert('새로운 거래처 등록을 위해 폼이 준비되었습니다.');
+        }
+    }
+    
+    // 거래처 저장 함수
+    function saveCustomer() {
+        const customerName = document.getElementById('customer_name').value;
+        const representative = document.getElementById('representative').value;
+        
+        if (!customerName || !representative) {
+            alert('거래처명과 대표자는 필수 입력 항목입니다.');
+            return;
+        }
+        
+        // 여기에 실제 저장 로직을 구현할 수 있습니다
+        alert('거래처 정보가 저장되었습니다.');
+        
+        // 데이터 그리드에 새 행 추가
+        addCustomerToGrid();
+    }
+    
+    // 거래처 삭제 함수
+    function deleteCustomer() {
+        if (confirm('정말로 이 거래처를 삭제하시겠습니까?')) {
+            alert('거래처가 삭제되었습니다.');
+        }
+    }
+    
+    // 데이터 그리드에 거래처 추가 함수
+    function addCustomerToGrid() {
+        const tbody = document.querySelector('.data-table tbody');
+        const newRow = document.createElement('tr');
+        
+        const code = document.getElementById('code').value;
+        const typeClassification = document.getElementById('type_classification').value;
+        const customerName = document.getElementById('customer_name').value;
+        const representative = document.getElementById('representative').value;
+        const mobile = document.getElementById('mobile').value;
+        const businessNumber = document.getElementById('business_number').value;
+        const subBusiness = document.getElementById('sub_business').value;
+        const businessAddress = document.getElementById('business_address').value;
+        const businessType = document.getElementById('business_type').value;
+        const businessCategory = document.getElementById('business_category').value;
+        const phone = document.getElementById('phone').value;
+        const fax = document.getElementById('fax').value;
+        const email = document.getElementById('email').value;
+        const businessStatus = document.getElementById('business_status').value;
+        
+        newRow.innerHTML = `
+            <td>${code}</td>
+            <td>${typeClassification}</td>
+            <td>${customerName}</td>
+            <td>${representative}</td>
+            <td>${mobile}</td>
+            <td>${businessNumber}</td>
+            <td>${subBusiness}</td>
+            <td>${businessAddress}</td>
+            <td>${businessType}</td>
+            <td>${businessCategory}</td>
+            <td>${phone}</td>
+            <td>${fax}</td>
+            <td>${email}</td>
+            <td>${businessStatus}</td>
+        `;
+        
+        // 첫 번째 빈 행을 새 데이터로 교체
+        const firstEmptyRow = tbody.querySelector('tr:nth-child(2)');
+        if (firstEmptyRow) {
+            tbody.replaceChild(newRow, firstEmptyRow);
+        } else {
+            tbody.appendChild(newRow);
+        }
+    }
+    
+    // 페이지 로드 시 초기화
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('거래처/거래단가 등록 페이지 로드됨');
+        
+        // 데이터 그리드 행 클릭 이벤트
+        document.querySelectorAll('.data-table tbody tr').forEach(row => {
+            row.addEventListener('click', function() {
+                // 행 선택 시 폼에 데이터 로드
+                const cells = this.cells;
+                if (cells.length > 0 && cells[0].textContent.trim() !== '') {
+                    loadCustomerToForm(cells);
+                }
+            });
+        });
+    });
+    
+    // 데이터 그리드에서 폼으로 데이터 로드 함수
+    function loadCustomerToForm(cells) {
+        document.getElementById('code').value = cells[0].textContent;
+        document.getElementById('type_classification').value = cells[1].textContent;
+        document.getElementById('customer_name').value = cells[2].textContent;
+        document.getElementById('representative').value = cells[3].textContent;
+        document.getElementById('mobile').value = cells[4].textContent;
+        document.getElementById('business_number').value = cells[5].textContent;
+        document.getElementById('sub_business').value = cells[6].textContent;
+        document.getElementById('business_address').value = cells[7].textContent;
+        document.getElementById('business_type').value = cells[8].textContent;
+        document.getElementById('business_category').value = cells[9].textContent;
+        document.getElementById('phone').value = cells[10].textContent;
+        document.getElementById('fax').value = cells[11].textContent;
+        document.getElementById('email').value = cells[12].textContent;
+        document.getElementById('business_status').value = cells[13].textContent;
+        
+        alert('선택된 거래처 정보가 폼에 로드되었습니다.');
+    }
+</script>
+{% endblock %}
