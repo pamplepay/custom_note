@@ -762,6 +762,21 @@
                     ]
                 }
             ]
+        },
+        'customer-management': {
+            title: '거래처관리',
+            items: [
+                {
+                    text: '거래처 등록 및 수정',
+                    icon: 'fas fa-user-edit',
+                    href: '/stations-manage/customer-registration/'
+                },
+                {
+                    text: '차량 / 외상카드 등록',
+                    icon: 'fas fa-credit-card',
+                    href: '/stations-manage/vehicle-credit-registration/'
+                }
+            ]
         }
     };
     
@@ -814,6 +829,11 @@
     // 기초자료 메뉴 열기 함수
     function openBasicDataMenu() {
         openSubmenuPopup('basic-data', '기초자료');
+    }
+    
+    // 거래처관리 메뉴 열기 함수
+    function openCustomerManagementMenu() {
+        openSubmenuPopup('customer-management', '거래처관리');
     }
     
     // 메뉴 토글 이벤트 (두 번째 사이드바 열기) - 중복 방지
