@@ -477,7 +477,7 @@
             <span class="menu-text">거래처관리</span>
         </a>
         
-        <a href="/stations-manage/" class="nav-link">
+        <a href="javascript:void(0)" class="nav-link" onclick="openPriceManagementMenu()">
             <i class="fas fa-tags"></i>
             <span class="menu-text">단가관리</span>
         </a>
@@ -777,6 +777,16 @@
                     href: '/stations-manage/vehicle-credit-registration/'
                 }
             ]
+        },
+        'price-management': {
+            title: '단가관리',
+            items: [
+                {
+                    text: '기준 단가 입력',
+                    icon: 'fas fa-dollar-sign',
+                    href: '/stations-manage/standard-price/'
+                }
+            ]
         }
     };
     
@@ -834,6 +844,11 @@
     // 거래처관리 메뉴 열기 함수
     function openCustomerManagementMenu() {
         openSubmenuPopup('customer-management', '거래처관리');
+    }
+    
+    // 단가관리 메뉴 열기 함수
+    function openPriceManagementMenu() {
+        openSubmenuPopup('price-management', '단가관리');
     }
     
     // 메뉴 토글 이벤트 (두 번째 사이드바 열기) - 중복 방지

@@ -330,6 +330,18 @@
     
     .form-group {
         margin-bottom: 0.75rem;
+        flex: 1;
+        margin-right: 1rem;
+    }
+    
+    .form-group:last-child {
+        margin-right: 0;
+    }
+    
+    .form-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
     }
     
     .form-label {
@@ -353,6 +365,30 @@
         outline: none;
         border-color: #3498db;
         box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+    
+    /* 라디오 버튼 스타일 */
+    .radio-group {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .radio-label {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        margin: 0;
+    }
+    
+    .radio-label input[type="radio"] {
+        margin-right: 0.5rem;
+        width: auto;
+    }
+    
+    .radio-text {
+        font-size: 0.9rem;
+        color: #2c3e50;
     }
     
     .form-actions {
@@ -530,7 +566,7 @@
             <span class="menu-text">거래처관리</span>
         </a>
         
-        <a href="/stations-manage/" class="nav-link">
+        <a href="javascript:void(0)" class="nav-link" onclick="openPriceManagementMenu()">
             <i class="fas fa-tags"></i>
             <span class="menu-text">단가관리</span>
         </a>
@@ -650,37 +686,52 @@
             <div class="form-body">
                 <form id="productRegistrationForm" method="POST">
                     {% csrf_token %}
-                    <div class="form-group">
-                        <label for="item_code" class="form-label">품목 코드</label>
-                        <input type="text" class="form-control" id="item_code" name="item_code" 
-                               value="{% if form_data.item_code %}{{ form_data.item_code }}{% endif %}" 
-                               placeholder="예: 100001" required>
+                    
+                    <!-- 첫 번째 행: 품목 코드, 품목명 -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item_code" class="form-label">품목 코드</label>
+                            <input type="text" class="form-control" id="item_code" name="item_code" 
+                                   value="{% if form_data.item_code %}{{ form_data.item_code }}{% endif %}" 
+                                   placeholder="예: 100001" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="item_name" class="form-label">품목명</label>
+                            <input type="text" class="form-control" id="item_name" name="item_name" 
+                                   value="{% if form_data.item_name %}{{ form_data.item_name }}{% endif %}" 
+                                   placeholder="예: 고급휘발유" required>
+                        </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="item_name" class="form-label">품목명</label>
-                        <input type="text" class="form-control" id="item_name" name="item_name" 
-                               value="{% if form_data.item_name %}{{ form_data.item_name }}{% endif %}" 
-                               placeholder="예: 고급휘발유" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="product_category" class="form-label">상품 분류</label>
-                        <select class="form-select" id="product_category" name="product_category" required>
-                            <option value="">상품 분류를 선택하세요</option>
-                            <option value="일반유" {% if form_data.product_category == '일반유' %}selected{% endif %}>일반유</option>
-                            <option value="TBA" {% if form_data.product_category == 'TBA' %}selected{% endif %}>TBA</option>
-                            <option value="세차" {% if form_data.product_category == '세차' %}selected{% endif %}>세차</option>
-                            <option value="기타" {% if form_data.product_category == '기타' %}selected{% endif %}>기타</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="inventory_management" class="form-label">재고관리여부</label>
-                        <select class="form-select" id="inventory_management" name="inventory_management" required>
-                            <option value="예" {% if form_data.inventory_management == '예' or not form_data.inventory_management %}selected{% endif %}>예</option>
-                            <option value="아니오" {% if form_data.inventory_management == '아니오' %}selected{% endif %}>아니오</option>
-                        </select>
+                    <!-- 두 번째 행: 상품 분류, 재고관리여부 -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="product_category" class="form-label">상품 분류</label>
+                            <select class="form-select" id="product_category" name="product_category" required>
+                                <option value="">상품 분류를 선택하세요</option>
+                                <option value="일반유" {% if form_data.product_category == '일반유' %}selected{% endif %}>일반유</option>
+                                <option value="TBA" {% if form_data.product_category == 'TBA' %}selected{% endif %}>TBA</option>
+                                <option value="세차" {% if form_data.product_category == '세차' %}selected{% endif %}>세차</option>
+                                <option value="기타" {% if form_data.product_category == '기타' %}selected{% endif %}>기타</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="inventory_management" class="form-label">재고관리여부</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="inventory_management" value="예" 
+                                           {% if form_data.inventory_management == '예' or not form_data.inventory_management %}checked{% endif %} required>
+                                    <span class="radio-text">예</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="inventory_management" value="아니오" 
+                                           {% if form_data.inventory_management == '아니오' %}checked{% endif %} required>
+                                    <span class="radio-text">아니오</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- 액션 버튼 -->
@@ -741,87 +792,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'js/submenu-config.js' %}"></script>
 <script>
-    // 서브메뉴 데이터 정의
-    const submenuData = {
-        'basic-data': {
-            title: '기초자료',
-            items: [
-                {
-                    text: '주유소 사업자 등록',
-                    icon: 'fas fa-building',
-                    href: '/stations-manage/business-registration/'
-                },
-                {
-                    text: '유종 및 유외상품 등록',
-                    icon: 'fas fa-gas-pump',
-                    href: '/stations-manage/product-registration/'
-                },
-                {
-                    text: '탱크 정보 등록',
-                    icon: 'fas fa-cube',
-                    href: '/stations-manage/tank-registration/'
-                },
-                {
-                    text: '주유기 노즐 정보 등록',
-                    icon: 'fas fa-tint',
-                    href: '/stations-manage/nozzle-registration/'
-                },
-                {
-                    text: '홈로리 차량 등록',
-                    icon: 'fas fa-truck',
-                    href: '/stations-manage/homelori-registration/'
-                },
-                {
-                    text: '결제 형태 등록',
-                    icon: 'fas fa-credit-card',
-                    href: '/stations-manage/payment-registration/'
-                },
-                {
-                    text: '기초 자료(값) 등록',
-                    icon: 'fas fa-database',
-                    href: '#',
-                    submenu: [
-                        {
-                            text: '탱크 기초재고',
-                            icon: 'fas fa-cube',
-                            href: '/stations-manage/tank-inventory/'
-                        },
-                        {
-                            text: '주유기 기초 계기자료',
-                            icon: 'fas fa-tachometer-alt',
-                            href: '/stations-manage/dispenser-meter/'
-                        },
-                        {
-                            text: '유외상품 기초재고',
-                            icon: 'fas fa-boxes',
-                            href: '/stations-manage/product-inventory/'
-                        },
-                        {
-                            text: '외상채권 기초잔액',
-                            icon: 'fas fa-hand-holding-usd',
-                            href: '/stations-manage/receivables/'
-                        }
-                    ]
-                }
-            ]
-        },
-        'customer-management': {
-            title: '거래처관리',
-            items: [
-                {
-                    text: '거래처 등록 및 수정',
-                    icon: 'fas fa-user-edit',
-                    href: '/stations-manage/customer-registration/'
-                },
-                {
-                    text: '차량 / 외상카드 등록',
-                    icon: 'fas fa-credit-card',
-                    href: '/stations-manage/vehicle-credit-registration/'
-                }
-            ]
-        }
-    };
     
     // 모바일 사이드바 토글 기능
     document.addEventListener('DOMContentLoaded', function() {
@@ -858,8 +830,7 @@
             }
         });
         
-        // 메뉴 이벤트 초기화
-        initializeMenuEvents();
+
         
         // 초기화면에서는 기초자료 메뉴의 active 클래스 제거
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -869,212 +840,7 @@
         console.log('유종 및 유외상품 등록 페이지 로드됨');
     });
     
-    // 기초자료 메뉴 열기 함수
-    function openBasicDataMenu() {
-        openSubmenuPopup('basic-data', '기초자료');
-    }
-    
-    // 거래처관리 메뉴 열기 함수
-    function openCustomerManagementMenu() {
-        openSubmenuPopup('customer-management', '거래처관리');
-    }
-    
-    // 메뉴 토글 이벤트 (두 번째 사이드바 열기) - 중복 방지
-    function initializeMenuEvents() {
-        // 기존 이벤트 리스너 제거
-        document.querySelectorAll('.menu-toggle').forEach(toggle => {
-            toggle.removeEventListener('click', menuToggleHandler);
-        });
-        
-        // 새로운 이벤트 리스너 등록
-        document.querySelectorAll('.menu-toggle').forEach(toggle => {
-            toggle.addEventListener('click', menuToggleHandler);
-        });
-    }
-    
-    function menuToggleHandler(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const menuType = this.getAttribute('data-menu');
-        const menuTitle = this.getAttribute('data-title');
-        
-        if (submenuData[menuType]) {
-            openSubmenuSidebar(menuType, menuTitle);
-        }
-        
-        // URL에 #이 붙지 않도록 history 상태 업데이트
-        if (window.history && window.history.replaceState) {
-            window.history.replaceState(null, null, window.location.pathname);
-        }
-        
-        // 추가적으로 URL에서 # 제거
-        if (window.location.hash) {
-            window.location.hash = '';
-        }
-    }
-    
-    // 서브메뉴 플로팅 팝업 열기 함수
-    function openSubmenuPopup(menuType, title) {
-        const submenuPopup = document.getElementById('submenuPopup');
-        const submenuTitle = document.getElementById('submenuTitle');
-        const submenuContent = document.getElementById('submenuContent');
-        const mainContent = document.getElementById('mainContent');
-        
-        // 제목 설정
-        submenuTitle.textContent = title;
-        
-        // 메뉴 아이템 생성
-        const menuItems = submenuData[menuType].items;
-        submenuContent.innerHTML = '';
-        
-        menuItems.forEach(item => {
-            const link = document.createElement('a');
-            link.href = item.href;
-            link.className = 'submenu-popup-link';
-            if (item.href === '/stations-manage/product-registration/') {
-                link.classList.add('active');
-            }
-            link.innerHTML = `
-                <i class="${item.icon}"></i>
-                <span class="menu-text">${item.text}</span>
-            `;
-            
-            // 클릭 이벤트
-            link.addEventListener('click', function(e) {
-                if (item.href === '#') {
-                    e.preventDefault();
-                    console.log('메뉴 클릭:', item.text);
-                    
-                    // 서브메뉴가 있는 경우 처리
-                    if (item.submenu) {
-                        showSubSubmenu(item.submenu, item.text);
-                    }
-                } else {
-                    console.log('페이지 이동:', item.href);
-                    // 실제 링크인 경우 서브메뉴 닫기
-                    closeSubmenuPopup();
-                }
-            });
-            
-            submenuContent.appendChild(link);
-        });
-        
-        // 팝업 열기
-        submenuPopup.classList.add('show');
-        mainContent.classList.add('submenu-open');
-    }
-    
-    // 서브메뉴 플로팅 팝업 닫기
-    document.getElementById('submenuCloseBtn').addEventListener('click', function() {
-        const submenuPopup = document.getElementById('submenuPopup');
-        const mainContent = document.getElementById('mainContent');
-        
-        submenuPopup.classList.remove('show');
-        mainContent.classList.remove('submenu-open');
-    });
-    
-    // 서브서브메뉴 표시 함수
-    function showSubSubmenu(submenuItems, parentTitle) {
-        const submenuPopup = document.getElementById('submenuPopup');
-        const submenuTitle = document.getElementById('submenuTitle');
-        const submenuContent = document.getElementById('submenuContent');
-        
-        // 제목 설정 (부모 메뉴명 + 서브메뉴)
-        submenuTitle.innerHTML = `
-            <i class="fas fa-arrow-left me-2" style="cursor: pointer;" onclick="showMainSubmenu()"></i>
-            ${parentTitle}
-        `;
-        
-        // 서브서브메뉴 아이템 생성
-        submenuContent.innerHTML = '';
-        
-        submenuItems.forEach(item => {
-            const link = document.createElement('a');
-            link.href = item.href;
-            link.className = 'submenu-popup-link';
-            link.innerHTML = `
-                <i class="${item.icon}"></i>
-                <span class="menu-text">${item.text}</span>
-            `;
-            
-            // 클릭 이벤트
-            link.addEventListener('click', function(e) {
-                if (item.href === '#') {
-                    e.preventDefault();
-                    console.log('서브메뉴 클릭:', item.text);
-                } else {
-                    console.log('페이지 이동:', item.href);
-                    // 실제 링크인 경우 서브메뉴 닫기
-                    closeSubmenuPopup();
-                }
-            });
-            
-            submenuContent.appendChild(link);
-        });
-        
-        // 팝업 표시
-        submenuPopup.classList.add('show');
-    }
-    
-    // 메인 서브메뉴로 돌아가기 함수
-    function showMainSubmenu() {
-        const submenuPopup = document.getElementById('submenuPopup');
-        const submenuTitle = document.getElementById('submenuTitle');
-        const submenuContent = document.getElementById('submenuContent');
-        
-        // 제목을 원래대로 복원
-        submenuTitle.innerHTML = `
-            기초자료
-            <button class="submenu-close-btn" id="submenuCloseBtn">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        
-        // 기존 서브메뉴 아이템들 다시 생성
-        const menuItems = submenuData['basic-data'].items;
-        submenuContent.innerHTML = '';
-        
-        menuItems.forEach(item => {
-            const link = document.createElement('a');
-            link.href = item.href;
-            link.className = 'submenu-popup-link';
-            
-            // 현재 페이지인 경우 active 클래스 추가
-            if (item.href === '/stations-manage/product-registration/') {
-                link.classList.add('active');
-            }
-            
-            link.innerHTML = `
-                <i class="${item.icon}"></i>
-                <span class="menu-text">${item.text}</span>
-            `;
-            
-            // 클릭 이벤트
-            link.addEventListener('click', function(e) {
-                if (item.href === '#') {
-                    e.preventDefault();
-                    console.log('메뉴 클릭:', item.text);
-                    
-                    // 서브메뉴가 있는 경우 처리
-                    if (item.submenu) {
-                        showSubSubmenu(item.submenu, item.text);
-                    }
-                } else {
-                    console.log('페이지 이동:', item.href);
-                    // 실제 링크인 경우 서브메뉴 닫기
-                    closeSubmenuPopup();
-                }
-            });
-            
-            submenuContent.appendChild(link);
-        });
-        
-        // 닫기 버튼 이벤트 다시 등록
-        document.getElementById('submenuCloseBtn').addEventListener('click', function() {
-            closeSubmenuPopup();
-        });
-    }
+
     
     // 폼 제출 이벤트 - 실제 POST 요청 처리
     document.getElementById('productRegistrationForm').addEventListener('submit', function(e) {
