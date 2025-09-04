@@ -1,0 +1,989 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}유외상품 판매가설정{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 사이드바 스타일 */
+    .sidebar {
+        position: fixed;
+        top: 4.5rem;
+        left: 0;
+        height: calc(100vh - 4.5rem);
+        width: 280px;
+        background: #34495e;
+        overflow-y: auto;
+        z-index: 1000;
+        transition: transform 0.3s ease;
+    }
+    
+    .sidebar-header {
+        padding: 1.5rem 1rem;
+        border-bottom: 1px solid #4a5f7a;
+        background: #4a5f7a;
+    }
+    
+    .sidebar-title {
+        color: white;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .sidebar-title-link {
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        transition: all 0.3s ease;
+    }
+    
+    .sidebar-title-link:hover {
+        color: #3498db;
+        transform: translateX(5px);
+    }
+    
+    .sidebar-menu {
+        padding: 1rem 0;
+    }
+    
+    .sidebar-menu .nav-link {
+        color: #ffffff !important;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        background: transparent;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    
+    .sidebar-menu .nav-link:hover {
+        color: #ffffff;
+        background: #5a6f8a;
+        transform: translateX(5px);
+        font-weight: 600;
+    }
+    
+    .sidebar-menu .nav-link.active {
+        color: #ffffff !important;
+        background: rgba(52, 152, 219, 0.15);
+        border-left: 3px solid #3498db;
+        font-weight: 500;
+        position: relative;
+    }
+    
+    .sidebar-menu .nav-link.active::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+        border-radius: 0 2px 2px 0;
+    }
+    
+    .sidebar-menu .nav-link i {
+        width: 20px;
+        margin-right: 10px;
+        text-align: center;
+    }
+    
+    .sidebar-menu .nav-link .menu-text {
+        flex: 1;
+    }
+    
+    /* 메뉴 구분선 스타일 */
+    .menu-divider {
+        height: 1px;
+        background: #4a5f7a;
+        margin: 1rem 1.5rem;
+        opacity: 0.5;
+    }
+    
+    /* 서브메뉴 플로팅 팝업 스타일 */
+    .submenu-popup {
+        position: fixed;
+        top: 5rem;
+        left: 300px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000;
+        max-height: 80vh;
+        overflow-y: auto;
+        min-width: 280px;
+        transform: translateX(-100%);
+        opacity: 0;
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
+    }
+    
+    .submenu-popup.show {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    
+    .submenu-popup-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        background: #2c3e50;
+        color: white;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .submenu-popup-title {
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .submenu-close-btn {
+        background: none;
+        border: none;
+        color: #bdc3c7;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+    }
+    
+    .submenu-close-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .submenu-popup-menu {
+        padding: 0.5rem 0;
+    }
+    
+    .submenu-popup-link {
+        color: #2c3e50;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        background: transparent;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        font-weight: 500;
+        width: 100%;
+        border-bottom: 1px solid #f8f9fa;
+    }
+    
+    .submenu-popup-link:hover {
+        color: #3498db;
+        background: #f8f9fa;
+        transform: translateX(5px);
+        font-weight: 600;
+    }
+    
+    .submenu-popup-link.active {
+        color: #3498db;
+        background: rgba(52, 152, 219, 0.1);
+        border-left: 3px solid #3498db;
+        font-weight: 500;
+        position: relative;
+    }
+    
+    .submenu-popup-link.active::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+        border-radius: 0 2px 2px 0;
+    }
+    
+    .submenu-popup-link i {
+        width: 20px;
+        margin-right: 10px;
+        text-align: center;
+        color: #7f8c8d;
+    }
+    
+    .submenu-popup-link:hover i {
+        color: #3498db;
+    }
+    
+    .submenu-popup-link .menu-text {
+        flex: 1;
+    }
+    
+    /* 기본 스타일 */
+    .main-content {
+        margin-left: 280px;
+        padding: 1rem;
+        background: #f8f9fa;
+        min-height: calc(100vh - 4.5rem);
+        transition: margin-left 0.3s ease;
+    }
+    
+    .main-content.submenu-open {
+        margin-left: 280px;
+    }
+    
+    /* 헤더 스타일 */
+    .page-header {
+        background: #2c3e50;
+        color: white;
+        padding: 1rem;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0;
+    }
+    
+    .page-title {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+    
+    .close-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+    }
+    
+    .close-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    /* 메인 컨테이너 */
+    .product-price-container {
+        background: white;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    /* 콘텐츠 컨테이너 */
+    .content-container {
+        display: flex;
+        gap: 1rem;
+        height: calc(100vh - 200px);
+    }
+    
+    .data-table-section {
+        flex: 2;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .input-section {
+        flex: 1;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .table-header {
+        background: #f8f9fa;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+        font-weight: 600;
+        color: #495057;
+        font-size: 1.1rem;
+    }
+    
+    .data-table-container {
+        flex: 1;
+        overflow: auto;
+        padding: 0;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+    
+    .data-table th {
+        background: #e9ecef;
+        padding: 0.75rem 0.5rem;
+        text-align: center;
+        font-weight: 600;
+        color: #2c3e50;
+        border: 1px solid #dee2e6;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        font-size: 0.85rem;
+    }
+    
+    .data-table td {
+        padding: 0.75rem 0.5rem;
+        border: 1px solid #dee2e6;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .data-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .data-table tbody tr:nth-child(even) {
+        background-color: #fafbfc;
+    }
+    
+    .data-table input[type="checkbox"] {
+        transform: scale(1.2);
+    }
+    
+    .input-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .input-label {
+        display: block;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .input-field {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    
+    .input-field:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+    
+    .action-buttons {
+        margin-top: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+        justify-content: center;
+    }
+    
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .btn-success:hover {
+        background-color: #218838;
+    }
+    
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background-color: #c82333;
+    }
+    
+    /* 반응형 웹 */
+    @media (max-width: 1200px) {
+        .content-container {
+            flex-direction: column;
+            height: auto;
+        }
+        
+        .data-table-section {
+            order: 2;
+        }
+        
+        .input-section {
+            order: 1;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+            padding: 0.5rem;
+        }
+        
+        .action-buttons {
+            flex-direction: row;
+        }
+        
+        .btn {
+            flex: 1;
+        }
+        
+        .data-table {
+            font-size: 0.8rem;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 0.5rem 0.25rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 모바일 사이드바 토글 버튼 -->
+<button class="sidebar-toggle" id="sidebarToggle" style="display: none;">
+    <i class="fas fa-bars"></i>
+</button>
+
+<!-- 사이드바 오버레이 -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- 왼쪽 사이드바 -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <a href="/stations-manage/" class="sidebar-title-link">
+            <h5 class="sidebar-title">
+                <i class="fas fa-gas-pump me-2"></i>
+                주유소 관리 시스템
+            </h5>
+        </a>
+    </div>
+    
+    <div class="sidebar-menu">
+        <a href="javascript:void(0)" class="nav-link" onclick="openBasicDataMenu()">
+            <i class="fas fa-database"></i>
+            <span class="menu-text">기초자료</span>
+        </a>
+        
+        <a href="javascript:void(0)" class="nav-link" onclick="openCustomerManagementMenu()">
+            <i class="fas fa-building"></i>
+            <span class="menu-text">거래처관리</span>
+        </a>
+        
+        <a href="javascript:void(0)" class="nav-link active" onclick="openPriceManagementMenu()">
+            <i class="fas fa-tags"></i>
+            <span class="menu-text">단가관리</span>
+        <a href="javascript:void(0)" class="nav-link" onclick="openSalesRegistrationMenu()">
+            <i class="fas fa-cash-register"></i>
+            <span class="menu-text">매출등록</span>
+        </a>
+        
+        <a href="javascript:void(0)" class="nav-link" onclick="openPurchaseRegistrationMenu()">
+            <i class="fas fa-shopping-cart"></i>
+            <span class="menu-text">매입등록</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-money-bill-wave"></i>
+            <span class="menu-text">입금등록</span>
+        </a>
+            <span class="menu-text">입금등록</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-warehouse"></i>
+            <span class="menu-text">재고관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-receipt"></i>
+            <span class="menu-text">보관증관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-handshake"></i>
+            <span class="menu-text">외상관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-percentage"></i>
+            <span class="menu-text">면세판매관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-file-alt"></i>
+            <span class="menu-text">석유관리원보고자료</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-list-alt"></i>
+            <span class="menu-text">자료조회</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-book"></i>
+            <span class="menu-text">매출원장관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-folder"></i>
+            <span class="menu-text">00자료</span>
+        </a>
+        
+        <!-- 구분선 -->
+        <div class="menu-divider"></div>
+        
+        <!-- 운영노트 관련 메뉴 -->
+        <a href="#" class="nav-link" onclick="window.location.href='/station/membership-cards/'">
+            <i class="fas fa-credit-card"></i>
+            <span class="menu-text">멤버십카드 관리</span>
+        </a>
+        
+        <a href="#" class="nav-link" onclick="window.location.href='/station/customer-groups/'">
+            <i class="fas fa-users"></i>
+            <span class="menu-text">고객 그룹 관리</span>
+        </a>
+    </div>
+</div>
+
+<div class="submenu-popup" id="submenuPopup">
+    <div class="submenu-popup-header">
+        <div class="submenu-popup-title">
+            <span id="submenuTitle">단가관리</span>
+            <button class="submenu-close-btn" id="submenuCloseBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="submenu-popup-menu" id="submenuContent">
+        <!-- 동적으로 내용이 채워집니다 -->
+    </div>
+</div>
+        <!-- 동적으로 내용이 채워집니다 -->
+    </div>
+</div>
+
+<!-- 메인 콘텐츠 영역 -->
+<div class="main-content" id="mainContent">
+    <!-- 페이지 헤더 -->
+    <div class="page-header">
+        <h1 class="page-title">유외상품 판매가설정</h1>
+        <button class="close-btn" onclick="window.close()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <!-- 메인 컨테이너 -->
+    <div class="product-price-container">
+        <!-- 콘텐츠 컨테이너 -->
+        <div class="content-container">
+            <!-- 데이터 테이블 섹션 -->
+            <div class="data-table-section">
+                <div class="table-header">
+                    상품 목록
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">선택</th>
+                                <th style="width: 120px;">품목코드</th>
+                                <th style="width: 150px;">품목명</th>
+                                <th style="width: 120px;">상품분류</th>
+                                <th style="width: 100px;">재고관리</th>
+                                <th style="width: 120px;">판매가</th>
+                                <th style="width: 120px;">매입가</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productTableBody">
+                            <!-- 샘플 데이터 -->
+                            <tr>
+                                <td><input type="checkbox" checked></td>
+                                <td>P001</td>
+                                <td>세차용품</td>
+                                <td>세차용품</td>
+                                <td>Y</td>
+                                <td>15,000</td>
+                                <td>10,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P002</td>
+                                <td>에어컨 필터</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>25,000</td>
+                                <td>18,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P003</td>
+                                <td>엔진오일</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>35,000</td>
+                                <td>25,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P004</td>
+                                <td>와이퍼</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>12,000</td>
+                                <td>8,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P005</td>
+                                <td>배터리</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>80,000</td>
+                                <td>60,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P006</td>
+                                <td>타이어</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>120,000</td>
+                                <td>90,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P007</td>
+                                <td>라디에이터</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>45,000</td>
+                                <td>32,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P008</td>
+                                <td>브레이크 패드</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>55,000</td>
+                                <td>40,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P009</td>
+                                <td>스파크 플러그</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>8,000</td>
+                                <td>5,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P010</td>
+                                <td>에어 필터</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>18,000</td>
+                                <td>12,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P011</td>
+                                <td>오일 필터</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>15,000</td>
+                                <td>10,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P012</td>
+                                <td>연료 필터</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>22,000</td>
+                                <td>16,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P013</td>
+                                <td>클러치</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>95,000</td>
+                                <td>70,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P014</td>
+                                <td>서스펜션</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>150,000</td>
+                                <td>110,000</td>
+                            </tr>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>P015</td>
+                                <td>미러</td>
+                                <td>자동차용품</td>
+                                <td>Y</td>
+                                <td>30,000</td>
+                                <td>22,000</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 입력 섹션 -->
+            <div class="input-section">
+                <div class="input-group">
+                    <label class="input-label">품목코드</label>
+                    <input type="text" class="input-field" id="itemCode" placeholder="품목코드를 입력하세요">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">품목명</label>
+                    <input type="text" class="input-field" id="itemName" placeholder="품목명을 입력하세요">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">상품분류</label>
+                    <input type="text" class="input-field" id="productCategory" placeholder="상품분류를 입력하세요">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">재고관리</label>
+                    <input type="text" class="input-field" id="inventoryManagement" placeholder="재고관리 여부 (Y/N)">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">판매가</label>
+                    <input type="text" class="input-field" id="sellingPrice" placeholder="판매가를 입력하세요">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">매입가</label>
+                    <input type="text" class="input-field" id="purchasePrice" placeholder="매입가를 입력하세요">
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="saveProduct()">
+                        <i class="fas fa-save"></i>
+                        저장
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteProduct()">
+                        <i class="fas fa-trash"></i>
+                        삭제
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/submenu-config.js' %}"></script>
+<script>
+    // 모바일 사이드바 토글 기능
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        
+        // URL에 #이 있다면 제거
+        if (window.location.hash) {
+            window.history.replaceState(null, null, window.location.pathname);
+        }
+        
+        // 토글 버튼 클릭 이벤트
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function() {
+                sidebar.classList.toggle('show');
+                sidebarOverlay.classList.toggle('show');
+            });
+        }
+        
+        // 오버레이 클릭 시 사이드바 닫기
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', function() {
+                sidebar.classList.remove('show');
+                sidebarOverlay.classList.remove('show');
+            });
+        }
+        
+        // 화면 크기 변경 시 사이드바 상태 조정
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('show');
+                sidebarOverlay.classList.remove('show');
+            }
+        });
+        
+        // 데이터 그리드 행 클릭 이벤트
+        document.querySelectorAll('.data-table tbody tr').forEach(row => {
+            row.addEventListener('click', function() {
+                // 행 선택 시 폼에 데이터 로드
+                const cells = this.cells;
+                if (cells.length > 0 && cells[0].textContent.trim() !== '') {
+                    loadRecordToForm(cells);
+                }
+            });
+        });
+        
+        console.log('유외상품 판매가설정 페이지 로드됨');
+    });
+    
+    // 상품 저장 함수
+    function saveProduct() {
+        const itemCode = document.getElementById('itemCode').value.trim();
+        const itemName = document.getElementById('itemName').value.trim();
+        const productCategory = document.getElementById('productCategory').value.trim();
+        const inventoryManagement = document.getElementById('inventoryManagement').value.trim();
+        const sellingPrice = document.getElementById('sellingPrice').value.trim();
+        const purchasePrice = document.getElementById('purchasePrice').value.trim();
+        
+        // 필수 필드 검증
+        if (!itemCode || !itemName || !productCategory || !inventoryManagement || !sellingPrice || !purchasePrice) {
+            alert('모든 필드를 입력해주세요.');
+            return;
+        }
+        
+        // 재고관리 값 검증
+        if (inventoryManagement !== 'Y' && inventoryManagement !== 'N') {
+            alert('재고관리는 Y 또는 N으로 입력해주세요.');
+            return;
+        }
+        
+        // 가격 숫자 검증
+        if (isNaN(sellingPrice.replace(/,/g, '')) || isNaN(purchasePrice.replace(/,/g, ''))) {
+            alert('판매가와 매입가는 숫자로 입력해주세요.');
+            return;
+        }
+        
+        // 테이블에 새 행 추가
+        addProductToGrid();
+        
+        // 입력 필드 초기화
+        clearInputFields();
+        
+        alert('상품이 성공적으로 저장되었습니다.');
+    }
+    
+    // 상품 삭제 함수
+    function deleteProduct() {
+        const checkboxes = document.querySelectorAll('#productTableBody input[type="checkbox"]:checked');
+        
+        if (checkboxes.length === 0) {
+            alert('삭제할 상품을 선택해주세요.');
+            return;
+        }
+        
+        if (confirm(`선택된 ${checkboxes.length}개의 상품을 삭제하시겠습니까?`)) {
+            checkboxes.forEach(checkbox => {
+                checkbox.closest('tr').remove();
+            });
+            alert('선택된 상품이 삭제되었습니다.');
+        }
+    }
+    
+    // 입력 필드 초기화 함수
+    function clearInputFields() {
+        document.getElementById('itemCode').value = '';
+        document.getElementById('itemName').value = '';
+        document.getElementById('productCategory').value = '';
+        document.getElementById('inventoryManagement').value = '';
+        document.getElementById('sellingPrice').value = '';
+        document.getElementById('purchasePrice').value = '';
+    }
+    
+    // 데이터 그리드에 상품 추가 함수
+    function addProductToGrid() {
+        const tbody = document.querySelector('.data-table tbody');
+        const newRow = document.createElement('tr');
+        
+        const itemCode = document.getElementById('itemCode').value;
+        const itemName = document.getElementById('itemName').value;
+        const productCategory = document.getElementById('productCategory').value;
+        const inventoryManagement = document.getElementById('inventoryManagement').value;
+        const sellingPrice = document.getElementById('sellingPrice').value;
+        const purchasePrice = document.getElementById('purchasePrice').value;
+        
+        newRow.innerHTML = `
+            <td><input type="checkbox"></td>
+            <td>${itemCode}</td>
+            <td>${itemName}</td>
+            <td>${productCategory}</td>
+            <td>${inventoryManagement}</td>
+            <td>${parseInt(sellingPrice.replace(/,/g, '')).toLocaleString()}</td>
+            <td>${parseInt(purchasePrice.replace(/,/g, '')).toLocaleString()}</td>
+        `;
+        
+        // 첫 번째 빈 행을 새 데이터로 교체
+        const firstEmptyRow = tbody.querySelector('tr:nth-child(2)');
+        if (firstEmptyRow) {
+            tbody.replaceChild(newRow, firstEmptyRow);
+        } else {
+            tbody.appendChild(newRow);
+        }
+    }
+    
+    // 데이터 그리드에서 폼으로 데이터 로드 함수
+    function loadRecordToForm(cells) {
+        document.getElementById('itemCode').value = cells[1].textContent;
+        document.getElementById('itemName').value = cells[2].textContent;
+        document.getElementById('productCategory').value = cells[3].textContent;
+        document.getElementById('inventoryManagement').value = cells[4].textContent;
+        document.getElementById('sellingPrice').value = cells[5].textContent;
+        document.getElementById('purchasePrice').value = cells[6].textContent;
+        
+        alert('선택된 상품 정보가 폼에 로드되었습니다.');
+    }
+    
+    // 숫자 입력 필드에 천단위 콤마 추가
+    document.addEventListener('DOMContentLoaded', function() {
+        const priceInputs = ['sellingPrice', 'purchasePrice'];
+        
+        priceInputs.forEach(inputId => {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/[^\d]/g, '');
+                    if (value) {
+                        value = parseInt(value).toLocaleString();
+                    }
+                    e.target.value = value;
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

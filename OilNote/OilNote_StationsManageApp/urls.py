@@ -23,4 +23,11 @@ urlpatterns = [
     path('receivables/', views.receivables, name='receivables'),
     path('customer-registration/', views.customer_registration, name='customer_registration'),
     path('vehicle-credit-registration/', views.vehicle_credit_registration, name='vehicle_credit_registration'),
-] 
+    path('standard-price/', views.standard_price, name='standard_price'),
+    path('factory-price/', views.factory_price, name='factory_price'),
+    path('station-price/', views.station_price, name='station_price'),
+    path('product-price-setting/', views.product_price_setting, name='product_price_setting'),
+    path('closing-meter-data/', views.closing_meter_data, name='closing_meter_data'),
+    path('daily-sales-data/', views.daily_sales_data, name='daily_sales_data'),
+    path('purchase-data/', views.purchase_data, name='purchase_data'),
+]

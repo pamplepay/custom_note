@@ -725,3 +725,66 @@ def delete_payment_type(request):
             return JsonResponse({'success': False, 'error': '삭제할 결제 형태를 찾을 수 없습니다.'})
     
     return JsonResponse({'success': False, 'error': '잘못된 요청입니다.'})
+
+@login_required
+def standard_price(request):
+    """일반유단가설정 페이지"""
+    context = {
+        'page_title': '일반유단가설정',
+        'subtitle': 'Standard Price Setting'
+    }
+    return render(request, 'OilNote_StationsManageApp/standard_price.html', context)
+
+@login_required
+def factory_price(request):
+    """공장도가격등록 페이지"""
+    context = {
+        'page_title': '공장도가격등록',
+        'subtitle': 'Factory Price Registration'
+    }
+    return render(request, 'OilNote_StationsManageApp/factory_price.html', context)
+
+@login_required
+def station_price(request):
+    """주유소게시가등록 페이지"""
+    context = {
+        'page_title': '주유소게시가등록',
+        'subtitle': 'Station Price Registration'
+    }
+    return render(request, 'OilNote_StationsManageApp/station_price.html', context)
+
+@login_required
+def product_price_setting(request):
+    """유외상품 판매가설정 페이지"""
+    context = {
+        'page_title': '유외상품 판매가설정',
+        'subtitle': 'Product Price Setting'
+    }
+    return render(request, 'OilNote_StationsManageApp/product_price_setting.html', context)
+
+@login_required
+def closing_meter_data(request):
+    """마감 계기 자료 등록 페이지"""
+    context = {
+        'page_title': '마감 계기 자료 등록',
+        'subtitle': 'Closing Meter Data Registration'
+    }
+    return render(request, 'OilNote_StationsManageApp/closing_meter_data.html', context)
+
+@login_required
+def daily_sales_data(request):
+    """일일 판매 자료 등록 페이지"""
+    context = {
+        'page_title': '일일 판매 자료 등록',
+        'subtitle': 'Daily Sales Data Registration'
+    }
+    return render(request, 'OilNote_StationsManageApp/daily_sales_data.html', context)
+
+@login_required
+def purchase_data(request):
+    """매입 자료 등록 페이지"""
+    context = {
+        'page_title': '매입 자료 등록',
+        'subtitle': 'Purchase Data Registration'
+    }
+    return render(request, 'OilNote_StationsManageApp/purchase_data.html', context)

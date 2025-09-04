@@ -1,7 +1,7 @@
 {% extends 'base/base.html' %}
 {% load static %}
 
-{% block title %}{{ page_title }}{% endblock %}
+{% block title %}매입 자료 등록{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -221,12 +221,12 @@
         flex: 1;
     }
     
-    /* 메인 콘텐츠 영역 조정 */
+    /* 기본 스타일 */
     .main-content {
         margin-left: 280px;
-        padding: 0.5rem;
-        min-height: calc(100vh - 4.5rem);
+        padding: 1rem;
         background: #f8f9fa;
+        min-height: calc(100vh - 4.5rem);
         transition: margin-left 0.3s ease;
     }
     
@@ -234,90 +234,22 @@
         margin-left: 280px;
     }
     
-    /* 탭 메뉴 스타일 */
-    .tab-container {
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
-        overflow: hidden;
-    }
-    
-    .tab-header {
-        background: #f8f9fa;
-        border-bottom: 1px solid #e9ecef;
-        padding: 0;
-    }
-    
-    .nav-tabs {
-        border: none;
-        margin: 0;
-    }
-    
-    .nav-tabs .nav-link {
-        border: none;
-        border-radius: 0;
-        padding: 1rem 1.5rem;
-        color: #6c757d;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        position: relative;
-    }
-    
-    .nav-tabs .nav-link:hover {
-        color: #495057;
-        background: rgba(52, 152, 219, 0.1);
-    }
-    
-    .nav-tabs .nav-link.active {
-        color: #27ae60;
-        background: #27ae60;
-        color: white;
-        border: none;
-    }
-    
-    .nav-tabs .nav-link.active::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        background: #1e8449;
-    }
-    
-    /* 외상채권 기초잔액 등록 폼 스타일 */
-    .receivables-container {
-        display: flex;
-        gap: 1rem;
-        height: calc(100vh - 8rem);
-    }
-    
-    .form-panel {
-        flex: 1;
-        background: white;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        overflow: hidden;
-    }
-    
-    .form-header {
+    /* 헤더 스타일 */
+    .page-header {
         background: #2c3e50;
         color: white;
-        padding: 0.75rem 1rem;
+        padding: 1rem;
+        border-radius: 8px 8px 0 0;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        margin-bottom: 0;
     }
     
-    .form-title {
-        background: #27ae60;
-        color: white;
-        padding: 0.75rem 1rem;
-        border-radius: 4px;
-        font-weight: 600;
+    .page-title {
         margin: 0;
-        font-size: 1.1rem;
+        font-size: 1.5rem;
+        font-weight: 600;
     }
     
     .close-btn {
@@ -326,178 +258,52 @@
         color: white;
         font-size: 1.5rem;
         cursor: pointer;
-        padding: 0;
-        width: 30px;
-        height: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .form-body {
-        padding: 0.75rem;
-    }
-    
-    .form-group {
-        margin-bottom: 0.75rem;
-    }
-    
-    .form-label {
-        display: block;
-        margin-bottom: 0.5rem;
-        font-weight: 600;
-        color: #2c3e50;
-    }
-    
-    .form-control, .form-select {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid #ced4da;
+        padding: 0.5rem;
         border-radius: 4px;
-        font-size: 0.9rem;
-        background-color: white;
-        transition: border-color 0.3s ease;
+        transition: background-color 0.3s ease;
     }
     
-    .form-control:focus, .form-select:focus {
-        outline: none;
-        border-color: #3498db;
-        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    .close-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
     }
     
-    .form-actions {
-        display: flex;
-        gap: 0.5rem;
-        justify-content: center;
-        padding-top: 0.75rem;
-        border-top: 1px solid #e9ecef;
-    }
-    
-    .btn {
-        padding: 0.75rem 1.5rem;
-        border: none;
-        border-radius: 4px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        transition: all 0.3s ease;
-    }
-    
-    .btn-primary {
-        background-color: #3498db;
-        color: white;
-    }
-    
-    .btn-primary:hover {
-        background-color: #2980b9;
-    }
-    
-    .btn-danger {
-        background-color: #e74c3c;
-        color: white;
-    }
-    
-    .btn-danger:hover {
-        background-color: #c0392b;
-    }
-    
-    /* 테이블 패널 스타일 */
-    .table-panel {
-        flex: 1;
+    /* 메인 컨테이너 */
+    .purchase-data-container {
         background: white;
-        border-radius: 10px;
+        border-radius: 0 0 8px 8px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         overflow: hidden;
-        display: flex;
-        flex-direction: column;
+        padding: 2rem;
     }
     
-    .table-header {
-        background: #f8f9fa;
-        padding: 0.75rem 1rem;
-        border-bottom: 1px solid #e9ecef;
+    .content-placeholder {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: #6c757d;
     }
     
-    .table-title {
-        margin: 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #2c3e50;
+    .content-placeholder i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        color: #dee2e6;
     }
     
-    .table-container {
-        flex: 1;
-        overflow: auto;
+    .content-placeholder h3 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: #495057;
     }
     
-    .table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9rem;
-    }
-    
-    .table th {
-        background: #f8f9fa;
-        padding: 0.5rem;
-        text-align: left;
-        font-weight: 600;
-        color: #2c3e50;
-        border-bottom: 2px solid #e9ecef;
-        position: sticky;
-        top: 0;
-        z-index: 10;
-    }
-    
-    .table td {
-        padding: 0.5rem;
-        border-bottom: 1px solid #e9ecef;
-        vertical-align: middle;
-    }
-    
-    .table tbody tr:hover {
-        background-color: #f8f9fa;
-    }
-    
-    .table tbody tr:nth-child(even) {
-        background-color: #fafbfc;
+    .content-placeholder p {
+        font-size: 1rem;
+        line-height: 1.6;
     }
     
     /* 반응형 웹 */
-    @media (max-width: 1200px) {
-        .receivables-container {
-            flex-direction: column;
-            height: auto;
-        }
-        
-        .form-panel, .table-panel {
-            flex: none;
-        }
-    }
-    
     @media (max-width: 768px) {
         .main-content {
+            margin-left: 0;
             padding: 0.5rem;
-        }
-        
-        .form-body {
-            padding: 0.75rem;
-        }
-        
-        .form-actions {
-            flex-direction: column;
-        }
-        
-        .btn {
-            width: 100%;
-            justify-content: center;
-        }
-        
-        .nav-tabs .nav-link {
-            padding: 0.75rem 1rem;
-            font-size: 0.9rem;
         }
     }
 </style>
@@ -539,12 +345,12 @@
             <span class="menu-text">단가관리</span>
         </a>
         
-        <a href="/stations-manage/" class="nav-link">
+        <a href="javascript:void(0)" class="nav-link" onclick="openSalesRegistrationMenu()">
             <i class="fas fa-cash-register"></i>
             <span class="menu-text">매출등록</span>
         </a>
         
-        <a href="/stations-manage/" class="nav-link">
+        <a href="javascript:void(0)" class="nav-link active" onclick="openPurchaseRegistrationMenu()">
             <i class="fas fa-shopping-cart"></i>
             <span class="menu-text">매입등록</span>
         </a>
@@ -614,7 +420,7 @@
 <div class="submenu-popup" id="submenuPopup">
     <div class="submenu-popup-header">
         <div class="submenu-popup-title">
-            <span id="submenuTitle">기초자료</span>
+            <span id="submenuTitle">매입등록</span>
             <button class="submenu-close-btn" id="submenuCloseBtn">
                 <i class="fas fa-times"></i>
             </button>
@@ -628,127 +434,21 @@
 
 <!-- 메인 콘텐츠 영역 -->
 <div class="main-content" id="mainContent">
-    <!-- Django 메시지 표시 -->
-    {% if messages %}
-    <div class="messages-container" style="margin-bottom: 1rem;">
-        {% for message in messages %}
-        <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-        {% endfor %}
+    <!-- 페이지 헤더 -->
+    <div class="page-header">
+        <h1 class="page-title">매입 자료 등록</h1>
+        <button class="close-btn" onclick="window.close()">
+            <i class="fas fa-times"></i>
+        </button>
     </div>
-    {% endif %}
     
-    <!-- 탭 메뉴 -->
-     <!--
-    <div class="tab-container">
-        <div class="tab-header">
-            <ul class="nav nav-tabs" id="inventoryTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <a class="nav-link" href="/stations-manage/tank-inventory/" role="tab">
-                        탱크 기초재고 (Tank Initial Inventory)
-                    </a>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <a class="nav-link" href="/stations-manage/dispenser-meter/" role="tab">
-                        주유기 기초 계기자료 (Fuel Dispenser Initial Meter Data)
-                    </a>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <a class="nav-link" href="/stations-manage/product-inventory/" role="tab">
-                        유외상품 기초재고 (Non-Fuel Product Initial Inventory)
-                    </a>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <a class="nav-link active" href="/stations-manage/receivables/" role="tab">
-                        외상채권 기초잔액 (Accounts Receivable Initial Balance)
-                    </a>
-                </li>
-            </ul>
-        </div>
-    </div>
-    -->
-    <div class="receivables-container">
-        <!-- 좌측: 입력 폼 패널 -->
-        <div class="form-panel">
-            <div class="form-header">
-                <h3 class="form-title">외상채권 기초잔액</h3>
-                <button class="close-btn" onclick="window.close()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <div class="form-body">
-                <form id="receivablesForm" method="POST">
-                    {% csrf_token %}
-                    <div class="form-group">
-                        <label for="customer_name" class="form-label">거래처명</label>
-                        <select class="form-select" id="customer_name" name="customer_name" required>
-                            <option value="">거래처명을 선택하세요</option>
-                            <option value="도레미전자" {% if form_data.customer_name == '도레미전자' %}selected{% endif %}>도레미전자</option>
-                            <option value="ABC전자" {% if form_data.customer_name == 'ABC전자' %}selected{% endif %}>ABC전자</option>
-                            <option value="XYZ상사" {% if form_data.customer_name == 'XYZ상사' %}selected{% endif %}>XYZ상사</option>
-                            <option value="기타거래처" {% if form_data.customer_name == '기타거래처' %}selected{% endif %}>기타거래처</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="initial_balance" class="form-label">기초 잔액</label>
-                        <input type="text" class="form-control" id="initial_balance" name="initial_balance" 
-                               value="{% if form_data.initial_balance %}{{ form_data.initial_balance }}{% endif %}" 
-                               placeholder="예: 6,500,000" required>
-                    </div>
-                    
-                    <!-- 액션 버튼 -->
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i>
-                            저장
-                        </button>
-                        <button type="button" class="btn btn-danger" onclick="deleteReceivables()">
-                            <i class="fas fa-trash"></i>
-                            삭제
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        
-        <!-- 우측: 테이블 패널 -->
-        <div class="table-panel">
-            <div class="table-header">
-                <h4 class="table-title">등록된 외상채권 기초잔액 목록</h4>
-            </div>
-            
-            <div class="table-container">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>코드</th>
-                            <th>거래처명</th>
-                            <th>거래형태</th>
-                            <th>기초잔액</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if receivables %}
-                            {% for receivable in receivables %}
-                            <tr>
-                                <td>{{ receivable.business_code }}</td>
-                                <td>{{ receivable.business_name }}</td>
-                                <td>{{ receivable.business_type }}</td>
-                                <td>{{ receivable.initial_balance|floatformat:0 }}</td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="4" class="text-center text-muted">등록된 외상채권 기초잔액이 없습니다.</td>
-                            </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
+    <!-- 메인 컨테이너 -->
+    <div class="purchase-data-container">
+        <div class="content-placeholder">
+            <i class="fas fa-shopping-cart"></i>
+            <h3>매입 자료 등록</h3>
+            <p>주유소의 매입 자료를 등록하고 관리하는 페이지입니다.<br>
+            매입 데이터를 입력하여 재고 및 매입 현황을 관리할 수 있습니다.</p>
         </div>
     </div>
 </div>
@@ -792,12 +492,7 @@
             }
         });
         
-        // 초기화면에서는 기초자료 메뉴의 active 클래스 제거
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('active');
-        });
-        
-        console.log('페이지 로드됨');
+        console.log('매입 자료 등록 페이지 로드됨');
     });
 </script>
 {% endblock %}

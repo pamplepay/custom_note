@@ -1,0 +1,1019 @@
+{% extends 'base/base.html' %}
+{% load static %}
+
+{% block title %}마감 계기 자료 등록{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 사이드바 스타일 */
+    .sidebar {
+        position: fixed;
+        top: 4.5rem;
+        left: 0;
+        height: calc(100vh - 4.5rem);
+        width: 280px;
+        background: #34495e;
+        overflow-y: auto;
+        z-index: 1000;
+        transition: transform 0.3s ease;
+    }
+    
+    .sidebar-header {
+        padding: 1.5rem 1rem;
+        border-bottom: 1px solid #4a5f7a;
+        background: #4a5f7a;
+    }
+    
+    .sidebar-title {
+        color: white;
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .sidebar-title-link {
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        transition: all 0.3s ease;
+    }
+    
+    .sidebar-title-link:hover {
+        color: #3498db;
+        transform: translateX(5px);
+    }
+    
+    .sidebar-menu {
+        padding: 1rem 0;
+    }
+    
+    .sidebar-menu .nav-link {
+        color: #ffffff !important;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        background: transparent;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    
+    .sidebar-menu .nav-link:hover {
+        color: #ffffff;
+        background: #5a6f8a;
+        transform: translateX(5px);
+        font-weight: 600;
+    }
+    
+    .sidebar-menu .nav-link.active {
+        color: #ffffff !important;
+        background: rgba(52, 152, 219, 0.15);
+        border-left: 3px solid #3498db;
+        font-weight: 500;
+        position: relative;
+    }
+    
+    .sidebar-menu .nav-link.active::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+        border-radius: 0 2px 2px 0;
+    }
+    
+    .sidebar-menu .nav-link i {
+        width: 20px;
+        margin-right: 10px;
+        text-align: center;
+    }
+    
+    .sidebar-menu .nav-link .menu-text {
+        flex: 1;
+    }
+    
+    /* 메뉴 구분선 스타일 */
+    .menu-divider {
+        height: 1px;
+        background: #4a5f7a;
+        margin: 1rem 1.5rem;
+        opacity: 0.5;
+    }
+    
+    /* 서브메뉴 플로팅 팝업 스타일 */
+    .submenu-popup {
+        position: fixed;
+        top: 5rem;
+        left: 300px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        z-index: 1000;
+        max-height: 80vh;
+        overflow-y: auto;
+        min-width: 280px;
+        transform: translateX(-100%);
+        opacity: 0;
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
+    }
+    
+    .submenu-popup.show {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    
+    .submenu-popup-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        background: #2c3e50;
+        color: white;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .submenu-popup-title {
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .submenu-close-btn {
+        background: none;
+        border: none;
+        color: #bdc3c7;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+    }
+    
+    .submenu-close-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .submenu-popup-menu {
+        padding: 0.5rem 0;
+    }
+    
+    .submenu-popup-link {
+        color: #2c3e50;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        background: transparent;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        font-weight: 500;
+        width: 100%;
+        border-bottom: 1px solid #f8f9fa;
+    }
+    
+    .submenu-popup-link:hover {
+        color: #3498db;
+        background: #f8f9fa;
+        transform: translateX(5px);
+        font-weight: 600;
+    }
+    
+    .submenu-popup-link.active {
+        color: #3498db;
+        background: rgba(52, 152, 219, 0.1);
+        border-left: 3px solid #3498db;
+        font-weight: 500;
+        position: relative;
+    }
+    
+    .submenu-popup-link.active::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(180deg, #3498db 0%, #2980b9 100%);
+        border-radius: 0 2px 2px 0;
+    }
+    
+    .submenu-popup-link i {
+        width: 20px;
+        margin-right: 10px;
+        text-align: center;
+        color: #7f8c8d;
+    }
+    
+    .submenu-popup-link:hover i {
+        color: #3498db;
+    }
+    
+    .submenu-popup-link .menu-text {
+        flex: 1;
+    }
+    
+    /* 기본 스타일 */
+    .main-content {
+        margin-left: 280px;
+        padding: 1rem;
+        background: #f8f9fa;
+        min-height: calc(100vh - 4.5rem);
+        transition: margin-left 0.3s ease;
+    }
+    
+    .main-content.submenu-open {
+        margin-left: 280px;
+    }
+    
+    /* 헤더 스타일 */
+    .page-header {
+        background: #2c3e50;
+        color: white;
+        padding: 1rem;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0;
+    }
+    
+    .page-title {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+    
+    /* 메인 컨테이너 */
+    .closing-meter-container {
+        background: white;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    /* 컨트롤 패널 */
+    .control-panel {
+        background: #f8f9fa;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+    
+    .control-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .control-label {
+        font-weight: 600;
+        color: #2c3e50;
+        white-space: nowrap;
+    }
+    
+    .control-input {
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        min-width: 120px;
+    }
+    
+    .control-select {
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        min-width: 100px;
+        background: white;
+    }
+    
+    .action-buttons {
+        margin-left: auto;
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary {
+        background-color: #007bff;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+    
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .btn-success:hover {
+        background-color: #218838;
+    }
+    
+    .btn-danger {
+        background-color: #dc3545;
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background-color: #c82333;
+    }
+    
+    /* 메인 콘텐츠 영역 */
+    .content-area {
+        display: flex;
+        height: calc(100vh - 300px);
+        min-height: 500px;
+    }
+    
+    /* 데이터 그리드 섹션 */
+    .data-grid-section {
+        flex: 2;
+        padding: 1rem;
+        border-right: 1px solid #e9ecef;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .grid-header {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+    }
+    
+    .data-grid-container {
+        flex: 1;
+        overflow: auto;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+    }
+    
+    .data-grid {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        min-width: 600px;
+    }
+    
+    .data-grid th {
+        background: #f8f9fa;
+        padding: 0.75rem 0.5rem;
+        text-align: center;
+        font-weight: 600;
+        color: #2c3e50;
+        border: 1px solid #e9ecef;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .data-grid td {
+        padding: 0.5rem;
+        border: 1px solid #e9ecef;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .data-grid tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .data-grid tbody tr:nth-child(even) {
+        background-color: #fafbfc;
+    }
+    
+    .data-grid input, .data-grid select {
+        width: 100%;
+        border: none;
+        background: transparent;
+        text-align: center;
+        padding: 0.25rem;
+        font-size: 0.9rem;
+    }
+    
+    .data-grid input:focus, .data-grid select:focus {
+        outline: none;
+        background: #fff;
+        border: 1px solid #007bff;
+        border-radius: 2px;
+    }
+    
+    /* 요약 섹션 */
+    .summary-section {
+        flex: 1;
+        padding: 1rem;
+        background: #f8f9fa;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .summary-header {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 1rem;
+        font-size: 1.1rem;
+    }
+    
+    .summary-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    
+    .summary-table th,
+    .summary-table td {
+        padding: 0.75rem 0.5rem;
+        border: 1px solid #e9ecef;
+        text-align: center;
+    }
+    
+    .summary-table th {
+        background: #e9ecef;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .summary-table td {
+        background: white;
+    }
+    
+    .summary-table input {
+        width: 100%;
+        border: none;
+        background: transparent;
+        text-align: center;
+        font-weight: 600;
+    }
+    
+    .summary-table input:focus {
+        outline: none;
+        background: #fff;
+        border: 1px solid #007bff;
+        border-radius: 2px;
+    }
+    
+    .total-section {
+        margin-top: auto;
+        border-top: 2px solid #dc3545;
+        padding-top: 1rem;
+    }
+    
+    .total-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: #dc3545;
+        font-size: 1.1rem;
+    }
+    
+    .total-input {
+        border: none;
+        background: transparent;
+        text-align: right;
+        font-weight: 600;
+        color: #dc3545;
+        font-size: 1.1rem;
+        min-width: 100px;
+    }
+    
+    .total-input:focus {
+        outline: none;
+        background: #fff;
+        border: 1px solid #dc3545;
+        border-radius: 2px;
+    }
+    
+    /* 반응형 웹 */
+    @media (max-width: 1200px) {
+        .content-area {
+            flex-direction: column;
+            height: auto;
+        }
+        
+        .data-grid-section {
+            border-right: none;
+            border-bottom: 1px solid #e9ecef;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+            padding: 0.5rem;
+        }
+        
+        .control-panel {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: stretch;
+        }
+        
+        .action-buttons {
+            margin-left: 0;
+            justify-content: center;
+        }
+        
+        .data-grid {
+            font-size: 0.8rem;
+        }
+        
+        .data-grid th,
+        .data-grid td {
+            padding: 0.25rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 모바일 사이드바 토글 버튼 -->
+<button class="sidebar-toggle" id="sidebarToggle" style="display: none;">
+    <i class="fas fa-bars"></i>
+</button>
+
+<!-- 사이드바 오버레이 -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- 왼쪽 사이드바 -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <a href="/stations-manage/" class="sidebar-title-link">
+            <h5 class="sidebar-title">
+                <i class="fas fa-gas-pump me-2"></i>
+                주유소 관리 시스템
+            </h5>
+        </a>
+    </div>
+    
+    <div class="sidebar-menu">
+        <a href="javascript:void(0)" class="nav-link" onclick="openBasicDataMenu()">
+            <i class="fas fa-database"></i>
+            <span class="menu-text">기초자료</span>
+        </a>
+        
+        <a href="javascript:void(0)" class="nav-link" onclick="openCustomerManagementMenu()">
+            <i class="fas fa-building"></i>
+            <span class="menu-text">거래처관리</span>
+        </a>
+        
+        <a href="javascript:void(0)" class="nav-link" onclick="openPriceManagementMenu()">
+            <i class="fas fa-tags"></i>
+            <span class="menu-text">단가관리</span>
+        </a>
+        
+        <a href="javascript:void(0)" class="nav-link active" onclick="openSalesRegistrationMenu()">
+            <i class="fas fa-cash-register"></i>
+            <span class="menu-text">매출등록</span>
+        </a>
+        
+        <a href="javascript:void(0)" class="nav-link" onclick="openPurchaseRegistrationMenu()">
+            <i class="fas fa-shopping-cart"></i>
+            <span class="menu-text">매입등록</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-money-bill-wave"></i>
+            <span class="menu-text">입금등록</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-warehouse"></i>
+            <span class="menu-text">재고관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-receipt"></i>
+            <span class="menu-text">보관증관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-handshake"></i>
+            <span class="menu-text">외상관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-percentage"></i>
+            <span class="menu-text">면세판매관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-file-alt"></i>
+            <span class="menu-text">석유관리원보고자료</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-list-alt"></i>
+            <span class="menu-text">자료조회</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-book"></i>
+            <span class="menu-text">매출원장관리</span>
+        </a>
+        
+        <a href="/stations-manage/" class="nav-link">
+            <i class="fas fa-folder"></i>
+            <span class="menu-text">00자료</span>
+        </a>
+        
+        <!-- 구분선 -->
+        <div class="menu-divider"></div>
+        
+        <!-- 운영노트 관련 메뉴 -->
+        <a href="#" class="nav-link" onclick="window.location.href='/station/membership-cards/'">
+            <i class="fas fa-credit-card"></i>
+            <span class="menu-text">멤버십카드 관리</span>
+        </a>
+        
+        <a href="#" class="nav-link" onclick="window.location.href='/station/customer-groups/'">
+            <i class="fas fa-users"></i>
+            <span class="menu-text">고객 그룹 관리</span>
+        </a>
+    </div>
+</div>
+
+<!-- 서브메뉴 플로팅 팝업 -->
+<div class="submenu-popup" id="submenuPopup">
+    <div class="submenu-popup-header">
+        <div class="submenu-popup-title">
+            <span id="submenuTitle">매출등록</span>
+            <button class="submenu-close-btn" id="submenuCloseBtn">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    
+    <div class="submenu-popup-menu" id="submenuContent">
+        <!-- 동적으로 내용이 채워집니다 -->
+    </div>
+</div>
+
+<!-- 메인 콘텐츠 영역 -->
+<div class="main-content" id="mainContent">
+    <!-- 페이지 헤더 -->
+    <div class="page-header">
+        <h1 class="page-title">마감 계기 자료 등록</h1>
+    </div>
+    
+    <!-- 메인 컨테이너 -->
+    <div class="closing-meter-container">
+        <!-- 컨트롤 패널 -->
+        <div class="control-panel">
+            <div class="control-group">
+                <label class="control-label">마감 일자</label>
+                <input type="date" class="control-input" id="closingDate" value="2022-09-19">
+                <i class="fas fa-calendar-alt" style="color: #007bff;"></i>
+            </div>
+            
+            <div class="control-group">
+                <label class="control-label">차수</label>
+                <select class="control-select" id="shift">
+                    <option value="1">1차</option>
+                    <option value="2">2차</option>
+                    <option value="3">3차</option>
+                </select>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="queryData()">
+                    <i class="fas fa-search"></i>
+                    조회
+                </button>
+                <button class="btn btn-success" onclick="saveData()">
+                    <i class="fas fa-save"></i>
+                    저장
+                </button>
+                <button class="btn btn-danger" onclick="deleteData()">
+                    <i class="fas fa-trash"></i>
+                    삭제
+                </button>
+            </div>
+        </div>
+        
+        <!-- 메인 콘텐츠 영역 -->
+        <div class="content-area">
+            <!-- 데이터 그리드 섹션 -->
+            <div class="data-grid-section">
+                <div class="grid-header">노즐별 계기 자료</div>
+                <div class="data-grid-container">
+                    <table class="data-grid">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">노즐 No</th>
+                                <th style="width: 120px;">유종명</th>
+                                <th style="width: 120px;">마감 계기</th>
+                                <th style="width: 120px;">이전 계기</th>
+                                <th style="width: 120px;">회전량</th>
+                            </tr>
+                        </thead>
+                        <tbody id="meterDataTable">
+                            <tr>
+                                <td>1</td>
+                                <td><select><option value="휘발유">휘발유</option><option value="고급휘발유">고급휘발유</option><option value="경유">경유</option><option value="고급경유">고급경유</option><option value="등유">등유</option><option value="요소수">요소수</option></select></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" readonly></td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td><select><option value="휘발유">휘발유</option><option value="고급휘발유">고급휘발유</option><option value="경유">경유</option><option value="고급경유">고급경유</option><option value="등유">등유</option><option value="요소수">요소수</option></select></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" readonly></td>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td><select><option value="휘발유">휘발유</option><option value="고급휘발유">고급휘발유</option><option value="경유">경유</option><option value="고급경유">고급경유</option><option value="등유">등유</option><option value="요소수">요소수</option></select></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" readonly></td>
+                            </tr>
+                            <tr>
+                                <td>4</td>
+                                <td><select><option value="휘발유">휘발유</option><option value="고급휘발유">고급휘발유</option><option value="경유">경유</option><option value="고급경유">고급경유</option><option value="등유">등유</option><option value="요소수">요소수</option></select></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" readonly></td>
+                            </tr>
+                            <tr>
+                                <td>5</td>
+                                <td><select><option value="휘발유">휘발유</option><option value="고급휘발유">고급휘발유</option><option value="경유">경유</option><option value="고급경유">고급경유</option><option value="등유">등유</option><option value="요소수">요소수</option></select></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" readonly></td>
+                            </tr>
+                            <tr>
+                                <td>6</td>
+                                <td><select><option value="휘발유">휘발유</option><option value="고급휘발유">고급휘발유</option><option value="경유">경유</option><option value="고급경유">고급경유</option><option value="등유">등유</option><option value="요소수">요소수</option></select></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" readonly></td>
+                            </tr>
+                            <tr>
+                                <td>7</td>
+                                <td><select><option value="휘발유">휘발유</option><option value="고급휘발유">고급휘발유</option><option value="경유">경유</option><option value="고급경유">고급경유</option><option value="등유">등유</option><option value="요소수">요소수</option></select></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" readonly></td>
+                            </tr>
+                            <tr>
+                                <td>8</td>
+                                <td><select><option value="휘발유">휘발유</option><option value="고급휘발유">고급휘발유</option><option value="경유">경유</option><option value="고급경유">고급경유</option><option value="등유">등유</option><option value="요소수">요소수</option></select></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" readonly></td>
+                            </tr>
+                            <tr>
+                                <td>9</td>
+                                <td><select><option value="휘발유">휘발유</option><option value="고급휘발유">고급휘발유</option><option value="경유">경유</option><option value="고급경유">고급경유</option><option value="등유">등유</option><option value="요소수">요소수</option></select></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" readonly></td>
+                            </tr>
+                            <tr>
+                                <td>10</td>
+                                <td><select><option value="휘발유">휘발유</option><option value="고급휘발유">고급휘발유</option><option value="경유">경유</option><option value="고급경유">고급경유</option><option value="등유">등유</option><option value="요소수">요소수</option></select></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" placeholder="0"></td>
+                                <td><input type="number" readonly></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 요약 섹션 -->
+            <div class="summary-section">
+                <div class="summary-header">유종별 소계</div>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>유종별</th>
+                            <th>소계</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>고급휘발유</td>
+                            <td><input type="number" id="premiumGasoline" value="5200" readonly></td>
+                        </tr>
+                        <tr>
+                            <td>휘발유</td>
+                            <td><input type="number" id="gasoline" value="3250" readonly></td>
+                        </tr>
+                        <tr>
+                            <td>고급 경유</td>
+                            <td><input type="number" id="premiumDiesel" value="6530" readonly></td>
+                        </tr>
+                        <tr>
+                            <td>경유</td>
+                            <td><input type="number" id="diesel" value="2560" readonly></td>
+                        </tr>
+                        <tr>
+                            <td>요소수</td>
+                            <td><input type="number" id="urea" value="500" readonly></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" placeholder="추가 유종"></td>
+                            <td><input type="number" placeholder="0"></td>
+                        </tr>
+                        <tr>
+                            <td><input type="text" placeholder="추가 유종"></td>
+                            <td><input type="number" placeholder="0"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="total-section">
+                    <div class="total-row">
+                        <span>총합계</span>
+                        <input type="number" class="total-input" id="grandTotal" value="18040" readonly>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/submenu-config.js' %}"></script>
+<script>
+    // 모바일 사이드바 토글 기능
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        
+        // URL에 #이 있다면 제거
+        if (window.location.hash) {
+            window.history.replaceState(null, null, window.location.pathname);
+        }
+        
+        // 토글 버튼 클릭 이벤트
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function() {
+                sidebar.classList.toggle('show');
+                sidebarOverlay.classList.toggle('show');
+            });
+        }
+        
+        // 오버레이 클릭 시 사이드바 닫기
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', function() {
+                sidebar.classList.remove('show');
+                sidebarOverlay.classList.remove('show');
+            });
+        }
+        
+        // 화면 크기 변경 시 사이드바 상태 조정
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('show');
+                sidebarOverlay.classList.remove('show');
+            }
+        });
+        
+        // 회전량 자동 계산 이벤트
+        setupRotationCalculation();
+        
+        console.log('마감 계기 자료 등록 페이지 로드됨');
+    });
+    
+    // 회전량 자동 계산 설정
+    function setupRotationCalculation() {
+        const table = document.getElementById('meterDataTable');
+        
+        table.addEventListener('input', function(e) {
+            const row = e.target.closest('tr');
+            if (row) {
+                const closingInput = row.querySelector('td:nth-child(3) input');
+                const previousInput = row.querySelector('td:nth-child(4) input');
+                const rotationInput = row.querySelector('td:nth-child(5) input');
+                
+                if (e.target === closingInput || e.target === previousInput) {
+                    const closing = parseFloat(closingInput.value) || 0;
+                    const previous = parseFloat(previousInput.value) || 0;
+                    const rotation = closing - previous;
+                    
+                    rotationInput.value = rotation > 0 ? rotation : 0;
+                    
+                    // 유종별 소계 업데이트
+                    updateSummary();
+                }
+            }
+        });
+    }
+    
+    // 유종별 소계 업데이트
+    function updateSummary() {
+        const table = document.getElementById('meterDataTable');
+        const rows = table.querySelectorAll('tbody tr');
+        
+        // 유종별 합계 초기화
+        const fuelTotals = {
+            '고급휘발유': 0,
+            '휘발유': 0,
+            '고급경유': 0,
+            '경유': 0,
+            '등유': 0,
+            '요소수': 0
+        };
+        
+        // 각 행의 데이터를 계산
+        rows.forEach(row => {
+            const fuelType = row.querySelector('td:nth-child(2) select').value;
+            const rotation = parseFloat(row.querySelector('td:nth-child(5) input').value) || 0;
+            
+            if (fuelTotals.hasOwnProperty(fuelType)) {
+                fuelTotals[fuelType] += rotation;
+            }
+        });
+        
+        // 소계 업데이트
+        document.getElementById('premiumGasoline').value = fuelTotals['고급휘발유'];
+        document.getElementById('gasoline').value = fuelTotals['휘발유'];
+        document.getElementById('premiumDiesel').value = fuelTotals['고급경유'];
+        document.getElementById('diesel').value = fuelTotals['경유'];
+        document.getElementById('urea').value = fuelTotals['요소수'];
+        
+        // 총합계 계산
+        const grandTotal = Object.values(fuelTotals).reduce((sum, value) => sum + value, 0);
+        document.getElementById('grandTotal').value = grandTotal;
+    }
+    
+    // 조회 함수
+    function queryData() {
+        const closingDate = document.getElementById('closingDate').value;
+        const shift = document.getElementById('shift').value;
+        
+        if (!closingDate) {
+            alert('마감 일자를 선택해주세요.');
+            return;
+        }
+        
+        // 여기에 실제 조회 로직을 구현할 수 있습니다
+        alert(`${closingDate} ${shift}차 데이터를 조회합니다.`);
+    }
+    
+    // 저장 함수
+    function saveData() {
+        const closingDate = document.getElementById('closingDate').value;
+        const shift = document.getElementById('shift').value;
+        
+        if (!closingDate) {
+            alert('마감 일자를 선택해주세요.');
+            return;
+        }
+        
+        // 여기에 실제 저장 로직을 구현할 수 있습니다
+        alert('마감 계기 자료가 저장되었습니다.');
+    }
+    
+    // 삭제 함수
+    function deleteData() {
+        const closingDate = document.getElementById('closingDate').value;
+        const shift = document.getElementById('shift').value;
+        
+        if (!closingDate) {
+            alert('마감 일자를 선택해주세요.');
+            return;
+        }
+        
+        if (confirm('정말로 이 데이터를 삭제하시겠습니까?')) {
+            // 여기에 실제 삭제 로직을 구현할 수 있습니다
+            alert('마감 계기 자료가 삭제되었습니다.');
+        }
+    }
+</script>
+{% endblock %}

@@ -690,10 +690,10 @@
     <div class="main-menu-bar">
         <div class="container-fluid">
             <div class="menu-container">
-                <a href="#" class="menu-item">기초자료 (Basic Data)</a>
-                <a href="#" class="menu-item">거래처관리 (Customer Management)</a>
-                <a href="#" class="menu-item">단가관리 (Unit Price Management)</a>
-                <a href="#" class="menu-item">매출등록 (Sales Registration)</a>
+                <a href="javascript:void(0)" class="menu-item" onclick="openBasicDataMenu()">기초자료 (Basic Data)</a>
+                <a href="javascript:void(0)" class="menu-item" onclick="openCustomerManagementMenu()">거래처관리 (Customer Management)</a>
+                <a href="javascript:void(0)" class="menu-item" onclick="openPriceManagementMenu()">단가관리 (Unit Price Management)</a>
+                <a href="javascript:void(0)" class="menu-item" onclick="openSalesRegistrationMenu()">매출등록 (Sales Registration)</a>
                 <a href="#" class="menu-item">매입등록 (Purchase Registration)</a>
                 <a href="#" class="menu-item">입금등록 (Deposit Registration)</a>
                 <a href="#" class="menu-item">재고관리 (Inventory Management)</a>
@@ -818,6 +818,8 @@
 <script>
     // 모바일 사이드바 토글 기능
     document.addEventListener('DOMContentLoaded', function() {
+
+
         const sidebarToggle = document.getElementById('sidebarToggle');
         const sidebar = document.getElementById('sidebar');
         const sidebarOverlay = document.getElementById('sidebarOverlay');

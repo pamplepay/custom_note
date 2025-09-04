@@ -77,21 +77,51 @@ const SUBMENU_CONFIG = {
             }
         ]
     },
-            'price-management': {
-            title: '단가관리',
-            items: [
-                {
-                    text: '기준 단가 입력',
-                    icon: 'fas fa-dollar-sign',
-                    href: '/stations-manage/standard-price/'
-                },
-                {
-                    text: '할인 단가 설정',
-                    icon: 'fas fa-percentage',
-                    href: '/stations-manage/discount-price/'
-                }
-            ]
-        }
+    'price-management': {
+        title: '단가관리',
+        items: [
+            {
+                text: '공장도가격등록',
+                icon: 'fas fa-industry',
+                href: '/stations-manage/factory-price/'
+            },
+            {
+                text: '주유소게시가등록',
+                icon: 'fas fa-gas-pump',
+                href: '/stations-manage/station-price/'
+            },
+            {
+                text: '유외상품 판매가설정',
+                icon: 'fas fa-shopping-cart',
+                href: '/stations-manage/product-price-setting/'
+            }
+        ]
+    },
+    'sales-registration': {
+        title: '매출등록',
+        items: [
+            {
+                text: '마감 계기 자료 등록',
+                icon: 'fas fa-tachometer-alt',
+                href: '/stations-manage/closing-meter-data/'
+            },
+            {
+                text: '일일 판매 자료 등록',
+                icon: 'fas fa-chart-line',
+                href: '/stations-manage/daily-sales-data/'
+            }
+        ]
+    },
+    'purchase-registration': {
+        title: '매입등록',
+        items: [
+            {
+                text: '매입 자료 등록',
+                icon: 'fas fa-shopping-cart',
+                href: '/stations-manage/purchase-data/'
+            }
+        ]
+    }
 };
 
 // 공통 메뉴 열기 함수들
@@ -107,8 +137,18 @@ function openPriceManagementMenu() {
     openSubmenuPopup('price-management', '단가관리');
 }
 
+function openSalesRegistrationMenu() {
+    console.log("매출등록 메뉴 클릭됨");
+    openSubmenuPopup('sales-registration', '매출등록');
+}
+
+function openPurchaseRegistrationMenu() {
+    openSubmenuPopup('purchase-registration', '매입등록');
+}
+
 // 공통 서브메뉴 플로팅 팝업 열기 함수
 function openSubmenuPopup(menuType, title) {
+    console.log("openSubmenuPopup 호출됨:", menuType, title);
     const submenuPopup = document.getElementById('submenuPopup');
     const submenuTitle = document.getElementById('submenuTitle');
     const submenuContent = document.getElementById('submenuContent');
@@ -310,4 +350,4 @@ document.addEventListener('DOMContentLoaded', function() {
             closeSubmenuPopup();
         });
     }
-}); 
+});
