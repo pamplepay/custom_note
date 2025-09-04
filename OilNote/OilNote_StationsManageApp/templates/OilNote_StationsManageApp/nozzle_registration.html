@@ -524,7 +524,7 @@
             <span class="menu-text">단가관리</span>
         </a>
         
-        <a href="/stations-manage/" class="nav-link">
+        <a href="javascript:void(0)" onclick="openSalesRegistrationMenu()" class="nav-link">
             <i class="fas fa-cash-register"></i>
             <span class="menu-text">매출등록</span>
         </a>
@@ -770,7 +770,6 @@
         });
         
         // 메뉴 이벤트 초기화
-        initializeMenuEvents();
         
         // 초기화면에서는 기초자료 메뉴의 active 클래스 제거
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -780,10 +779,6 @@
         console.log('주유기 노즐정보 등록 페이지 로드됨');
     });
     
-
-        submenuPopup.classList.add('show');
-        mainContent.classList.add('submenu-open');
-    }
     
     // 서브메뉴 플로팅 팝업 닫기
     document.getElementById('submenuCloseBtn').addEventListener('click', function() {
@@ -852,7 +847,7 @@
         `;
         
         // 기존 서브메뉴 아이템들 다시 생성
-        const menuItems = submenuData['basic-data'].items;
+        const menuItems = SUBMENU_CONFIG['basic-data'].items;
         submenuContent.innerHTML = '';
         
         menuItems.forEach(item => {

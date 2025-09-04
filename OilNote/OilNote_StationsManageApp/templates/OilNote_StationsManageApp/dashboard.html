@@ -580,7 +580,7 @@
             <span class="menu-text">단가관리</span>
         </a>
         
-        <a href="/stations-manage/" class="nav-link">
+        <a href="javascript:void(0)" class="nav-link" onclick="openSalesRegistrationMenu()">
             <i class="fas fa-cash-register"></i>
             <span class="menu-text">매출등록</span>
         </a>
@@ -819,6 +819,10 @@
     // 모바일 사이드바 토글 기능
     document.addEventListener('DOMContentLoaded', function() {
 
+        // 디버깅: submenu-config.js 함수 확인
+        console.log("대시보드에서 openSalesRegistrationMenu 함수 확인:", typeof openSalesRegistrationMenu);
+        console.log("대시보드에서 openSubmenuPopup 함수 확인:", typeof openSubmenuPopup);
+
 
         const sidebarToggle = document.getElementById('sidebarToggle');
         const sidebar = document.getElementById('sidebar');
@@ -862,7 +866,7 @@
     });
     
     // 일반 메뉴 아이템 클릭 이벤트
-    document.querySelectorAll('.sidebar-menu .nav-link:not(.menu-toggle)').forEach(item => {
+    document.querySelectorAll('.sidebar-menu .nav-link:not(.menu-toggle):not([onclick])').forEach(item => {
         item.addEventListener('click', function(e) {
             e.preventDefault();
             
