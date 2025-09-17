@@ -642,14 +642,14 @@
                     <div class="form-group">
                         <label for="vehicle_code" class="form-label">홈로리 차량 코드</label>
                         <input type="text" class="form-control" id="vehicle_code" name="vehicle_code" 
-                               value="{% if form_data.vehicle_code %}{{ form_data.vehicle_code }}{% else %}750001{% endif %}" 
+                               value="{% if form_data.vehicle_code %}{{ form_data.vehicle_code }}{% else %}{% endif %}" 
                                placeholder="예: 750001" required>
                     </div>
                     
                     <div class="form-group">
                         <label for="vehicle_number" class="form-label">차량 번호</label>
                         <input type="text" class="form-control" id="vehicle_number" name="vehicle_number" 
-                               value="{% if form_data.vehicle_number %}{{ form_data.vehicle_number }}{% else %}경기11가1234{% endif %}" 
+                               value="{% if form_data.vehicle_number %}{{ form_data.vehicle_number }}{% else %}{% endif %}" 
                                placeholder="예: 경기11가1234" required>
                     </div>
                     
@@ -670,7 +670,7 @@
                     <div class="form-group">
                         <label for="permitted_capacity" class="form-label">허가 용량</label>
                         <input type="text" class="form-control" id="permitted_capacity" name="permitted_capacity" 
-                               value="{% if form_data.permitted_capacity %}{{ form_data.permitted_capacity }}{% else %}3,000{% endif %}" 
+                               value="{% if form_data.permitted_capacity %}{{ form_data.permitted_capacity }}{% else %}{% endif %}" 
                                placeholder="예: 3,000" required>
                     </div>
                     

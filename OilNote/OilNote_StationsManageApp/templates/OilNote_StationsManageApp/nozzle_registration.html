@@ -642,14 +642,14 @@
                     <div class="form-group">
                         <label for="nozzle_code" class="form-label">노즐 코드</label>
                         <input type="text" class="form-control" id="nozzle_code" name="nozzle_code" 
-                               value="{% if form_data.nozzle_code %}{{ form_data.nozzle_code }}{% else %}700001{% endif %}" 
+                               value="{% if form_data.nozzle_code %}{{ form_data.nozzle_code }}{% else %}{% endif %}" 
                                placeholder="예: 700001" required>
                     </div>
                     
                     <div class="form-group">
                         <label for="nozzle_number" class="form-label">노즐번호</label>
                         <input type="text" class="form-control" id="nozzle_number" name="nozzle_number" 
-                               value="{% if form_data.nozzle_number %}{{ form_data.nozzle_number }}{% else %}1{% endif %}" 
+                               value="{% if form_data.nozzle_number %}{{ form_data.nozzle_number }}{% endif %}" 
                                placeholder="예: 1" required>
                     </div>
                     
@@ -669,7 +669,7 @@
                     <div class="form-group">
                         <label for="fuel_type" class="form-label">품목(유종)명</label>
                         <input type="text" class="form-control" id="fuel_type" name="fuel_type" 
-                               value="{% if form_data.fuel_type %}{{ form_data.fuel_type }}{% else %}휘발유{% endif %}" 
+                               value="{% if form_data.fuel_type %}{{ form_data.fuel_type }}{% else %}{% endif %}" 
                                placeholder="예: 휘발유" required>
                     </div>
                     

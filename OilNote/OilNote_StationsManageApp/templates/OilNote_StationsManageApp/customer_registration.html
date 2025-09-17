@@ -658,13 +658,14 @@
                 <div class="left-form">
                     <div class="form-group">
                         <label for="code" class="form-label">코드</label>
-                        <input type="text" class="form-control" id="code" value="300001" readonly>
+                        <input type="text" class="form-control" id="code" placeholder="예: 300001" readonly>
                     </div>
                     
                     <div class="form-group">
                         <label for="type_classification" class="form-label">형태구분</label>
                         <select class="form-select" id="type_classification">
-                            <option value="일반, 매입" selected>일반, 매입</option>
+                            <option value="" disabled selected>예: 일반, 매입</option>
+                            <option value="일반, 매입">일반, 매입</option>
                             <option value="일반, 매출">일반, 매출</option>
                             <option value="특별, 매입">특별, 매입</option>
                             <option value="특별, 매출">특별, 매출</option>
@@ -673,37 +674,37 @@
                     
                     <div class="form-group">
                         <label for="customer_name" class="form-label">거래처명</label>
-                        <input type="text" class="form-control" id="customer_name" value="오렌지상사">
+                        <input type="text" class="form-control" id="customer_name" placeholder="예: 오렌지상사">
                     </div>
                     
                     <div class="form-group">
                         <label for="representative" class="form-label">대표자</label>
-                        <input type="text" class="form-control" id="representative" value="김치국">
+                        <input type="text" class="form-control" id="representative" placeholder="예: 김치국">
                     </div>
                     
                     <div class="form-group">
                         <label for="business_number" class="form-label">사업자 번호</label>
-                        <input type="text" class="form-control" id="business_number" value="123-81-12345">
+                        <input type="text" class="form-control" id="business_number" placeholder="예: 123-81-12345">
                     </div>
                     
                     <div class="form-group">
                         <label for="sub_business" class="form-label">종사업자</label>
-                        <input type="text" class="form-control" id="sub_business" value="002">
+                        <input type="text" class="form-control" id="sub_business" placeholder="예: 002">
                     </div>
                     
                     <div class="form-group">
                         <label for="business_address" class="form-label">사업장 주소</label>
-                        <input type="text" class="form-control" id="business_address" value="경기도 수원시 영통구 대학4로17 에이스 광교타워 1차 422호">
+                        <input type="text" class="form-control" id="business_address" placeholder="예: 경기도 수원시 영통구 대학4로17 에이스 광교타워 1차 422호">
                     </div>
                     
                     <div class="form-group">
                         <label for="business_type" class="form-label">업태</label>
-                        <input type="text" class="form-control" id="business_type" value="도매 및 소매업">
+                        <input type="text" class="form-control" id="business_type" placeholder="예: 도매 및 소매업">
                     </div>
                     
                     <div class="form-group">
                         <label for="business_category" class="form-label">종목</label>
-                        <input type="text" class="form-control" id="business_category" value="주유소, 세차영업">
+                        <input type="text" class="form-control" id="business_category" placeholder="예: 주유소, 세차영업">
                     </div>
                 </div>
                 
@@ -711,22 +712,22 @@
                 <div class="right-form">
                     <div class="form-group">
                         <label for="phone" class="form-label">Tel</label>
-                        <input type="text" class="form-control" id="phone" value="031-123-5678">
+                        <input type="text" class="form-control" id="phone" placeholder="예: 031-123-5678">
                     </div>
                     
                     <div class="form-group">
                         <label for="fax" class="form-label">Fax</label>
-                        <input type="text" class="form-control" id="fax" value="031-123-5678">
+                        <input type="text" class="form-control" id="fax" placeholder="예: 031-123-5678">
                     </div>
                     
                     <div class="form-group">
                         <label for="mobile" class="form-label">C.P (Mobile Phone)</label>
-                        <input type="text" class="form-control" id="mobile" value="010-1234-5678">
+                        <input type="text" class="form-control" id="mobile" placeholder="예: 010-1234-5678">
                     </div>
                     
                     <div class="form-group">
                         <label for="email" class="form-label">이메일주소</label>
-                        <input type="email" class="form-control" id="email" value="abcd1234@naver.com">
+                        <input type="email" class="form-control" id="email" placeholder="예: abcd1234@naver.com">
                     </div>
                     
                     <div class="form-group">
@@ -736,7 +737,7 @@
                                 <input type="radio" name="vat_application" value="건별기준"> 건별기준
                             </label>
                             <label>
-                                <input type="radio" name="vat_application" value="총합계 기준" checked> 총합계 기준
+                                <input type="radio" name="vat_application" value="총합계 기준"> 총합계 기준
                             </label>
                         </div>
                     </div>
@@ -744,7 +745,8 @@
                     <div class="form-group">
                         <label for="business_status" class="form-label">영업구분</label>
                         <select class="form-select" id="business_status">
-                            <option value="영업중, 거래중지" selected>영업중, 거래중지</option>
+                            <option value="" disabled selected>예: 영업중, 거래중지</option>
+                            <option value="영업중, 거래중지">영업중, 거래중지</option>
                             <option value="영업중">영업중</option>
                             <option value="거래중지">거래중지</option>
                             <option value="폐업">폐업</option>
@@ -769,7 +771,8 @@
                         <tr>
                             <td>
                                 <select>
-                                    <option value="휘발유" selected>휘발유</option>
+                                    <option value="" disabled selected>예: 휘발유</option>
+                                    <option value="휘발유">휘발유</option>
                                     <option value="경유">경유</option>
                                     <option value="등유">등유</option>
                                     <option value="요소수">요소수</option>
@@ -777,7 +780,8 @@
                             </td>
                             <td>
                                 <select>
-                                    <option value="공장도가" selected>공장도가</option>
+                                    <option value="" disabled selected>예: 공장도가</option>
+                                    <option value="공장도가">공장도가</option>
                                     <option value="게시가">게시가</option>
                                     <option value="시장가">시장가</option>
                                 </select>
@@ -787,26 +791,28 @@
                                     <input type="radio" name="adjustment_type_1" value="할인"> 할인
                                 </label>
                                 <label>
-                                    <input type="radio" name="adjustment_type_1" value="할증" checked> 할증
+                                    <input type="radio" name="adjustment_type_1" value="할증"> 할증
                                 </label>
                             </td>
                             <td>
-                                <input type="number" value="20" min="0">
+                                <input type="number" placeholder="예: 20" min="0">
                             </td>
                         </tr>
                         <tr>
                             <td>
                                 <select>
+                                    <option value="" disabled selected>예: 경유</option>
                                     <option value="휘발유">휘발유</option>
-                                    <option value="경유" selected>경유</option>
+                                    <option value="경유">경유</option>
                                     <option value="등유">등유</option>
                                     <option value="요소수">요소수</option>
                                 </select>
                             </td>
                             <td>
                                 <select>
+                                    <option value="" disabled selected>예: 게시가</option>
                                     <option value="공장도가">공장도가</option>
-                                    <option value="게시가" selected>게시가</option>
+                                    <option value="게시가">게시가</option>
                                     <option value="시장가">시장가</option>
                                 </select>
                             </td>
@@ -815,25 +821,27 @@
                                     <input type="radio" name="adjustment_type_2" value="할인"> 할인
                                 </label>
                                 <label>
-                                    <input type="radio" name="adjustment_type_2" value="할증" checked> 할증
+                                    <input type="radio" name="adjustment_type_2" value="할증"> 할증
                                 </label>
                             </td>
                             <td>
-                                <input type="number" value="15" min="0">
+                                <input type="number" placeholder="예: 15" min="0">
                             </td>
                         </tr>
                         <tr>
                             <td>
                                 <select>
+                                    <option value="" disabled selected>예: 등유</option>
                                     <option value="휘발유">휘발유</option>
                                     <option value="경유">경유</option>
-                                    <option value="등유" selected>등유</option>
+                                    <option value="등유">등유</option>
                                     <option value="요소수">요소수</option>
                                 </select>
                             </td>
                             <td>
                                 <select>
-                                    <option value="공장도가" selected>공장도가</option>
+                                    <option value="" disabled selected>예: 공장도가</option>
+                                    <option value="공장도가">공장도가</option>
                                     <option value="게시가">게시가</option>
                                     <option value="시장가">시장가</option>
                                 </select>
@@ -843,25 +851,27 @@
                                     <input type="radio" name="adjustment_type_3" value="할인"> 할인
                                 </label>
                                 <label>
-                                    <input type="radio" name="adjustment_type_3" value="할증" checked> 할증
+                                    <input type="radio" name="adjustment_type_3" value="할증"> 할증
                                 </label>
                             </td>
                             <td>
-                                <input type="number" value="35" min="0">
+                                <input type="number" placeholder="예: 35" min="0">
                             </td>
                         </tr>
                         <tr>
                             <td>
                                 <select>
+                                    <option value="" disabled selected>예: 요소수</option>
                                     <option value="휘발유">휘발유</option>
                                     <option value="경유">경유</option>
                                     <option value="등유">등유</option>
-                                    <option value="요소수" selected>요소수</option>
+                                    <option value="요소수">요소수</option>
                                 </select>
                             </td>
                             <td>
                                 <select>
-                                    <option value="공장도가" selected>공장도가</option>
+                                    <option value="" disabled selected>예: 공장도가</option>
+                                    <option value="공장도가">공장도가</option>
                                     <option value="게시가">게시가</option>
                                     <option value="시장가">시장가</option>
                                 </select>
@@ -871,11 +881,11 @@
                                     <input type="radio" name="adjustment_type_4" value="할인"> 할인
                                 </label>
                                 <label>
-                                    <input type="radio" name="adjustment_type_4" value="할증" checked> 할증
+                                    <input type="radio" name="adjustment_type_4" value="할증"> 할증
                                 </label>
                             </td>
                             <td>
-                                <input type="number" value="25" min="0">
+                                <input type="number" placeholder="예: 25" min="0">
                             </td>
                         </tr>
                     </tbody>
