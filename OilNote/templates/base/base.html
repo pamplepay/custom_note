@@ -16,14 +16,14 @@
     <link rel="icon" type="image/svg+xml" href="{% static 'favicon.svg' %}">
     <link rel="shortcut icon" href="{% static 'favicon.svg' %}">
     
-    <!-- Bootstrap CSS - 로컬 -->
-    <link href="{% static 'bootstrap/bootstrap.min.css' %}" rel="stylesheet">
-    <!-- Font Awesome - CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Bootstrap CSS - 로컬 파일 사용 -->
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <!-- Font Awesome - 로컬 파일 사용 -->
+    <link href="{% static 'css/fontawesome.min.css' %}" rel="stylesheet">
     
-    <!-- 로컬 파일 백업 (CDN 실패 시) -->
-    <!-- <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet"> -->
-    <!-- <link href="{% static 'css/fontawesome.min.css' %}" rel="stylesheet"> -->
+    <!-- CDN 백업 (로컬 파일 실패 시) -->
+    <!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"> -->
+    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> -->
     <!-- 기본 백업 스타일 -->
     <style>
         /* CDN 실패 시 기본 스타일 */
@@ -305,12 +305,13 @@
     </main>
 
     <!-- jQuery & Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="{% static 'bootstrap/bootstrap.bundle.min.js' %}"></script>
+    <!-- 로컬 파일 사용 -->
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
     
-    <!-- 로컬 파일 백업 (CDN 실패 시) -->
-    <!-- <script src="{% static 'js/jquery.min.js' %}"></script> -->
-    <!-- <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script> -->
+    <!-- CDN 백업 (로컬 파일 실패 시) -->
+    <!-- <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script> -->
     
     <!-- 기본 JavaScript 로드 확인 -->
     <script>
