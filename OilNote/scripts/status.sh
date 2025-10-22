@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 프로젝트 루트 디렉토리 설정
-PROJECT_ROOT="/home/oilnote/custom_note/OilNote"
+PROJECT_ROOT="/home/ilium/custom_note/OilNote"
 
 # Django 서버 상태 확인
 if [ -f "$PROJECT_ROOT/server.pid" ]; then

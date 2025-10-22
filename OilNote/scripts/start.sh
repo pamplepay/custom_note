@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 프로젝트 루트 디렉토리 설정
-PROJECT_ROOT="/home/oilnote/custom_note/OilNote"
+PROJECT_ROOT="/home/ilium/custom_note/OilNote"
 
 # 서버 PID 파일
 PID_FILE="$PROJECT_ROOT/server.pid"
