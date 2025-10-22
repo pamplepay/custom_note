@@ -37,6 +37,7 @@ urlpatterns = [
     path('users/', include('OilNote_User.urls')),
     path('customer/', include('Cust_main.urls')),
     path('station/', include('Cust_Station.urls')),
+    path('stations-credit/', include('OilNote_StationsCreditApp.urls')),
     
     # Swagger URL
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),

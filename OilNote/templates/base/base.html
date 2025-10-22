@@ -211,27 +211,27 @@
                             {% if user.stations_manage %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'stations_manage:dashboard' %}">
-                                    <i class="fas fa-cogs me-1"></i>운영 노트
+                                    <i class="fas fa-cogs me-1"></i>운영노트
                                 </a>
                             </li>
                             {% endif %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="/stations-credit/">
+                                    <i class="fas fa-handshake me-1"></i>외상노트
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'station:sales' %}">
+                                    <i class="fas fa-chart-line me-1"></i>매출노트
+                                </a>
+                            </li>
                             {% if user.stations_crm %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'station:usermanage' %}">
-                                    <i class="fas fa-users me-1"></i>고객 노트
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'station:couponmanage' %}">
-                                    <i class="fas fa-ticket-alt me-1"></i>쿠폰 노트
+                                    <i class="fas fa-users me-1"></i>고객노트
                                 </a>
                             </li>
                             {% endif %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'station:sales' %}">
-                                    <i class="fas fa-chart-line me-1"></i>매출 노트
-                                </a>
-                            </li>
                             <!-- 주석처리된 운영노트 드롭다운
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="operationDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">

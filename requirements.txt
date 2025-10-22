@@ -4,6 +4,7 @@ python-dotenv>=1.0.0  # 환경 변수 관리
 
 # 데이터베이스
 psycopg2-binary>=2.9.9  # PostgreSQL 어댑터
+pymysql>=1.1.0  # MySQL 어댑터
 
 # 로깅
 python-json-logger>=2.0.7  # JSON 형식 로깅
